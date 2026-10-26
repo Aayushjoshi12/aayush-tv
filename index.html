@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aayush TV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 10; background: #0b0e14; padding: 16px 20px 12px; border-bottom: 1px solid #232838; }
+  h1 { font-size: 22px; margin-bottom: 10px; }
+  h1 span { color: #ff3b3b; }
+  #search { width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #2a3040; background: #151a26; color: #fff; font-size: 15px; }
+  #cats { display: flex; gap: 8px; overflow-x: auto; padding: 12px 20px 4px; }
+  #cats button { white-space: nowrap; padding: 7px 14px; border-radius: 20px; border: 1px solid #2a3040; background: #151a26; color: #cfd3dd; cursor: pointer; font-size: 13px; }
+  #cats button.active { background: #ff3b3b; border-color: #ff3b3b; color: #fff; }
+  #player-wrap { display: none; padding: 16px 20px 0; }
+  #player-wrap.open { display: block; }
+  #now-playing { font-size: 15px; margin-bottom: 8px; }
+  #now-playing b { color: #ff5252; }
+  video { width: 100%; max-height: 62vh; background: #000; border-radius: 10px; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; padding: 16px 20px 30px; }
+  .card { background: #151a26; border: 1px solid #232838; border-radius: 10px; padding: 12px 8px; text-align: center; cursor: pointer; transition: border-color .15s; }
+  .card:hover { border-color: #ff3b3b; }
+  .card img { width: 100%; height: 56px; object-fit: contain; margin-bottom: 8px; }
+  .card .name { font-size: 13px; line-height: 1.3; }
+  .card .src { font-size: 11px; color: #9aa1b2; margin-top: 3px; }
+  #status { padding: 20px; color: #9aa1b2; font-size: 14px; }
+  #setup-note { display: none; margin: 16px 20px 0; padding: 12px 14px; background: #2a1f0d; border: 1px solid #8a6d1b; border-radius: 8px; font-size: 13px; color: #f0d48a; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>▶</span> Aayush TV</h1>
+  <input id="search" type="text" placeholder="Search channels...">
+</header>
+
+<div id="setup-note"></div>
+<div id="cats"></div>
+
+<div id="player-wrap">
+  <div id="now-playing"></div>
+  <video id="player" controls autoplay playsinline></video>
+</div>
+
+<div id="grid"></div>
+<div id="status">Loading channels...</div>
+
+<script>
+/* ------------------------------------------------------------------
+   GitHub Pages build: there are no server functions here, so the
+   site cannot call /api/* at all. Instead:
+   - the channel list comes from the static snapshot
+     channels-cache.json in this same folder (refresh it by
+     re-scraping the source page and pushing the new file);
+   - the indie list is fetched directly from the iptv-org playlist
+     in the browser (it sends open CORS headers) and parsed here;
+   - stream links for techjail channels come from the Nepal proxy
+     (NEPAL_PROXY_URL below) when one is configured — without it,
+     techjail channels cannot play, because their links are minted
+     server-side by getlink.php, which browsers cannot call
+     directly (no CORS headers). Indie channels play direct.
+------------------------------------------------------------------ */
+
+// Nepal proxy: when set to the https address of a proxy running on
+// a Nepal network (see ../nepal-proxy/proxy.js), it does TWO jobs:
+// (1) it mints techjail stream links via its /api/stream endpoint
+// (getlink.php answers a Nepal network fine), and (2) https pages
+// play http: streams through its /raw endpoint instead of showing
+// the "play on http" notice. Leave empty until that proxy is live:
+// with it empty, techjail channels cannot play (no link minter),
+// but indie channels still play direct.
+const NEPAL_PROXY_URL = "";
+
+const CATS = ["📋 All Channels", "🇳🇵 Nepali TV", "📰 News", "🎭 Entertainment",
+  "🎬 Movies", "🏏 Sports", "🧸 Kids", "🎵 Music", "🌿 Discovery",
+  "🕉 Religious", "🌍 International", "📺 Other"];
+
+let allChannels = [];
+let activeCat = CATS[0];
+let hls = null;
+let playToken = 0;
+
+const $ = (id) => document.getElementById(id);
+
+function classify(name) {
+  const n = name.toLowerCase().trim();
+  const has = (...ws) => ws.some(w => n.includes(w));
+  if (has("sport", "espn", "ten 1", "ten 2", "ten 3", "ten 5", "1 sport", "setanta",
+    "dd sports", "ptv sports", "action sports", "a sports", "npl live")) return "🏏 Sports";
+  if (has("cbeebies", "baby tv", "nick", "cartoon", "pogo", "disney", "hungama",
+    "discovery kids", "lolly kids", "sonic")) return "🧸 Kids";
+  if (has("music", "mtv", "vh1", "9x", "mastii", "sangeet", "b4u music", "sony mix",
+    "zoom", "zing", "etc bollywood", "e 24", "ary musik", "insync", "bindass",
+    "m tunes", "i love")) return "🎵 Music";
+  if (has("discovery", "nat geo", "national geographic", "animal planet", "tlc",
+    "history tv", "bbc earth", "cgtn doc", "investigation", "kangba")) return "🌿 Discovery";
+  if (has("bhakti", "darshan", "deep tv", "dharma", "omkar", "satsang", "shadhna",
+    "aastha", "sanskar", "peace tv", "peace of mind", "madani", "daystar", "tbn",
+    "angel tv", "god tv", "ary qtv", "divya", "siddhababa")) return "🕉 Religious";
+  if (has("hbo", "cinemax", "cinema", " movies", "movie ", "max hd", "sony pix",
+    "pix ", "wb", "filmy", "lotus", "pictures", "gold", "cineplex", "manoranjan",
+    "house full", "utv movies", "dabangg", "bhojpuri cinema", "b4u", "sony max",
+    "zee bollywood", "zee classic", "zee action", "and pictures", "cinemaworld",
+    "star utsav movies", "star gold")) return "🎬 Movies";
+  if (has("news", "samachar", "tv today", "abc news", "cnn", "bbc news", "ndtv",
+    "aajtak", "republic", "ary news", "ptv world", "trt", "al jazeera", "france 24",
+    "dw-tv", "rt english", "times now", "cgtn", "voa", "earth news", "satya tathya",
+    "sarokar", "news x", "abp", "zee news", "india news", "india tv", "dd news",
+    "ntv news", "araniko", "rapti darpan", "capital tv", "global tv",
+    "business plus", "btv business", "zee business", "good times", "samaya",
+    "dd kishan")) return "📰 News";
+  if (has("nhk", "arirang", "tv 5 monde", "cuba", "tve", "kbs korea", "abc australia",
+    "xizang", "ua tv", "ary digital", "ary family", "ary zindagi", "hum sitaray",
+    "akash bangla", "fashion tv", "cinemachi", "wow ", "smile ", "go to luxe",
+    "gtv")) return "🌍 International";
+  if (has("colors", "zee tv", "zee anmol", "zee cafe", "star plus", "star bharat",
+    "star world", "star life", "star jalsha", "star utsav", "sony entertainment",
+    "sony sab", "sony pal", "and tv", "rishtey", "anjan", "hum masala", "sahara",
+    "dangal", "dd national", "dd bharati", "ptc punjabi", "disney international",
+    "comedy central", "axn", "and pictures hd")) return "🎭 Entertainment";
+  if (has("nepal", "kantipur", "ap1", "himalaya", "sagarmatha", "avenues",
+    "mountain tv", "galaxy 4k", "prime times", "janata", "makalu", "metv", "yoho",
+    "ntv", "image hd", "gandaki", "itv nepal", "trishuli", "nice television",
+    "bagmati", "everest tv", "mithila", "deuti", "kisan tv", "paryawaran", "rajya",
+    "kalika", "fewa", "kastamandap", "indegenous", "education tv", "krishi",
+    "newa", "bhadgaun", "channel 4 nepal", "tharu", "sajha tv", "team tv",
+    "moonlight", "namaste tv", "buddha", "bhairahawa", "tv 1 hd", "lumbini",
+    "tv birgunj", "janakpur", "zee nepal", "bhojpuri", "suryodaya", "aam nepali",
+    "gnnhd", "akash television", "a1 tv", "subhayatra", "saptarangi", "red tv",
+    "yes tv", "gorkha", "indreni", "prithivi", "m star", "bijaykilla", "janaki",
+    "tilotamma", "devdaha", "city one", "samata", "pokhara", "channel ace",
+    "arena", "birat", "appan", "my tv", "mukundasen", "national gold",
+    "jansanchar", "him shikhar", "space 4k", "himalaya premium", "bm hd",
+    "health television", "vidyalaya", "bodhi", "mega tv", "universal tv",
+    "life ok nepal", "nepal mandal", "nari", "sanghu", "buddha awaaz",
+    "news 24")) return "🇳🇵 Nepali TV";
+  return "📺 Other";
+}
+
+function renderCats() {
+  $("cats").innerHTML = CATS.map(c =>
+    `<button data-cat="${c}" class="${c === activeCat ? "active" : ""}">${c}</button>`
+  ).join("");
+  document.querySelectorAll("#cats button").forEach(b =>
+    b.addEventListener("click", () => { activeCat = b.dataset.cat; renderCats(); renderGrid(); }));
+}
+
+function renderGrid() {
+  const q = $("search").value.toLowerCase().trim();
+  const list = allChannels.filter(ch =>
+    (activeCat === CATS[0] || ch.category === activeCat) &&
+    (!q || ch.name.toLowerCase().includes(q)));
+  $("status").textContent = list.length ? `${list.length} channels` : "No channels match.";
+  $("grid").innerHTML = list.map(ch => {
+    const src = ch.altUrl ? "2 sources" : (ch.source === "indie" ? "independent" : "");
+    return `<div class="card" tabindex="0" data-id="${ch.id}" data-name="${ch.name.replace(/"/g, "&quot;")}">
+      <img src="${ch.logo}" alt="" loading="lazy" onerror="this.style.display='none'">
+      <div class="name">${ch.name}</div>
+      ${src ? `<div class="src">${src}</div>` : ""}
+    </div>`;
+  }).join("");
+  document.querySelectorAll(".card").forEach(card => {
+    card.addEventListener("click", () => playChannel(card.dataset.id, card.dataset.name));
+    // Warm the link cache while the user is still deciding: a hover
+    // on desktop (or the touch before a tap on mobile) starts the
+    // resolver round trip early, so the click often finds the link
+    // already there. Failures are silent here — the click retries.
+    card.addEventListener("pointerenter", () => prefetchStream(card.dataset.id), { once: true });
+    card.addEventListener("pointerdown", () => prefetchStream(card.dataset.id), { once: true });
+    card.addEventListener("focus", () => prefetchStream(card.dataset.id), { once: true });
+  });
+}
+
+// Stream links stay valid for 24h, so cache them across sessions:
+// repeat clicks — even on later visits — skip the resolver round
+// trip. 12h TTL stays well inside the token's 24h validity.
+function cachedStream(id) {
+  try {
+    const raw = localStorage.getItem("stream:" + id);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed.url || Date.now() - parsed.t > 12 * 60 * 60 * 1000) return null;
+    return parsed.url;
+  } catch (e) { return null; }
+}
+function cacheStream(id, url) {
+  try { localStorage.setItem("stream:" + id, JSON.stringify({ url, t: Date.now() })); }
+  catch (e) { /* private mode: caching is only an optimisation */ }
+}
+function clearCachedStream(id) {
+  try { localStorage.removeItem("stream:" + id); } catch (e) {}
+}
+async function fetchStream(id) {
+  // GitHub Pages has no server to mint links, so the Nepal proxy
+  // does it (its /api/stream endpoint calls getlink.php from a
+  // Nepal network, which answers fine). Without a proxy there is
+  // no minter at all — fail fast with a plain message instead of
+  // calling a /api path that does not exist on Pages.
+  if (!NEPAL_PROXY_URL) throw new Error("No link minter configured (Nepal proxy not set)");
+  const res = await fetch(`${NEPAL_PROXY_URL}/api/stream?id=${encodeURIComponent(id)}`);
+  const data = await res.json();
+  if (!res.ok || !data.url) throw new Error(data.error || "No stream URL");
+  return data.url;
+}
+
+// One in-flight resolver promise per channel, shared by the hover
+// prefetch and the click. Without this, a click during a prefetch
+// would fire a second identical /api/stream call.
+const streamInflight = new Map();
+function resolveStream(id) {
+  const hit = cachedStream(id);
+  if (hit) return Promise.resolve(hit);
+  if (streamInflight.has(id)) return streamInflight.get(id);
+  const p = fetchStream(id).then((url) => {
+    cacheStream(id, url);
+    return url;
+  }).finally(() => { streamInflight.delete(id); });
+  streamInflight.set(id, p);
+  return p;
+}
+function prefetchStream(id) {
+  const entry = allChannels.find(c => c.id === id) || {};
+  if (entry.url) return; // independent source: already a direct link
+  if (!NEPAL_PROXY_URL) return; // no minter: nothing to prefetch
+  // On an https page an http: techjail link cannot play anyway, so
+  // only prefetch when the page is http or the channel has an https
+  // alternate copy.
+  if (location.protocol === "https:" && !(entry.altUrl && entry.altUrl.startsWith("https:")) && !NEPAL_PROXY_URL) return;
+  resolveStream(id).catch(() => {});
+}
+
+async function playChannel(id, name) {
+  const myPlay = ++playToken;
+  const wrap = $("player-wrap"), video = $("player");
+  wrap.classList.add("open");
+  $("now-playing").innerHTML = `Now playing: <b>${name}</b> — fetching stream...`;
+  wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+  try {
+    let url;
+    let altUrl = null;
+    const entry = allChannels.find(c => c.id === id) || {};
+    if (entry.url) {
+      // Independent source: the link is already direct, no resolver
+      // round trip needed.
+      url = entry.url;
+    } else {
+      altUrl = entry.altUrl || null;
+      // Shared with the hover prefetch: if a prefetch is already in
+      // flight for this channel, this awaits it instead of firing a
+      // second identical resolver call.
+      url = await resolveStream(id);
+    }
+    // Proven by worldwide testing: no proxy outside Nepal can reach
+    // these stream hosts, so on an https page an http: stream cannot
+    // play at all (the browser blocks direct http: streams as mixed
+    // content) — unless NEPAL_PROXY_URL points at a proxy running
+    // on a Nepal network, which can reach them and serves them back
+    // over https. Play the custom domain over plain http instead
+    // (GitHub Pages "Enforce HTTPS" stays OFF, so http serves
+    // normally) — but only with "Automatic HTTPS" switched off, or
+    // the browser upgrades it to https on its own.
+    if (url.startsWith("http:") && location.protocol === "https:") {
+      if (altUrl && altUrl.startsWith("https:")) {
+        // The independent copy of this channel is https, so it plays
+        // on this page even though the techjail copy cannot.
+        url = altUrl;
+        altUrl = null;
+      } else if (!NEPAL_PROXY_URL) {
+        $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Play it at <a href="http://aayushlife.live" style="color:#ff5252">http://aayushlife.live</a> over plain http — switch off 'Automatic HTTPS' in your browser settings first, and never open the https version of that address.`;
+        return;
+      }
+      // With NEPAL_PROXY_URL set, fall through: the candidate loop
+      // below sends this http: link through the Nepal proxy, since
+      // direct is blocked as mixed content on an https page.
+    }
+    $("now-playing").innerHTML = `Now playing: <b>${name}</b> <span style="color:#ff5252">● LIVE</span>`;
+    if (hls) { hls.destroy(); hls = null; }
+    video.onerror = null;
+    // A hard time limit per attempt. Without it, a stalled route
+    // (notably the Netlify proxy, whose edge abort alone is 20s, plus
+    // hls.js retries on top) can spin for a minute before failing.
+    // A manifest that is going to load does so within seconds.
+    const ATTEMPT_TIMEOUT_MS = 8000;
+    let watchdog = null;
+    let liveAttempt = 0;
+    const clearWatchdog = () => { if (watchdog) { clearTimeout(watchdog); watchdog = null; } };
+    const showError = (msg) => { clearWatchdog(); $("now-playing").textContent = msg; };
+    const onPlaying = () => {
+      if (myPlay !== playToken) return;
+      clearWatchdog();
+      $("now-playing").innerHTML = `Now playing: <b>${name}</b> <span style="color:#ff5252">● LIVE</span>`;
+      video.play().catch(() => {});
+    };
+    if (!url.includes(".m3u8")) {
+      // On an https page an http: link cannot play directly, so send
+      // it through the Nepal proxy when one is configured.
+      video.src = (location.protocol === "https:" && url.startsWith("http:") && NEPAL_PROXY_URL) ? proxiedFor(url) : url;
+      video.addEventListener("playing", onPlaying, { once: true });
+      video.onerror = () => { if (myPlay === playToken) showError(`Could not play ${name}: stream did not respond.`); };
+      watchdog = setTimeout(() => {
+        if (myPlay === playToken) showError(`Could not play ${name}: stream did not respond.`);
+      }, ATTEMPT_TIMEOUT_MS);
+      video.play().catch(() => {});
+      return;
+    }
+    // Candidates in play order: the techjail link first, then the
+    // independent link when the same channel exists in both sources.
+    // Each candidate tries direct, then the proxy. Direct is skipped
+    // only when the page is https and the link is http (mixed
+    // content). Every attempt is still bounded by the watchdog, so
+    // a dead source costs seconds, not a minute.
+    const candidates = [{ url }];
+    if (altUrl) candidates.push({ url: altUrl });
+    const directAllowed = (u) => u.startsWith("https:") || location.protocol === "http:";
+    // Proxy route: the Nepal proxy only (GitHub Pages has no server
+    // proxy of its own). Callers only reach here when NEPAL_PROXY_URL
+    // is set — advance() skips proxy attempts without one. A
+    // function declaration so the non-m3u8 branch above can use it
+    // too.
+    function proxiedFor(u) {
+      return `${NEPAL_PROXY_URL}/raw?url=${encodeURIComponent(u)}`;
+    }
+    let candIndex = 0;
+    let candMode = null;
+    let attemptCount = 0;
+    const failAttempt = () => {
+      if (myPlay !== playToken) return;
+      clearWatchdog();
+      if (hls) { hls.destroy(); hls = null; }
+      advance();
+    };
+    const advance = () => {
+      // Pick the next (candidate, mode) pair, skipping proxy
+      // attempts when no Nepal proxy is configured (GitHub Pages
+      // has no server proxy of its own, so a proxy attempt would
+      // just call a path that does not exist).
+      for (;;) {
+        if (candMode === null) {
+          candMode = directAllowed(candidates[candIndex].url) ? "direct" : "proxy";
+        } else if (candMode === "direct") {
+          candMode = "proxy";
+        } else {
+          candIndex++;
+          candMode = null;
+          if (candIndex >= candidates.length) {
+            // A cached link that fails everywhere is stale: drop it so
+            // the next click fetches a fresh one.
+            clearCachedStream(id);
+            showError(`Could not play ${name}: all sources failed.`);
+            return;
+          }
+          continue;
+        }
+        if (candMode === "proxy" && !NEPAL_PROXY_URL) {
+          candIndex++;
+          candMode = null;
+          if (candIndex >= candidates.length) {
+            clearCachedStream(id);
+            showError(`Could not play ${name}: all sources failed.`);
+            return;
+          }
+          continue;
+        }
+        break;
+      }
+      attemptCount++;
+      if (attemptCount > 1) {
+        const label = candMode === "proxy" ? "proxy stream" : "alternate source";
+        $("now-playing").innerHTML = `First attempt failed for <b>${name}</b>, trying ${label}...`;
+      }
+      const cand = candidates[candIndex];
+      startHls(candMode === "proxy" ? proxiedFor(cand.url) : cand.url);
+    };
+    const startHls = (src) => {
+      const myAttempt = ++liveAttempt;
+      clearWatchdog();
+      watchdog = setTimeout(() => { if (myAttempt === liveAttempt) failAttempt(); }, ATTEMPT_TIMEOUT_MS);
+      if (Hls.isSupported()) {
+        video.onerror = null;
+        // One quick retry only; the watchdog is the real bound.
+        // Larger forward buffer: brief bandwidth dips stall less.
+        hls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
+        hls.loadSource(src);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, onPlaying);
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (!data.fatal || myAttempt !== liveAttempt) return;
+          failAttempt();
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = src;
+        video.addEventListener("playing", onPlaying, { once: true });
+        video.onerror = () => { if (myAttempt === liveAttempt) failAttempt(); };
+        video.play().catch(() => {});
+      } else {
+        showError("This browser cannot play HLS streams.");
+      }
+    };
+    advance();
+  } catch (e) {
+    $("now-playing").textContent = `Could not load ${name}: ${e.message}`;
+  }
+}
+
+async function init() {
+  renderCats();
+  // Match channels across sources by name, ignoring quality tags
+  // ("(1080p)", "[Geo-blocked]", trailing "HD") that differ
+  // between the two lists for the same channel.
+  const norm = (s) => {
+    let n = s.toLowerCase().replace(/\([^)]*\)|\[[^\]]*\]/g, "");
+    n = n.replace(/[^a-z0-9]/g, "");
+    let prev;
+    do {
+      prev = n;
+      n = n.replace(/(1080p|720p|576p|480p|360p|4k|uhd|fhd|hd|sd)$/, "");
+    } while (n !== prev);
+    return n;
+  };
+  // Progressive rendering: the grid must not wait for the slower
+  // source. Techjail renders as soon as it arrives; the indie list
+  // merges in when it arrives (badges and fallback links appear).
+  // Either source may fail without taking the grid down.
+  let techList = null;
+  let indieList = null;
+  let failed = 0;
+  const mergeAndRender = () => {
+    const merged = [];
+    const byNorm = new Map();
+    if (techList) {
+      for (const ch of techList) {
+        const entry = { ...ch };
+        merged.push(entry);
+        if (!byNorm.has(norm(ch.name))) byNorm.set(norm(ch.name), entry);
+      }
+    }
+    if (indieList) {
+      for (const ch of indieList) {
+        const hit = byNorm.get(norm(ch.name));
+        if (hit) { if (!hit.altUrl) hit.altUrl = ch.url; }
+        else merged.push({ ...ch, source: "indie" });
+      }
+    }
+    if (!merged.length) {
+      if (techList !== null && indieList !== null) {
+        $("status").textContent = "No channels from any source.";
+      }
+      return;
+    }
+    allChannels = merged.map(ch => ({ ...ch, category: classify(ch.name) }));
+    renderGrid();
+  };
+  // GitHub Pages has no server, so both lists come without one:
+  // techjail from the static snapshot in this folder (captured
+  // 2026-10-26, 349 channels — refresh it by re-scraping the source
+  // page and pushing the new file), indie from the iptv-org
+  // playlist fetched directly in the browser (it sends open CORS
+  // headers) and parsed here with the same rules the old server
+  // function used.
+  const fetchTechList = async () => {
+    const r = await fetch("channels-cache.json");
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+    return d.channels;
+  };
+  const parsePlaylist = (text) => {
+    const lines = text.split(/\r?\n/);
+    const channels = [];
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line.startsWith("#EXTINF:")) continue;
+      const logoMatch = line.match(/tvg-logo="([^"]*)"/);
+      const name = line.slice(line.lastIndexOf(",") + 1).trim();
+      let url = null;
+      for (let j = i + 1; j < lines.length; j++) {
+        const next = lines[j].trim();
+        if (!next) continue;
+        if (next.startsWith("#")) continue;
+        url = next;
+        break;
+      }
+      if (name && url) {
+        channels.push({
+          id: `indie-${channels.length}`,
+          name,
+          logo: logoMatch ? logoMatch[1] : "",
+          url,
+        });
+      }
+    }
+    return channels;
+  };
+  const fetchIndieList = async () => {
+    const r = await fetch("https://iptv-org.github.io/iptv/countries/np.m3u");
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const channels = parsePlaylist(await r.text());
+    if (!channels.length) throw new Error("Playlist parsed to zero channels");
+    return channels;
+  };
+  const onFail = () => {
+    if (++failed === 2) $("status").textContent = "Failed to load channels from all sources.";
+  };
+  fetchTechList().then(
+    (list) => { techList = list; mergeAndRender(); }, onFail);
+  fetchIndieList().then(
+    (list) => { indieList = list; mergeAndRender(); }, onFail);
+}
+
+$("search").addEventListener("input", renderGrid);
+init();
+</script>
+</body>
+</html>
