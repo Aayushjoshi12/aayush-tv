@@ -250,7 +250,16 @@ async function playChannel(id, name) {
       // Shared with the hover prefetch: if a prefetch is already in
       // flight for this channel, this awaits it instead of firing a
       // second identical resolver call.
-      url = await resolveStream(id);
+      try {
+        url = await resolveStream(id);
+      } catch (e) {
+        // No minter (or minting failed): fall back to the independent
+        // copy when this channel has one, instead of failing outright.
+        // Techjail-only channels still fail with the original error.
+        if (!altUrl) throw e;
+        url = altUrl;
+        altUrl = null;
+      }
     }
     // Proven by worldwide testing: no proxy outside Nepal can reach
     // these stream hosts, so on an https page an http: stream cannot
