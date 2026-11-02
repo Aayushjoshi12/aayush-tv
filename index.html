@@ -73,6 +73,12 @@
 // but indie channels still play direct.
 const NEPAL_PROXY_URL = "";
 
+// MINTER_URL: a standalone link minter (Azure Function or Vercel)
+// serving GET /api/stream?id=<id> -> {"url": "..."}. When set it is
+// used for minting; NEPAL_PROXY_URL stays for the /raw segment proxy
+// on https pages only. Verified working 2026-11-03 (impers, Korea Central).
+const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net/api/stream";
+
 const CATS = ["📋 All Channels", "🇳🇵 Nepali TV", "📰 News", "🎭 Entertainment",
   "🎬 Movies", "🏏 Sports", "🧸 Kids", "🎵 Music", "🌿 Discovery",
   "🕉 Religious", "🌍 International", "📺 Other"];
@@ -198,8 +204,9 @@ async function fetchStream(id) {
   // Nepal network, which answers fine). Without a proxy there is
   // no minter at all — fail fast with a plain message instead of
   // calling a /api path that does not exist on Pages.
-  if (!NEPAL_PROXY_URL) throw new Error("No link minter configured (Nepal proxy not set)");
-  const res = await fetch(`${NEPAL_PROXY_URL}/api/stream?id=${encodeURIComponent(id)}`);
+  const base = MINTER_URL || NEPAL_PROXY_URL;
+  if (!base) throw new Error("No link minter configured (Nepal proxy not set)");
+  const res = await fetch(`${base}/api/stream?id=${encodeURIComponent(id)}`);
   const data = await res.json();
   if (!res.ok || !data.url) throw new Error(data.error || "No stream URL");
   return data.url;
@@ -223,7 +230,7 @@ function resolveStream(id) {
 function prefetchStream(id) {
   const entry = allChannels.find(c => c.id === id) || {};
   if (entry.url) return; // independent source: already a direct link
-  if (!NEPAL_PROXY_URL) return; // no minter: nothing to prefetch
+  if (!NEPAL_PROXY_URL && !MINTER_URL) return; // no minter: nothing to prefetch
   // On an https page an http: techjail link cannot play anyway, so
   // only prefetch when the page is http or the channel has an https
   // alternate copy.
