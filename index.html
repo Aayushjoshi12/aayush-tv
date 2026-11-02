@@ -97,7 +97,7 @@ async function playNPL() {
   }
   // The stream is plain http, which browsers block on https pages.
   if (url.startsWith("http:") && location.protocol === "https:") {
-    $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/npl.html" style="color:#ff5252">http://aayushlife.live/npl.html</a> over plain http and press play.`;
+    $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> over plain http and press play.`;
     return;
   }
   $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span>`;
@@ -144,7 +144,7 @@ async function playNPL() {
 $("play-btn").addEventListener("click", playNPL);
 // Say up front on https that the http stream cannot play here.
 if (location.protocol === "https:") {
-  $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/npl.html" style="color:#ff5252">http://aayushlife.live/npl.html</a> over plain http and press play.`;
+  $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> over plain http and press play.`;
 }
 </script>
 </body>
