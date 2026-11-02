@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NPL Live — Aayush TV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { position: sticky; top: 0; z-index: 10; background: #0b0e14; padding: 16px 20px 12px; border-bottom: 1px solid #232838; }
+  h1 { font-size: 22px; }
+  h1 span { color: #ff3b3b; }
+  header a { color: #9aa1b2; font-size: 13px; text-decoration: none; }
+  main { max-width: 860px; margin: 0 auto; padding: 16px 20px 40px; }
+  #player-wrap { margin: 8px 0 12px; }
+  video { width: 100%; max-height: 62vh; background: #000; border-radius: 10px; }
+  #now-playing { font-size: 15px; margin-bottom: 8px; }
+  #now-playing b { color: #ff5252; }
+  .play-btn { display: inline-block; margin: 4px 0 12px; padding: 12px 22px; border-radius: 8px; border: none; background: #ff3b3b; color: #fff; font-size: 16px; cursor: pointer; }
+  .box { background: #151a26; border: 1px solid #232838; border-radius: 10px; padding: 14px 16px; margin: 12px 0; font-size: 14px; line-height: 1.55; }
+  .box h2 { font-size: 15px; margin-bottom: 6px; color: #ff5252; }
+  .box p { margin: 4px 0; color: #cfd3dd; }
+  .note { background: #2a1f0d; border: 1px solid #8a6d1b; color: #f0d48a; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  td, th { padding: 5px 4px; border-bottom: 1px solid #232838; text-align: left; }
+  th { color: #9aa1b2; font-weight: 600; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>▶</span> Aayush TV — NPL Live</h1>
+  <a href="index.html">← All channels</a>
+</header>
+<main>
+  <div id="player-wrap">
+    <div id="now-playing">NPL Live — press play to watch the match.</div>
+    <video id="player" controls playsinline></video>
+    <button class="play-btn" id="play-btn">▶ Play NPL Live</button>
+  </div>
+
+  <div class="box note">Test link: this page plays a freshly minted NPL link (valid until tomorrow evening, Nov 3). If it plays, the feed is alive and only the link minter is missing. If it doesn't play, the feed itself is blocked — use the official routes below.</div>
+
+  <div class="box">
+    <h2>Watch officially</h2>
+    <p>Himalaya Sports on cable / DTH, or the NetTV season pass (Rs 400) on the NetTV app and website. No free official live stream exists for NPL Season 3.</p>
+  </div>
+
+  <div class="box">
+    <h2>NPL Season 3 — TU Ground, Kirtipur</h2>
+    <p><b>Mon Nov 2:</b> Kathmandu beat Karnali by 4 wickets (181/6 in 19.4 ov); Sudurpaschim beat Chitwan by 5 wickets (131/5 in 16.4 ov).</p>
+    <p><b>Tue Nov 3:</b> Biratnagar vs Janakpur 12:30, Lumbini vs Pokhara 17:00.</p>
+    <table>
+      <tr><th>Team</th><th>Played</th><th>Pts</th></tr>
+      <tr><td>Karnali Yaks</td><td>3</td><td>4</td></tr>
+      <tr><td>Janakpur Bolts</td><td>3</td><td>4</td></tr>
+      <tr><td>Sudurpaschim Royals</td><td>4</td><td>4</td></tr>
+      <tr><td>Lumbini Lions</td><td>2</td><td>3</td></tr>
+      <tr><td>Chitwan Rhinos</td><td>3</td><td>3</td></tr>
+      <tr><td>Kathmandu Gurkhas</td><td>2</td><td>2</td></tr>
+      <tr><td>Biratnagar Kings</td><td>3</td><td>2</td></tr>
+      <tr><td>Pokhara Avengers</td><td>2</td><td>0</td></tr>
+    </table>
+    <p style="color:#9aa1b2;font-size:12px">Points after Nov 2.</p>
+  </div>
+</main>
+
+<script>
+// Test link, minted fresh on 2026-11-02 (~21:18 NPT) from
+// getlink.php for CHID 1412 (NPL Live). Valid 24h, so it stops
+// working around Nov 3 evening. The page has no minter (GitHub
+// Pages is static), so this embedded link is what the Play button
+// uses — once it expires, playback needs a minter (Nepal proxy
+// /api/stream) wired in, as on the main grid.
+const TEST_STREAM_URL = "http://202.79.40.253/iptvlivestream/hpremiumPAID/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9MTEvMi8yMDI2IDM6MzM6MDEgUE0maGFzaF92YWx1ZT1zZXQyZ0FnZ3V3cFFlTXdrL1BCcnJBPT0mdmFsaWRtaW51dGVzPTE0NDAmaWQ9MjAw";
+
+const $ = (id) => document.getElementById(id);
+const ATTEMPT_TIMEOUT_MS = 8000;
+let hls = null;
+let playToken = 0;
+
+function playNPL() {
+  const myPlay = ++playToken;
+  const video = $("player");
+  const url = TEST_STREAM_URL;
+  // The stream is plain http, which browsers block on https pages.
+  if (url.startsWith("http:") && location.protocol === "https:") {
+    $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/npl.html" style="color:#ff5252">http://aayushlife.live/npl.html</a> over plain http and press play.`;
+    return;
+  }
+  $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span>`;
+  if (hls) { hls.destroy(); hls = null; }
+  video.onerror = null;
+  let watchdog = null;
+  let liveAttempt = 0;
+  const clearWatchdog = () => { if (watchdog) { clearTimeout(watchdog); watchdog = null; } };
+  const showError = (msg) => { clearWatchdog(); $("now-playing").textContent = msg; };
+  const onPlaying = () => {
+    if (myPlay !== playToken) return;
+    clearWatchdog();
+    $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span>`;
+    video.play().catch(() => {});
+  };
+  const failAttempt = () => {
+    if (myPlay !== playToken) return;
+    clearWatchdog();
+    if (hls) { hls.destroy(); hls = null; }
+    showError("Could not play NPL Live: the feed did not respond. It may be offline or blocked — try the official routes below.");
+  };
+  const startHls = (src) => {
+    const myAttempt = ++liveAttempt;
+    clearWatchdog();
+    watchdog = setTimeout(() => { if (myAttempt === liveAttempt) failAttempt(); }, ATTEMPT_TIMEOUT_MS);
+    if (Hls.isSupported()) {
+      hls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, onPlaying);
+      hls.on(Hls.Events.ERROR, (_, data) => { if (data.fatal && myAttempt === liveAttempt) failAttempt(); });
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = src;
+      video.addEventListener("playing", onPlaying, { once: true });
+      video.onerror = () => { if (myAttempt === liveAttempt) failAttempt(); };
+      video.play().catch(() => {});
+    } else {
+      showError("This browser cannot play HLS streams.");
+    }
+  };
+  startHls(url);
+}
+
+$("play-btn").addEventListener("click", playNPL);
+// Say up front on https that the http stream cannot play here.
+if (location.protocol === "https:") {
+  $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/npl.html" style="color:#ff5252">http://aayushlife.live/npl.html</a> over plain http and press play.`;
+}
+</script>
+</body>
+</html>
