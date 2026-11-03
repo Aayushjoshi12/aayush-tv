@@ -78,7 +78,7 @@ const NEPAL_PROXY_URL = "";
 // serving GET /api/stream?id=<id> -> {"url": "..."}. When set it is
 // used for minting; NEPAL_PROXY_URL stays for the /raw segment proxy
 // on https pages only. Verified working 2026-11-03 (impers, Korea Central).
-const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net/api/stream";
+const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net"; // base only — fetch appends /api/stream (FIX 2026-11-03: full /api/stream URL here made the fetch hit .../api/stream/api/stream → 404)
 
 const CATS = ["📋 All Channels", "🇳🇵 Nepali TV", "📰 News", "🎭 Entertainment",
   "🎬 Movies", "🏏 Sports", "🧸 Kids", "🎵 Music", "🌿 Discovery",
