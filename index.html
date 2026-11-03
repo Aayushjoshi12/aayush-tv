@@ -39,7 +39,7 @@
     <button class="play-btn" id="play-btn">▶ Play NPL Live</button>
   </div>
 
-  <div class="box note">Live — pressing Play fetches a fresh link from the minter, so it keeps working day after day. The embedded test link (valid until Nov 3 evening) is only a fallback now. If it doesn't play, the feed itself is blocked — use the official routes below.</div>
+  <div class="box note">Live — pressing Play fetches a fresh link from the minter, so it keeps working day after day. If the first server doesn't respond, it automatically tries another one. The embedded test link (valid until Nov 3 evening) is only a fallback now. If it doesn't play, the feed itself is blocked — use the official routes below.</div>
 
   <div class="box">
     <h2>Watch officially</h2>
@@ -75,26 +75,59 @@ const TEST_STREAM_URL = "http://202.79.40.253/iptvlivestream/hpremiumPAID/playli
 // MINTER_URL: a standalone link minter serving GET /api/stream?id=1412.
 // Verified working 2026-11-03 (impers, Korea Central). Play fetches a
 // fresh link from it on every press; TEST_STREAM_URL is only a fallback.
-const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net/api/stream";
+const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net"; // base only — fetch appends /api/stream (FIX 2026-11-03: full /api/stream URL here made the fetch hit .../api/stream/api/stream → 404)
 
 const $ = (id) => document.getElementById(id);
 const ATTEMPT_TIMEOUT_MS = 8000;
+const MAX_PLAY_ATTEMPTS = 3;
 let hls = null;
 let playToken = 0;
+
+// Mint a fresh NPL link, preferring a Wowza host we haven't tried yet.
+// The minter rotates hosts (e.g. 202.79.40.235 served the playlist while
+// 202.79.40.247 refused it from the assistant's VM on 2026-11-03), so a
+// single failed draw doesn't prove the feed is down. Tries up to 3 mints
+// to find an untried host; falls back to the last minted URL if every
+// draw repeats a tried host. Returns null only if the minter can't be
+// reached at all.
+async function mintFreshNPL(triedHosts) {
+  if (!MINTER_URL) return null;
+  let lastUrl = null;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch(`${MINTER_URL}/api/stream?id=1412`, { signal: AbortSignal.timeout(8000) });
+      const d = await r.json();
+      if (r.ok && d.url) {
+        lastUrl = d.url;
+        let host = "";
+        try { host = new URL(d.url).host; } catch (e) {}
+        if (!host || !triedHosts.has(host)) return d.url;
+      }
+    } catch (e) { return null; }
+  }
+  return lastUrl;
+}
 
 async function playNPL() {
   const myPlay = ++playToken;
   const video = $("player");
+  const triedHosts = new Set();
+  let usedMinter = false;
+  let handlingFailure = false;
+  // Mint a fresh link and remember its host, so a retry draws a new one.
+  const mint = async () => {
+    const url = await mintFreshNPL(triedHosts);
+    if (url) {
+      usedMinter = true;
+      try { triedHosts.add(new URL(url).host); } catch (e) {}
+    }
+    return url;
+  };
   // Resolve the stream URL: a minter first (fresh link every press),
   // else the embedded test link while it is still valid.
-  let url = TEST_STREAM_URL;
-  if (MINTER_URL) {
-    try {
-      const r = await fetch(`${MINTER_URL}/api/stream?id=1412`, { signal: AbortSignal.timeout(8000) });
-      const d = await r.json();
-      if (r.ok && d.url) url = d.url;
-    } catch (e) { /* fall back to the test link */ }
-  }
+  let url = await mint();
+  if (!url) url = TEST_STREAM_URL;
+  if (myPlay !== playToken) return;
   // The stream is plain http, which browsers block on https pages.
   if (url.startsWith("http:") && location.protocol === "https:") {
     $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> over plain http and press play.`;
@@ -113,10 +146,24 @@ async function playNPL() {
     $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span>`;
     video.play().catch(() => {});
   };
-  const failAttempt = () => {
-    if (myPlay !== playToken) return;
+  const failAttempt = async () => {
+    if (myPlay !== playToken || handlingFailure) return;
+    handlingFailure = true;
     clearWatchdog();
     if (hls) { hls.destroy(); hls = null; }
+    // Host lottery: the minted link's Wowza host may refuse this
+    // connection while another host serves it. Re-mint for a fresh
+    // host draw (up to MAX_PLAY_ATTEMPTS tries in total) before
+    // telling the user the feed is blocked. Only possible when the
+    // minter supplied the link; the expiring test link gets one shot.
+    if (usedMinter && liveAttempt < MAX_PLAY_ATTEMPTS) {
+      $("now-playing").textContent = `That server didn't respond — trying another server (${liveAttempt + 1} of ${MAX_PLAY_ATTEMPTS})…`;
+      const next = await mint();
+      handlingFailure = false;
+      if (myPlay !== playToken) return;
+      if (next) { startHls(next); return; }
+    }
+    handlingFailure = false;
     showError("Could not play NPL Live: the feed did not respond. It may be offline or blocked — try the official routes below.");
   };
   const startHls = (src) => {
