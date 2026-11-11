@@ -434,7 +434,12 @@ function loadHls(url) {
     hls.on(Hls.Events.ERROR, (e, d) => {
       if (d.fatal) {
         const note = $("play-note");
-        note.textContent = "This stream did not start. Try another quality below, or another title.";
+        const code = d.response ? d.response.code : "";
+        // Show the exact failure in the note so it can be read
+        // without DevTools (e.g. "network / manifestLoadError / HTTP 429").
+        note.textContent =
+          "This stream did not start. Try another quality below, or another title. (" +
+          d.type + " / " + d.details + (code ? " / HTTP " + code : "") + ")";
         note.style.display = "block";
       }
     });
