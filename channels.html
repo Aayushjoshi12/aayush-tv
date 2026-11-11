@@ -290,41 +290,64 @@ function prefetchStream(id) {
 }
 
 // Premium resolver (2026-11-11): ask the server for a fresh signed
-// link for a premium channel. Signed links expire after ~2 hours,
-// so the answer is cached for 30 minutes only — a repeat tap within
-// that window skips the round trip, and anything older is re-fetched.
+// link for a premium channel — now an ordered list of sources, not
+// a single link (failover, 2026-11-11): BINTV native first, then
+// backup embeds, each checked live by the resolver. Signed links
+// expire after ~2 hours, so the answer is cached for 30 minutes
+// only — a repeat tap within that window skips the round trip, and
+// anything older is re-fetched.
 const premiumInflight = new Map();
 function cachedPremium(id) {
   try {
     const raw = localStorage.getItem("premium:" + id);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed.url || Date.now() - parsed.t > 30 * 60 * 1000) return null;
-    return parsed.url;
+    if (!parsed.url && !(parsed.sources && parsed.sources.length)) return null;
+    if (Date.now() - parsed.t > 30 * 60 * 1000) return null;
+    return parsed;
   } catch (e) { return null; }
 }
-function cachePremium(id, url) {
-  try { localStorage.setItem("premium:" + id, JSON.stringify({ url, t: Date.now() })); }
+function cachePremium(id, resp) {
+  try { localStorage.setItem("premium:" + id, JSON.stringify({ ...resp, t: Date.now() })); }
   catch (e) { /* private mode: caching is only an optimisation */ }
+}
+function clearCachedPremium(id) {
+  try { localStorage.removeItem("premium:" + id); } catch (e) {}
 }
 async function fetchPremium(id) {
   const entry = PREMIUM_CHANNELS.find(c => c.id === id);
   if (!entry) throw new Error("Unknown premium channel");
   const res = await fetch(`${RESOLVER_URL}?ch=${encodeURIComponent(entry.key)}`);
   const data = await res.json();
-  if (!res.ok || !data.url) throw new Error(data.error || "Resolver failed");
-  return data.url;
+  if (!res.ok) throw new Error(data.error || "Resolver failed");
+  // Normalise: older responses carry only {url}; new ones carry the
+  // ordered {sources} list the player tries in order.
+  if (!data.sources && data.url) data.sources = [{ kind: "hls", url: data.url, source: data.source || "BINTV" }];
+  if (!data.sources) data.sources = [];
+  return data;
 }
 function resolvePremium(id) {
   const hit = cachedPremium(id);
   if (hit) return Promise.resolve(hit);
   if (premiumInflight.has(id)) return premiumInflight.get(id);
-  const p = fetchPremium(id).then((url) => {
-    cachePremium(id, url);
-    return url;
+  const p = fetchPremium(id).then((resp) => {
+    cachePremium(id, resp);
+    return resp;
   }).finally(() => { premiumInflight.delete(id); });
   premiumInflight.set(id, p);
   return p;
+}
+
+// Show a backup player page in the embedded iframe inside this
+// site, in place of the <video> player. Used when no native stream
+// could be found, and as the last step of the failover chain.
+function showPremiumEmbed(url, name) {
+  const video = $("player");
+  const frame = $("frame-player");
+  video.style.display = "none";
+  frame.classList.add("open");
+  frame.src = url;
+  $("now-playing").innerHTML = `Now playing: <b>${name}</b> <span style="color:#ff5252">● LIVE</span>`;
 }
 
 async function playChannel(id, name) {
@@ -344,20 +367,37 @@ async function playChannel(id, name) {
   try {
     let url;
     let altUrl = null;
+    // Premium failover chain (2026-11-11): the resolver returns an
+    // ordered list of sources — native links first, backup player
+    // pages after. The native ones play here, in order, through the
+    // candidate loop below; if every one fails, the loop falls
+    // through to the first backup page (premiumEmbed). When the
+    // resolver cannot be reached at all, the watch page is the
+    // only option.
+    let premiumHls = [];
+    let premiumEmbed = null;
     const entry = allChannels.find(c => c.id === id) || {};
     if (entry.source === "premium") {
-      // Premium only: ask the server for a fresh signed link and play
-      // it natively in the <video> player, like the other channels.
-      // If the resolver cannot reach the source, fall back to the
-      // watch page in the embedded iframe inside this site.
+      let sources = null;
       try {
-        url = await resolvePremium(id);
-      } catch (e) {
-        video.style.display = "none";
-        const frame = $("frame-player");
-        frame.classList.add("open");
-        frame.src = entry.watch;
-        $("now-playing").innerHTML = `Now playing: <b>${name}</b> <span style="color:#ff5252">● LIVE</span>`;
+        const resp = await resolvePremium(id);
+        sources = resp && resp.sources ? resp.sources : null;
+      } catch (e) { sources = null; }
+      if (!sources) {
+        showPremiumEmbed(entry.watch, name);
+        return;
+      }
+      const hlsSources = sources.filter(s => s.kind === "hls" && s.url);
+      const embedSources = sources.filter(s => s.kind === "embed" && s.url);
+      premiumEmbed = embedSources[0] || { url: entry.watch };
+      if (hlsSources.length) {
+        premiumHls = hlsSources.map(s => s.url);
+        url = premiumHls[0];
+      } else if (embedSources.length) {
+        showPremiumEmbed(embedSources[0].url, name);
+        return;
+      } else {
+        showPremiumEmbed(entry.watch, name);
         return;
       }
     } else if (entry.url) {
@@ -433,14 +473,20 @@ async function playChannel(id, name) {
       video.play().catch(() => {});
       return;
     }
-    // Candidates in play order: the techjail link first, then the
-    // independent link when the same channel exists in both sources.
-    // Each candidate tries direct, then the proxy. Direct is skipped
-    // only when the page is https and the link is http (mixed
-    // content). Every attempt is still bounded by the watchdog, so
-    // a dead source costs seconds, not a minute.
-    const candidates = [{ url }];
-    if (altUrl) candidates.push({ url: altUrl });
+    // Candidates in play order. Premium: every native source the
+    // resolver returned, best first (the techjail link first, then
+    // the independent link when the same channel exists in both
+    // sources, for ordinary channels). Each candidate tries direct,
+    // then the proxy. Direct is skipped only when the page is https
+    // and the link is http (mixed content). Every attempt is still
+    // bounded by the watchdog, so a dead source costs seconds, not
+    // a minute. When every native candidate fails, a premium
+    // channel falls through to its first backup player page instead
+    // of failing outright.
+    const candidates = premiumHls.length
+      ? premiumHls.map(u => ({ url: u }))
+      : [{ url }];
+    if (!premiumHls.length && altUrl) candidates.push({ url: altUrl });
     const directAllowed = (u) => u.startsWith("https:") || location.protocol === "http:";
     // Proxy route: the Nepal proxy only (GitHub Pages has no server
     // proxy of its own). Callers only reach here when NEPAL_PROXY_URL
@@ -473,9 +519,17 @@ async function playChannel(id, name) {
           candIndex++;
           candMode = null;
           if (candIndex >= candidates.length) {
-            // A cached link that fails everywhere is stale: drop it so
-            // the next click fetches a fresh one.
-            clearCachedStream(id);
+            // Every native source failed. Premium: move on to the
+            // first backup player page (and drop the cached resolver
+            // answer, so the next tap re-checks the sources). Other
+            // channels: a cached link that fails everywhere is stale,
+            // drop it so the next click fetches a fresh one.
+            if (entry.source === "premium") {
+              clearCachedPremium(id);
+              if (premiumEmbed) { showPremiumEmbed(premiumEmbed.url, name); return; }
+            } else {
+              clearCachedStream(id);
+            }
             showError(`Could not play ${name}: all sources failed.`);
             return;
           }
@@ -485,7 +539,12 @@ async function playChannel(id, name) {
           candIndex++;
           candMode = null;
           if (candIndex >= candidates.length) {
-            clearCachedStream(id);
+            if (entry.source === "premium") {
+              clearCachedPremium(id);
+              if (premiumEmbed) { showPremiumEmbed(premiumEmbed.url, name); return; }
+            } else {
+              clearCachedStream(id);
+            }
             showError(`Could not play ${name}: all sources failed.`);
             return;
           }
