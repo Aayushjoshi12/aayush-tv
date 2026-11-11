@@ -20,7 +20,7 @@
   #now-playing { font-size: 15px; margin-bottom: 8px; }
   #now-playing b { color: #ff5252; }
   video { width: 100%; max-height: 62vh; background: #000; border-radius: 10px; }
-  /* LaLiga in-site player: BINTV watch pages embed here, in place of <video>. */
+  /* Premium in-site player: watch pages embed here, in place of <video>. */
   #frame-player { width: 100%; height: 62vh; min-height: 360px; background: #000; border: 0; border-radius: 10px; display: none; }
   #frame-player.open { display: block; }
   #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; padding: 16px 20px 30px; }
@@ -46,7 +46,7 @@
 <div id="player-wrap">
   <div id="now-playing"></div>
   <video id="player" controls autoplay playsinline></video>
-  <iframe id="frame-player" title="LaLiga player" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+  <iframe id="frame-player" title="Premium player" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
 </div>
 
 <div id="grid"></div>
@@ -84,22 +84,37 @@ const NEPAL_PROXY_URL = "";
 // on https pages only. Verified working 2026-11-03 (impers, Korea Central).
 const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net"; // base only — fetch appends /api/stream (FIX 2026-11-03: full /api/stream URL here made the fetch hit .../api/stream/api/stream → 404)
 
+// Premium resolver: same host as the minter, /api/resolve (see
+// api/resolve.js in the minter repo). It fetches a fresh signed
+// stream link on the server and returns it as JSON, because the
+// premium player page only answers server-side requests. The site
+// calls it on every tap and caches the answer for 30 minutes —
+// signed links expire after ~2 hours, so they are never hard-coded.
+const RESOLVER_URL = MINTER_URL + "/api/resolve";
+
 const CATS = ["📋 All Channels", "🇳🇵 Nepali TV", "📰 News", "🎭 Entertainment",
-  "🎬 Movies", "🏏 Sports", "⚽ LaLiga", "🧸 Kids", "🎵 Music", "🌿 Discovery",
+  "🎬 Movies", "🏏 Sports", "⭐ Premium", "🧸 Kids", "🎵 Music", "🌿 Discovery",
   "🕉 Religious", "🌍 International", "📺 Other"];
 
-// NEW SECTION — LaLiga (2026-11-11). Only these two channels are new.
-// They stream via BINTV watch pages (HTML, not direct .m3u8), so they
-// carry externalUrl instead of a mintable NetTV id or a direct url.
-// Playback for them is handled in playChannel() below; nothing else
-// in this file reads externalUrl.
-const LALIGA_CHANNELS = [
-  { id: "laliga-dazn", name: "DAZN LaLiga", logo: "", externalUrl: "https://bintv-cc.pages.dev/?src=ch_968835b6053b&t=DAZN%20LaLiga", source: "bintv" },
-  { id: "laliga-movistar", name: "Movistar LaLiga", logo: "", externalUrl: "https://bintv-cc.pages.dev/?src=ch_148f90dc1db7&t=Movistar%20LaLiga", source: "bintv" },
+// NEW SECTION — Premium (2026-11-11). These channels have no direct
+// public stream: their player page issues a fresh, time-limited
+// signed link on every request, so each entry carries a `path` (the
+// player key the resolver uses) and a `watch` page (fallback: played
+// in the embedded iframe when the resolver cannot reach the source).
+// No source name appears anywhere in the visible UI.
+const PREMIUM_CHANNELS = [
+  { id: "premium-dazn-laliga", key: "dazn-laliga", name: "DAZN LaLiga", logo: "", path: "fw2jrum9-448", watch: "https://bintv-cc.pages.dev/?src=ch_968835b6053b&t=DAZN%20LaLiga", source: "premium" },
+  { id: "premium-movistar-laliga", key: "movistar-laliga", name: "Movistar LaLiga", logo: "", path: "vowrwhdn-2491", watch: "https://bintv-cc.pages.dev/?src=ch_148f90dc1db7&t=Movistar%20LaLiga", source: "premium" },
+  { id: "premium-sky-pl", key: "sky-pl", name: "Sky Sports Premier League", logo: "", path: "kzd3hrqz-4314", watch: "https://bintv-cc.pages.dev/?src=ch_39754af8538a&t=Sky%20Sports%20Premier%20League", source: "premium" },
+  { id: "premium-sky-main-event", key: "sky-main-event", name: "Sky Sports Main Event", logo: "", path: "n58ajgfx-472", watch: "https://bintv-cc.pages.dev/?src=ch_78c364c4edac&t=Sky%20Sports%20Main%20Event", source: "premium" },
+  { id: "premium-tnt-1", key: "tnt-1", name: "TNT Sports 1", logo: "", path: "e0lyrkhr-1002", watch: "https://bintv-cc.pages.dev/?src=ch_a97e4e499bf0&t=TNT%20Sports%201", source: "premium" },
+  { id: "premium-bein-mena-1", key: "bein-mena-1", name: "beIN Sports MENA 1", logo: "", path: "gh9m7u89-8471", watch: "https://bintv-cc.pages.dev/?src=ch_d5945ff7600e&t=beIN%20Sports%20MENA%201", source: "premium" },
+  { id: "premium-espn", key: "espn", name: "ESPN", logo: "", path: "o9bl8cai-7223", watch: "https://bintv-cc.pages.dev/?src=ch_e1949dc8115d&t=ESPN", source: "premium" },
+  { id: "premium-dazn-1-es", key: "dazn-1-es", name: "DAZN 1 Spain", logo: "", path: "sq26inyf-2660", watch: "https://bintv-cc.pages.dev/?src=ch_aaa7c0f78ebc&t=DAZN%201%20Spain", source: "premium" },
 ];
 
-// NEW — free direct stream that actually plays (2026-11-11). BINTV's
-// whole backend (tims-001) is down right now (502 on every channel
+// NEW — free direct stream that actually plays (2026-11-11). The premium
+// source's whole backend is down right now (502 on every channel
 // tested), so this is the one live sports channel that works today.
 // It is a public, CORS-open HLS master playlist, verified 2026-11-11
 // 09:06 UTC: master 200, 1080p variant 200, video segment 200 (4 MB,
@@ -120,7 +135,6 @@ const $ = (id) => document.getElementById(id);
 function classify(name) {
   const n = name.toLowerCase().trim();
   const has = (...ws) => ws.some(w => n.includes(w));
-  if (has("laliga", "la liga")) return "⚽ LaLiga";
   if (has("sport", "espn", "ten 1", "ten 2", "ten 3", "ten 5", "1 sport", "setanta",
     "dd sports", "ptv sports", "action sports", "a sports", "npl live")) return "🏏 Sports";
   if (has("cbeebies", "baby tv", "nick", "cartoon", "pogo", "disney", "hungama",
@@ -188,7 +202,7 @@ function renderGrid() {
     (!q || ch.name.toLowerCase().includes(q)));
   $("status").textContent = list.length ? `${list.length} channels` : "No channels match.";
   $("grid").innerHTML = list.map(ch => {
-    const src = ch.altUrl ? "2 sources" : (ch.source === "indie" ? "independent" : (ch.source === "bintv" ? "BINTV ↗" : (ch.source === "free" ? "Free • direct" : "")));
+    const src = ch.altUrl ? "2 sources" : (ch.source === "indie" ? "independent" : (ch.source === "premium" ? "Premium" : (ch.source === "free" ? "Free • direct" : "")));
     return `<div class="card" tabindex="0" data-id="${ch.id}" data-name="${ch.name.replace(/"/g, "&quot;")}">
       <img src="${ch.logo}" alt="" loading="lazy" onerror="this.style.display='none'">
       <div class="name">${ch.name}</div>
@@ -257,6 +271,7 @@ function resolveStream(id) {
 }
 function prefetchStream(id) {
   const entry = allChannels.find(c => c.id === id) || {};
+  if (entry.source === "premium") { resolvePremium(id).catch(() => {}); return; }
   if (entry.url) return; // independent source: already a direct link
   if (!NEPAL_PROXY_URL && !MINTER_URL) return; // no minter: nothing to prefetch
   // On an https page an http: techjail link cannot play anyway, so
@@ -266,11 +281,50 @@ function prefetchStream(id) {
   resolveStream(id).catch(() => {});
 }
 
+// Premium resolver (2026-11-11): ask the server for a fresh signed
+// link for a premium channel. Signed links expire after ~2 hours,
+// so the answer is cached for 30 minutes only — a repeat tap within
+// that window skips the round trip, and anything older is re-fetched.
+const premiumInflight = new Map();
+function cachedPremium(id) {
+  try {
+    const raw = localStorage.getItem("premium:" + id);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed.url || Date.now() - parsed.t > 30 * 60 * 1000) return null;
+    return parsed.url;
+  } catch (e) { return null; }
+}
+function cachePremium(id, url) {
+  try { localStorage.setItem("premium:" + id, JSON.stringify({ url, t: Date.now() })); }
+  catch (e) { /* private mode: caching is only an optimisation */ }
+}
+async function fetchPremium(id) {
+  const entry = PREMIUM_CHANNELS.find(c => c.id === id);
+  if (!entry) throw new Error("Unknown premium channel");
+  const res = await fetch(`${RESOLVER_URL}?ch=${encodeURIComponent(entry.key)}`);
+  const data = await res.json();
+  if (!res.ok || !data.url) throw new Error(data.error || "Resolver failed");
+  return data.url;
+}
+function resolvePremium(id) {
+  const hit = cachedPremium(id);
+  if (hit) return Promise.resolve(hit);
+  if (premiumInflight.has(id)) return premiumInflight.get(id);
+  const p = fetchPremium(id).then((url) => {
+    cachePremium(id, url);
+    return url;
+  }).finally(() => { premiumInflight.delete(id); });
+  premiumInflight.set(id, p);
+  return p;
+}
+
 async function playChannel(id, name) {
   const myPlay = ++playToken;
   const wrap = $("player-wrap"), video = $("player");
-  // LaLiga (iframe) channels: clear any embedded BINTV page when a new
-  // channel is chosen, so a normal <video> channel never plays under it.
+  // Premium (iframe fallback) channels: clear any embedded watch page
+  // when a new channel is chosen, so a normal <video> channel never
+  // plays under it.
   const frameEl = $("frame-player");
   if (frameEl) { frameEl.classList.remove("open"); frameEl.src = "about:blank"; }
   video.style.display = "";
@@ -283,20 +337,22 @@ async function playChannel(id, name) {
     let url;
     let altUrl = null;
     const entry = allChannels.find(c => c.id === id) || {};
-    if (entry.externalUrl) {
-      // LaLiga only: BINTV watch pages are HTML pages, not direct
-      // .m3u8 streams, so they play in the embedded iframe inside
-      // this site instead of the <video> player. BINTV sends no
-      // X-Frame-Options / frame-ancestors header, so embedding is
-      // allowed. Other channels are unaffected.
-      video.style.display = "none";
-      const frame = $("frame-player");
-      frame.classList.add("open");
-      frame.src = entry.externalUrl;
-      $("now-playing").innerHTML = `Now playing: <b>${name}</b> <span style="color:#ff5252">● LIVE</span>`;
-      return;
-    }
-    if (entry.url) {
+    if (entry.source === "premium") {
+      // Premium only: ask the server for a fresh signed link and play
+      // it natively in the <video> player, like the other channels.
+      // If the resolver cannot reach the source, fall back to the
+      // watch page in the embedded iframe inside this site.
+      try {
+        url = await resolvePremium(id);
+      } catch (e) {
+        video.style.display = "none";
+        const frame = $("frame-player");
+        frame.classList.add("open");
+        frame.src = entry.watch;
+        $("now-playing").innerHTML = `Now playing: <b>${name}</b> <span style="color:#ff5252">● LIVE</span>`;
+        return;
+      }
+    } else if (entry.url) {
       // Independent source: the link is already direct, no resolver
       // round trip needed.
       url = entry.url;
@@ -507,11 +563,13 @@ async function init() {
         else merged.push({ ...ch, source: "indie" });
       }
     }
-    // NEW SECTION — LaLiga (2026-11-11): append the two BINTV channels
+    // NEW SECTION — Premium (2026-11-11): append the premium channels
     // after the existing sources are merged, so they appear in the grid
-    // without changing how any existing channel is loaded.
-    for (const ch of LALIGA_CHANNELS) {
-      if (!byNorm.has(norm(ch.name))) { merged.push({ ...ch }); byNorm.set(norm(ch.name), ch); }
+    // without changing how any existing channel is loaded. Their
+    // category is set here (not by classify), so they land in Premium
+    // whatever their name contains.
+    for (const ch of PREMIUM_CHANNELS) {
+      if (!byNorm.has(norm(ch.name))) { merged.push({ ...ch, category: "⭐ Premium" }); byNorm.set(norm(ch.name), ch); }
     }
     // NEW — free direct channel (2026-11-11): same append, same dedupe.
     for (const ch of FREE_DIRECT_CHANNELS) {
@@ -523,7 +581,9 @@ async function init() {
       }
       return;
     }
-    allChannels = merged.map(ch => ({ ...ch, category: classify(ch.name) }));
+    // A channel that already carries a category (the Premium section
+    // sets it when appending) keeps it; the rest are classified by name.
+    allChannels = merged.map(ch => ({ ...ch, category: ch.category || classify(ch.name) }));
     renderGrid();
   };
   // GitHub Pages has no server, so both lists come without one:
