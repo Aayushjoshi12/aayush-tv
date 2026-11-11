@@ -98,6 +98,18 @@ const LALIGA_CHANNELS = [
   { id: "laliga-movistar", name: "Movistar LaLiga", logo: "", externalUrl: "https://bintv-cc.pages.dev/?src=ch_148f90dc1db7&t=Movistar%20LaLiga", source: "bintv" },
 ];
 
+// NEW — free direct stream that actually plays (2026-11-11). BINTV's
+// whole backend (tims-001) is down right now (502 on every channel
+// tested), so this is the one live sports channel that works today.
+// It is a public, CORS-open HLS master playlist, verified 2026-11-11
+// 09:06 UTC: master 200, 1080p variant 200, video segment 200 (4 MB,
+// MPEG-TS). It carries a direct `url`, so playChannel() plays it in
+// the native <video> player via hls.js like the other direct channels.
+// "Speed Sport 1" contains "sport", so classify() puts it in Sports.
+const FREE_DIRECT_CHANNELS = [
+  { id: "free-speed-sport-1", name: "Speed Sport 1", logo: "", url: "https://linear-599.frequency.stream/dist/stirr/599/hls/master/playlist.m3u8", source: "free" },
+];
+
 let allChannels = [];
 let activeCat = CATS[0];
 let hls = null;
@@ -176,7 +188,7 @@ function renderGrid() {
     (!q || ch.name.toLowerCase().includes(q)));
   $("status").textContent = list.length ? `${list.length} channels` : "No channels match.";
   $("grid").innerHTML = list.map(ch => {
-    const src = ch.altUrl ? "2 sources" : (ch.source === "indie" ? "independent" : (ch.source === "bintv" ? "BINTV ↗" : ""));
+    const src = ch.altUrl ? "2 sources" : (ch.source === "indie" ? "independent" : (ch.source === "bintv" ? "BINTV ↗" : (ch.source === "free" ? "Free • direct" : "")));
     return `<div class="card" tabindex="0" data-id="${ch.id}" data-name="${ch.name.replace(/"/g, "&quot;")}">
       <img src="${ch.logo}" alt="" loading="lazy" onerror="this.style.display='none'">
       <div class="name">${ch.name}</div>
@@ -499,6 +511,10 @@ async function init() {
     // after the existing sources are merged, so they appear in the grid
     // without changing how any existing channel is loaded.
     for (const ch of LALIGA_CHANNELS) {
+      if (!byNorm.has(norm(ch.name))) { merged.push({ ...ch }); byNorm.set(norm(ch.name), ch); }
+    }
+    // NEW — free direct channel (2026-11-11): same append, same dedupe.
+    for (const ch of FREE_DIRECT_CHANNELS) {
       if (!byNorm.has(norm(ch.name))) { merged.push({ ...ch }); byNorm.set(norm(ch.name), ch); }
     }
     if (!merged.length) {
