@@ -15,6 +15,10 @@
   #cats { display: flex; gap: 8px; overflow-x: auto; padding: 12px 20px 4px; }
   #cats button { white-space: nowrap; padding: 7px 14px; border-radius: 20px; border: 1px solid #2a3040; background: #151a26; color: #cfd3dd; cursor: pointer; font-size: 13px; }
   #cats button.active { background: #ff3b3b; border-color: #ff3b3b; color: #fff; }
+  /* Premium lives in the header (top right, 2026-11-11), not in the
+     category row — one tap there opens the Premium section. */
+  #premium-top { white-space: nowrap; padding: 7px 14px; border-radius: 20px; border: 1px solid #2a3040; background: #151a26; color: #cfd3dd; cursor: pointer; font-size: 13px; flex-shrink: 0; }
+  #premium-top.active { background: #ff3b3b; border-color: #ff3b3b; color: #fff; }
   #player-wrap { display: none; padding: 16px 20px 0; }
   #player-wrap.open { display: block; }
   #now-playing { font-size: 15px; margin-bottom: 8px; }
@@ -37,7 +41,7 @@
 <header>
   <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
     <h1 style="margin-bottom:0;flex-shrink:0"><span>▶</span> Aayush TV</h1>
-    <div id="source-switch" style="display:none;font-size:13px;color:#9aa1b2;text-align:right"></div>
+    <button id="premium-top" type="button">⭐ Premium</button>
   </div>
   <a href="index.html" style="color:#ff5252;font-size:14px;text-decoration:none;display:inline-block;margin-bottom:10px">🏏 NPL Live — watch now</a>
   <input id="search" type="text" placeholder="Search channels...">
@@ -50,6 +54,7 @@
   <div id="now-playing"></div>
   <video id="player" controls autoplay playsinline></video>
   <iframe id="frame-player" title="Premium player" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+  <div id="source-switch" style="display:none;margin-top:8px;font-size:13px;color:#9aa1b2"></div>
 </div>
 
 <div id="grid"></div>
@@ -104,8 +109,10 @@ const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01
 const RESOLVER_URL = "https://aayush-tv-minter.vercel.app/api/resolve";
 
 const CATS = ["📋 All Channels", "🇳🇵 Nepali TV", "📰 News", "🎭 Entertainment",
-  "🎬 Movies", "🏏 Sports", "⭐ Premium", "🧸 Kids", "🎵 Music", "🌿 Discovery",
+  "🎬 Movies", "🏏 Sports", "🧸 Kids", "🎵 Music", "🌿 Discovery",
   "🕉 Religious", "🌍 International", "📺 Other"];
+// Premium is not in CATS — its button lives in the header (top right).
+const PREMIUM_CAT = "⭐ Premium";
 
 // NEW SECTION — Premium (2026-11-11). These channels have no direct
 // public stream: their player page issues a fresh, time-limited
@@ -354,6 +361,8 @@ function classify(name) {
 }
 
 function renderCats() {
+  const pt = $("premium-top");
+  if (pt) pt.classList.toggle("active", activeCat === PREMIUM_CAT);
   $("cats").innerHTML = CATS.map(c =>
     `<button data-cat="${c}" class="${c === activeCat ? "active" : ""}">${c}</button>`
   ).join("");
@@ -371,6 +380,11 @@ function renderCats() {
       // via prefetchStream in renderGrid.)
     }));
 }
+
+// Header Premium button (top right): opens the Premium section.
+$("premium-top").addEventListener("click", () => {
+  activeCat = PREMIUM_CAT; renderCats(); renderGrid();
+});
 
 function renderGrid() {
   const q = $("search").value.toLowerCase().trim();
@@ -519,10 +533,8 @@ function resolvePremium(id) {
 // could be found, and as the last step of the failover chain.
 // An embedded page cannot report back that its own stream is dead
 // (cross-origin), so when there is more than one backup, a "Try
-// next source" button is shown in the header, top right (2026-11-11:
-// moved up from under the player so it stays visible — the header is
-// sticky — and a source can be switched without scrolling down). One
-// tap moves to the next backup, and after the last one, to the watch page.
+// next source" button is shown under the player: one tap moves to
+// the next backup, and after the last one, to the watch page.
 let premiumEmbeds = [];
 let premiumEmbedIndex = 0;
 let premiumWatchUrl = "";
