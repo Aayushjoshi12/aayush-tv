@@ -84,18 +84,21 @@ const NEPAL_PROXY_URL = "";
 // on https pages only. Verified working 2026-11-03 (impers, Korea Central).
 const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net"; // base only — fetch appends /api/stream (FIX 2026-11-03: full /api/stream URL here made the fetch hit .../api/stream/api/stream → 404)
 
-// Premium resolver endpoints, tried in order. Vercel first (the
-// minter deployed there serves /api/resolve), the Azure minter host
-// as backup — it serves /api/stream today, and /api/resolve once the
-// matching function is deployed there. Either one fetches a fresh
+// Premium resolver: the minter deployed on Vercel (free Hobby tier,
+// project aayush-tv-minter, deployed 11 Nov 2026). It fetches a fresh
 // signed stream link on the server and returns it as JSON, because
-// the premium player page only answers server-side requests. Use the
-// Vercel project URL, not a deployment URL — deployment URLs are
-// protected by Vercel Authentication and will not answer the site.
-const RESOLVER_URLS = [
-  "https://aayush-tv-minter.vercel.app/api/resolve",
-  MINTER_URL + "/api/resolve",
-];
+// the premium player page only answers server-side requests. NOTE:
+// Vercel only — an Azure backup was considered on 11 Nov 2026 but
+// abandoned by the user's decision ("if it not working then it ok
+// leave for vercel only"): the Azure Function App cannot be given
+// the new function without a full redeploy, and its live stream
+// function depends on a bundled native libcurl-impersonate binary
+// that is not in the repo, so redeploying risked the techjail
+// minter. The Azure minter host still serves /api/stream for
+// techjail; it is NOT a resolver backup. Use the project URL, not
+// a deployment URL — deployment URLs are protected by Vercel
+// Authentication and will not answer the public site.
+const RESOLVER_URL = "https://aayush-tv-minter.vercel.app/api/resolve";
 
 const CATS = ["📋 All Channels", "🇳🇵 Nepali TV", "📰 News", "🎭 Entertainment",
   "🎬 Movies", "🏏 Sports", "⭐ Premium", "🧸 Kids", "🎵 Music", "🌿 Discovery",
@@ -307,18 +310,10 @@ function cachePremium(id, url) {
 async function fetchPremium(id) {
   const entry = PREMIUM_CHANNELS.find(c => c.id === id);
   if (!entry) throw new Error("Unknown premium channel");
-  // Try each resolver in turn (Vercel, then Azure as backup) and
-  // take the first one that returns a signed link.
-  let lastErr = null;
-  for (const base of RESOLVER_URLS) {
-    try {
-      const res = await fetch(`${base}?ch=${encodeURIComponent(entry.key)}`);
-      const data = await res.json();
-      if (res.ok && data.url) return data.url;
-      lastErr = new Error(data.error || "Resolver failed");
-    } catch (e) { lastErr = e; }
-  }
-  throw lastErr || new Error("Resolver failed");
+  const res = await fetch(`${RESOLVER_URL}?ch=${encodeURIComponent(entry.key)}`);
+  const data = await res.json();
+  if (!res.ok || !data.url) throw new Error(data.error || "Resolver failed");
+  return data.url;
 }
 function resolvePremium(id) {
   const hit = cachedPremium(id);
