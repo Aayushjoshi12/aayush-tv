@@ -300,20 +300,27 @@ function prefetchStream(id) {
 const premiumInflight = new Map();
 function cachedPremium(id) {
   try {
-    const raw = localStorage.getItem("premium:" + id);
+    const raw = localStorage.getItem("premium2:" + id);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed.url && !(parsed.sources && parsed.sources.length)) return null;
+    // Only a cached answer carrying a sources list is usable. The
+    // first version of this cache stored just a URL string, and
+    // those stale entries must be ignored, not shown — otherwise the
+    // player falls back to the watch page with no source switcher.
+    if (!parsed.sources || !parsed.sources.length) return null;
     if (Date.now() - parsed.t > 30 * 60 * 1000) return null;
     return parsed;
   } catch (e) { return null; }
 }
 function cachePremium(id, resp) {
-  try { localStorage.setItem("premium:" + id, JSON.stringify({ ...resp, t: Date.now() })); }
+  // Cache key "premium2:" — the first version stored only a plain
+  // URL string; bumping the key makes every browser ignore those
+  // stale entries and fetch a fresh sources list.
+  try { localStorage.setItem("premium2:" + id, JSON.stringify({ ...resp, t: Date.now() })); }
   catch (e) { /* private mode: caching is only an optimisation */ }
 }
 function clearCachedPremium(id) {
-  try { localStorage.removeItem("premium:" + id); } catch (e) {}
+  try { localStorage.removeItem("premium2:" + id); } catch (e) {}
 }
 async function fetchPremium(id) {
   const entry = PREMIUM_CHANNELS.find(c => c.id === id);
