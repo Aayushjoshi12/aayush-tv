@@ -47,6 +47,7 @@
   <div id="now-playing"></div>
   <video id="player" controls autoplay playsinline></video>
   <iframe id="frame-player" title="Premium player" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+  <div id="source-switch" style="display:none;margin-top:8px;font-size:13px;color:#9aa1b2"></div>
 </div>
 
 <div id="grid"></div>
@@ -341,13 +342,45 @@ function resolvePremium(id) {
 // Show a backup player page in the embedded iframe inside this
 // site, in place of the <video> player. Used when no native stream
 // could be found, and as the last step of the failover chain.
+// An embedded page cannot report back that its own stream is dead
+// (cross-origin), so when there is more than one backup, a "Try
+// next source" button is shown under the player: one tap moves to
+// the next backup, and after the last one, to the watch page.
+let premiumEmbeds = [];
+let premiumEmbedIndex = 0;
+let premiumWatchUrl = "";
 function showPremiumEmbed(url, name) {
   const video = $("player");
   const frame = $("frame-player");
+  const sw = $("source-switch");
   video.style.display = "none";
   frame.classList.add("open");
   frame.src = url;
   $("now-playing").innerHTML = `Now playing: <b>${name}</b> <span style="color:#ff5252">● LIVE</span>`;
+  const idx = premiumEmbeds.findIndex(e => e.url === url);
+  if (premiumEmbeds.length > 1 && idx >= 0) {
+    premiumEmbedIndex = idx;
+    sw.style.display = "block";
+    updateSourceSwitch(name);
+  } else {
+    sw.style.display = "none";
+  }
+}
+function updateSourceSwitch(name) {
+  const sw = $("source-switch");
+  const total = premiumEmbeds.length;
+  const idx = premiumEmbedIndex;
+  sw.innerHTML = `Source ${idx + 1} of ${total} — not playing? <button id="next-source" style="padding:4px 10px;border-radius:14px;border:1px solid #2a3040;background:#151a26;color:#e8eaf0;cursor:pointer;font-size:12px">Try next source</button>`;
+  $("next-source").addEventListener("click", () => {
+    if (premiumEmbedIndex + 1 < total) {
+      premiumEmbedIndex++;
+      $("frame-player").src = premiumEmbeds[premiumEmbedIndex].url;
+      updateSourceSwitch(name);
+    } else if (premiumWatchUrl) {
+      sw.style.display = "none";
+      $("frame-player").src = premiumWatchUrl;
+    }
+  });
 }
 
 async function playChannel(id, name) {
@@ -358,6 +391,10 @@ async function playChannel(id, name) {
   // plays under it.
   const frameEl = $("frame-player");
   if (frameEl) { frameEl.classList.remove("open"); frameEl.src = "about:blank"; }
+  const swEl = $("source-switch");
+  if (swEl) swEl.style.display = "none";
+  premiumEmbeds = [];
+  premiumWatchUrl = "";
   video.style.display = "";
   if (hls) { hls.destroy(); hls = null; }
   try { video.pause(); } catch (e) {}
@@ -389,6 +426,8 @@ async function playChannel(id, name) {
       }
       const hlsSources = sources.filter(s => s.kind === "hls" && s.url);
       const embedSources = sources.filter(s => s.kind === "embed" && s.url);
+      premiumEmbeds = embedSources;
+      premiumWatchUrl = entry.watch;
       premiumEmbed = embedSources[0] || { url: entry.watch };
       if (hlsSources.length) {
         premiumHls = hlsSources.map(s => s.url);
