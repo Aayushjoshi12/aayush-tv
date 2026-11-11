@@ -35,7 +35,10 @@
 </head>
 <body>
 <header>
-  <h1><span>▶</span> Aayush TV</h1>
+  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+    <h1 style="margin-bottom:0;flex-shrink:0"><span>▶</span> Aayush TV</h1>
+    <div id="source-switch" style="display:none;font-size:13px;color:#9aa1b2;text-align:right"></div>
+  </div>
   <a href="index.html" style="color:#ff5252;font-size:14px;text-decoration:none;display:inline-block;margin-bottom:10px">🏏 NPL Live — watch now</a>
   <input id="search" type="text" placeholder="Search channels...">
 </header>
@@ -47,7 +50,6 @@
   <div id="now-playing"></div>
   <video id="player" controls autoplay playsinline></video>
   <iframe id="frame-player" title="Premium player" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
-  <div id="source-switch" style="display:none;margin-top:8px;font-size:13px;color:#9aa1b2"></div>
 </div>
 
 <div id="grid"></div>
@@ -517,8 +519,10 @@ function resolvePremium(id) {
 // could be found, and as the last step of the failover chain.
 // An embedded page cannot report back that its own stream is dead
 // (cross-origin), so when there is more than one backup, a "Try
-// next source" button is shown under the player: one tap moves to
-// the next backup, and after the last one, to the watch page.
+// next source" button is shown in the header, top right (2026-11-11:
+// moved up from under the player so it stays visible — the header is
+// sticky — and a source can be switched without scrolling down). One
+// tap moves to the next backup, and after the last one, to the watch page.
 let premiumEmbeds = [];
 let premiumEmbedIndex = 0;
 let premiumWatchUrl = "";
