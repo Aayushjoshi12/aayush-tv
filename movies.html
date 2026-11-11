@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎬 Movies — Aayush TV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.13), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.08), transparent 70%); background-attachment: fixed; }
+  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 16px 20px 12px; border-bottom: 1px solid #232838; }
+  h1 { font-size: 24px; font-weight: 800; letter-spacing: .2px; margin-bottom: 10px; }
+  h1 span { color: #ff3b3b; }
+  header a { color: #ff5252; font-size: 14px; text-decoration: none; display: inline-block; margin-right: 14px; }
+  #search { width: 100%; padding: 11px 12px 11px 40px; border-radius: 999px; border: 1px solid #2a3040; background: #151a26 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa1b2' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") no-repeat 13px center; color: #fff; font-size: 15px; outline: none; transition: border-color .15s, box-shadow .15s; }
+  #search:focus { border-color: #ff3b3b; box-shadow: 0 0 0 3px rgba(255,59,59,.18); }
+  #player-wrap { display: none; padding: 16px 20px 0; max-width: 1440px; margin: 0 auto; }
+  #player-wrap.open { display: block; }
+  #now-playing { font-size: 16px; margin-bottom: 10px; }
+  #now-playing b { color: #ff5252; }
+  #now-playing .src { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; margin-left: 8px; padding: 3px 8px; border-radius: 20px; color: #4ade80; background: rgba(74,222,128,.10); border: 1px solid rgba(74,222,128,.30); }
+  #now-playing .src.backup { color: #ffd166; background: rgba(255,209,102,.12); border: 1px solid rgba(255,209,102,.35); }
+  video { width: 100%; max-height: 62vh; background: #000; border-radius: 16px; border: 1px solid #232838; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+  #quality-bar { display: none; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+  #quality-bar.open { display: flex; }
+  #quality-bar span { font-size: 13px; color: #9aa1b2; }
+  #quality-bar button { padding: 6px 12px; border-radius: 20px; border: 1px solid #2a3040; background: #151a26; color: #cfd3dd; cursor: pointer; font-size: 12.5px; font-weight: 600; }
+  #quality-bar button.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); border-color: #ff3b3b; color: #fff; }
+  #play-note { display: none; margin-top: 10px; padding: 14px; background: #1c1620; border: 1px solid #4a2b2b; border-radius: 12px; color: #9aa1b2; font-size: 14px; line-height: 1.6; text-align: center; }
+  #detail-panel { display: none; margin-top: 12px; padding: 16px; background: #12162a; border: 1px solid #262d42; border-radius: 14px; }
+  #detail-panel.open { display: block; }
+  #detail-panel h2 { font-size: 18px; margin-bottom: 6px; }
+  #detail-panel .meta { font-size: 13px; color: #9aa1b2; margin-bottom: 10px; }
+  #detail-panel .desc { font-size: 14px; line-height: 1.6; color: #cfd3dd; margin-bottom: 12px; }
+  #detail-panel .eps { display: flex; gap: 8px; flex-wrap: wrap; }
+  #detail-panel .eps button { padding: 7px 12px; border-radius: 10px; border: 1px solid #2a3040; background: #151a26; color: #e8eaf0; cursor: pointer; font-size: 13px; font-weight: 600; }
+  #detail-panel .eps button:hover { border-color: #ff3b3b; }
+  #detail-panel .eps button.playing { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); border-color: #ff3b3b; color: #fff; }
+  main { max-width: 1440px; margin: 0 auto; padding: 18px 20px 36px; }
+  .row-title { font-size: 18px; font-weight: 800; margin: 22px 0 12px; }
+  .row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
+  .row::-webkit-scrollbar { height: 6px; }
+  .row::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 3px; }
+  .card { flex: 0 0 auto; width: 150px; cursor: pointer; }
+  .card .poster { position: relative; width: 150px; aspect-ratio: 2 / 3; border-radius: 12px; overflow: hidden; background: radial-gradient(120px 90px at 50% 40%, #232a42, #161b2c); border: 1px solid #262d42; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .card:hover .poster { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 10px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(255,59,59,.35); }
+  .card .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card .poster .noimg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: #ff5c5c; }
+  .card .name { font-size: 13px; font-weight: 600; line-height: 1.35; margin-top: 8px; color: #f2f4fa; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .year { font-size: 12px; color: #9aa1b2; margin-top: 2px; }
+  .card.featured { width: 220px; }
+  .card.featured .poster { width: 220px; }
+  #status { padding: 8px 20px 20px; color: #9aa1b2; font-size: 14px; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1><span>▶</span> Aayush TV <span style="color:#e8eaf0">· 🎬 Movies</span></h1>
+  <a href="channels.html">📺 Channels</a>
+  <a href="index.html">🏏 NPL Live</a>
+  <input id="search" type="text" placeholder="Search movies &amp; shows..." autocomplete="off">
+</header>
+
+<div id="player-wrap">
+  <div id="now-playing"></div>
+  <video id="player" controls autoplay playsinline crossorigin="anonymous"></video>
+  <div id="quality-bar"></div>
+  <div id="play-note"></div>
+  <div id="detail-panel"></div>
+</div>
+
+<main id="main">
+  <div id="featured-wrap" style="display:none">
+    <div class="row-title">✨ Featured</div>
+    <div class="row" id="featured"></div>
+  </div>
+  <div id="rows"></div>
+</main>
+<div id="status">Loading movies...</div>
+
+<script>
+/* ------------------------------------------------------------------
+   Movies page (separate from channels.html). All data comes from
+   the movie resolver on Vercel — the page never talks to the
+   streaming sites directly (their APIs send no CORS headers, and
+   net52's manifest is hotlink-protected; the resolver fetches it
+   server-side and serves it back with CORS *).
+
+   Resolver: GET https://aayush-tv-minter.vercel.app/api/resolve-movie
+     ?home=movie|show   -> featured + category rows (net52, primary)
+     ?q=<query>         -> net52 search
+     ?info=<id1>,<id2>  -> titles for a row's posters (lazy)
+     ?detail=<id>       -> full details + episodes (TV) + suggestions
+     ?play=<id>&title=  -> fresh stream: net52 HLS first (kind "hls",
+                          manifestUrl via the resolver's manifest
+                          proxy), falling back to the Astro backup
+                          (kind "mp4", signed .mp4 streams) when
+                          net52 has no source for the title.
+   Links are signed and expire (net52 tokens ~hours, Astro mp4 ~9h),
+   so nothing is hard-coded: every tap fetches a fresh link, and
+   play answers are cached for only 5 minutes.
+------------------------------------------------------------------ */
+
+const MOVIE_RESOLVER = "https://aayush-tv-minter.vercel.app/api/resolve-movie";
+const $ = (id) => document.getElementById(id);
+
+let hls = null;
+let currentQualities = [];
+let currentKind = null;
+let currentTitle = "";
+let currentTracks = [];
+
+function el(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function posterUrl(id) {
+  return "https://imgcdn.kim/pv/341/" + id + ".jpg";
+}
+
+async function getJSON(url) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+
+/* ---------- catalogue ---------- */
+
+function makeCard(item, onTap) {
+  const card = el("div", "card");
+  const poster = el("div", "poster");
+  const img = document.createElement("img");
+  img.src = item.poster || posterUrl(item.id);
+  img.alt = item.title || "";
+  img.loading = "lazy";
+  img.onerror = () => {
+    img.remove();
+    poster.appendChild(el("div", "noimg", "🎬"));
+  };
+  poster.appendChild(img);
+  card.appendChild(poster);
+  card.appendChild(el("div", "name", item.title || "…"));
+  if (item.year) card.appendChild(el("div", "year", item.year));
+  card.addEventListener("click", () => onTap(item, card));
+  return card;
+}
+
+async function fillRowTitles(rowEl, ids) {
+  // Titles arrive separately from the posters (the homepage only
+  // carries ids); fill them in a few seconds later, in the
+  // background, so the posters show instantly.
+  try {
+    const d = await getJSON(
+      MOVIE_RESOLVER + "?info=" + encodeURIComponent(ids.join(","))
+    );
+    const byId = {};
+    (d.items || []).forEach((it) => { byId[it.id] = it; });
+    rowEl.querySelectorAll(".card").forEach((card) => {
+      const id = card.dataset.id;
+      const it = byId[id];
+      if (!it || !it.title) return;
+      const name = card.querySelector(".name");
+      if (name) name.textContent = it.title;
+      if (it.year && !card.querySelector(".year")) {
+        card.appendChild(el("div", "year", it.year));
+      }
+      card.dataset.title = it.title;
+      card.dataset.year = it.year || "";
+    });
+  } catch { /* titles stay blank; posters still show */ }
+}
+
+async function loadHome() {
+  const status = $("status");
+  try {
+    const d = await getJSON(MOVIE_RESOLVER + "?home=movie");
+    status.textContent = "";
+    // Featured (the slider's 5 titles, with titles resolved).
+    if ((d.featured || []).length) {
+      $("featured-wrap").style.display = "block";
+      const wrap = $("featured");
+      d.featured.forEach((f) => {
+        const card = makeCard(
+          { id: f.id, title: f.title, year: f.year, poster: f.poster },
+          (it) => openTitle(it.id, it.title || f.title)
+        );
+        card.classList.add("featured");
+        card.dataset.id = f.id;
+        wrap.appendChild(card);
+      });
+    }
+    // Category rows (posters first, titles filled in lazily).
+    const rowsEl = $("rows");
+    (d.rows || []).forEach((row) => {
+      if (!row.items || !row.items.length) return;
+      rowsEl.appendChild(el("div", "row-title", row.name));
+      const rowEl = el("div", "row");
+      const ids = [];
+      row.items.slice(0, 20).forEach((it) => {
+        ids.push(it.id);
+        const card = makeCard(
+          { id: it.id, title: "", poster: it.poster },
+          (item, c) => openTitle(item.id, c.dataset.title || "")
+        );
+        card.dataset.id = it.id;
+        rowEl.appendChild(card);
+      });
+      rowsEl.appendChild(rowEl);
+      fillRowTitles(rowEl, ids);
+    });
+  } catch (e) {
+    status.textContent = "Movies could not be loaded right now — please try again in a moment.";
+  }
+}
+
+/* ---------- search ---------- */
+
+let searchTimer = null;
+$("search").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  const q = $("search").value.trim();
+  searchTimer = setTimeout(() => runSearch(q), 400);
+});
+
+async function runSearch(q) {
+  const main = $("main");
+  const status = $("status");
+  if (!q) {
+    // Back to the home rows.
+    main.querySelectorAll("#rows > *").forEach((n) => (n.style.display = ""));
+    $("featured-wrap").style.display = "";
+    status.textContent = "";
+    return;
+  }
+  $("featured-wrap").style.display = "none";
+  main.querySelectorAll("#rows > *").forEach((n) => (n.style.display = "none"));
+  status.textContent = "Searching...";
+  try {
+    const d = await getJSON(MOVIE_RESOLVER + "?q=" + encodeURIComponent(q));
+    const items = d.items || [];
+    status.textContent = items.length
+      ? items.length + " result" + (items.length === 1 ? "" : "s") + ' for "' + q + '"'
+      : 'No results for "' + q + '"';
+    let resEl = $("search-results");
+    if (!resEl) {
+      resEl = el("div", "");
+      resEl.id = "search-results";
+      main.appendChild(resEl);
+    }
+    resEl.innerHTML = "";
+    if (items.length) {
+      resEl.appendChild(el("div", "row-title", "Search results"));
+      const rowEl = el("div", "row");
+      rowEl.style.flexWrap = "wrap";
+      items.forEach((it) => {
+        const card = makeCard(it, (item) => openTitle(item.id, item.title));
+        card.dataset.id = it.id;
+        rowEl.appendChild(card);
+      });
+      resEl.appendChild(rowEl);
+    }
+  } catch {
+    status.textContent = "Search failed — please try again.";
+  }
+}
+
+/* ---------- detail + playback ---------- */
+
+async function openTitle(id, title) {
+  // Movies play straight away; series open their episode list.
+  try {
+    const d = await getJSON(
+      MOVIE_RESOLVER + "?detail=" + encodeURIComponent(id)
+    );
+    if (d.type === "t" && (d.episodes || []).length) {
+      showDetail(d, id);
+      return;
+    }
+    playTitle(id, d.title || title || "");
+  } catch {
+    // Detail failed: try playing directly with the known title.
+    playTitle(id, title || "");
+  }
+}
+
+function showDetail(d, id) {
+  const panel = $("detail-panel");
+  panel.innerHTML = "";
+  panel.appendChild(el("h2", "", d.title || ""));
+  panel.appendChild(
+    el("div", "meta", [d.year, d.runtime, d.ua, d.match].filter(Boolean).join(" · "))
+  );
+  if (d.desc) panel.appendChild(el("div", "desc", d.desc));
+  if (d.genre) panel.appendChild(el("div", "meta", "🎭 " + d.genre));
+  const eps = el("div", "eps");
+  // Group episodes by season, newest first within each season.
+  const bySeason = {};
+  (d.episodes || []).forEach((e) => {
+    (bySeason[e.season || ""] = bySeason[e.season || ""] || []).push(e);
+  });
+  Object.keys(bySeason).forEach((season) => {
+    bySeason[season].forEach((e) => {
+      const b = el("button", "", (season ? season + " " : "") + (e.episode || "") + (e.title ? " — " + e.title : ""));
+      b.addEventListener("click", () => {
+        eps.querySelectorAll("button").forEach((x) => x.classList.remove("playing"));
+        b.classList.add("playing");
+        playTitle(e.id, (d.title || "") + " " + (e.season || "") + (e.episode || ""));
+      });
+      eps.appendChild(b);
+    });
+  });
+  panel.appendChild(eps);
+  panel.classList.add("open");
+  panel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  // Also show the player area (it opens when an episode is tapped).
+  $("player-wrap").classList.add("open");
+  $("now-playing").innerHTML = "Now playing: <b>" + escapeHtml(d.title || "") + "</b> — pick an episode below";
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, (c) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+const playCache = {}; // id -> {at, data} (5 min; links are signed)
+
+async function playTitle(id, title) {
+  const wrap = $("player-wrap");
+  const note = $("play-note");
+  const qb = $("quality-bar");
+  const panel = $("detail-panel");
+  panel.classList.remove("open");
+  note.style.display = "none";
+  qb.classList.remove("open");
+  qb.innerHTML = "";
+  wrap.classList.add("open");
+  $("now-playing").innerHTML = "Loading <b>" + escapeHtml(title || "…") + "</b>…";
+  wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+
+  let data;
+  const cached = playCache[id];
+  if (cached && Date.now() - cached.at < 5 * 60 * 1000) {
+    data = cached.data;
+  } else {
+    try {
+      data = await getJSON(
+        MOVIE_RESOLVER + "?play=" + encodeURIComponent(id) +
+        "&title=" + encodeURIComponent(title || "")
+      );
+      playCache[id] = { at: Date.now(), data };
+    } catch {
+      $("now-playing").innerHTML = "Could not load <b>" + escapeHtml(title || "") + "</b> — please try again.";
+      return;
+    }
+  }
+  if (!data || data.noSource || (!data.manifestUrl && !(data.streams || []).length)) {
+    $("now-playing").innerHTML = "Now playing: <b>" + escapeHtml(title || "") + "</b>";
+    note.textContent = (data && data.error) || "This title has no playable source right now. Try another one.";
+    note.style.display = "block";
+    return;
+  }
+
+  currentTitle = title || data.title || "";
+  const badge = data.source === "net52"
+    ? '<span class="src">net52 · HLS</span>'
+    : '<span class="src backup">backup · mp4</span>';
+  $("now-playing").innerHTML =
+    "Now playing: <b>" + escapeHtml(currentTitle) + "</b>" + badge;
+
+  const video = $("player");
+  // Clear old subtitles.
+  video.querySelectorAll("track").forEach((t) => t.remove());
+  const tracks = data.tracks || data.captions || [];
+  currentTracks = tracks;
+  tracks.forEach((t) => {
+    const tr = document.createElement("track");
+    tr.kind = "subtitles";
+    tr.label = t.label || t.name || t.lang || "Subtitles";
+    tr.srclang = langCode(t.label || t.name || t.lang || "");
+    tr.src = t.url;
+    video.appendChild(tr);
+  });
+
+  if (data.kind === "hls" && data.manifestUrl) {
+    currentKind = "hls";
+    currentQualities = data.qualities || [];
+    loadHls(data.manifestUrl);
+    buildQualityBar();
+  } else if (data.kind === "mp4" && (data.streams || []).length) {
+    currentKind = "mp4";
+    currentQualities = (data.streams || []).map((s) => ({
+      label: (s.resolution || 0) + "p",
+      resolution: s.resolution || 0,
+      url: s.url,
+    })).sort((a, b) => a.resolution - b.resolution);
+    const best = currentQualities[currentQualities.length - 1];
+    loadMp4(best.url);
+    buildQualityBar();
+  }
+}
+
+function langCode(label) {
+  const l = String(label).toLowerCase();
+  const map = {
+    english: "en", hindi: "hi", nepali: "ne", spanish: "es", french: "fr",
+    german: "de", italian: "it", portuguese: "pt", arabic: "ar",
+    tamil: "ta", telugu: "te", malayalam: "ml", kannada: "kn",
+    bengali: "bn", punjabi: "pa", marathi: "mr", urdu: "ur",
+  };
+  for (const k in map) if (l.includes(k)) return map[k];
+  return "en";
+}
+
+function loadHls(url) {
+  const video = $("player");
+  if (hls) { hls.destroy(); hls = null; }
+  video.removeAttribute("src");
+  video.load();
+  if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = url;
+    video.play().catch(() => {});
+  } else if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({ maxBufferLength: 30 });
+    hls.loadSource(url);
+    hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+    hls.on(Hls.Events.ERROR, (e, d) => {
+      if (d.fatal) {
+        const note = $("play-note");
+        note.textContent = "This stream did not start. Try another quality below, or another title.";
+        note.style.display = "block";
+      }
+    });
+  } else {
+    const note = $("play-note");
+    note.textContent = "Your browser cannot play this stream.";
+    note.style.display = "block";
+  }
+}
+
+function loadMp4(url) {
+  const video = $("player");
+  if (hls) { hls.destroy(); hls = null; }
+  const t = video.currentTime || 0;
+  video.src = url;
+  video.load();
+  video.play().catch(() => {});
+  video.addEventListener("loadedmetadata", function onMeta() {
+    video.removeEventListener("loadedmetadata", onMeta);
+    if (t > 1 && t < (video.duration || 0) - 5) video.currentTime = t;
+  });
+}
+
+function buildQualityBar() {
+  const qb = $("quality-bar");
+  qb.innerHTML = "";
+  if (currentQualities.length < 2) return;
+  qb.appendChild(el("span", "", "Quality:"));
+  currentQualities.forEach((q, i) => {
+    const b = el("button", "", q.label || (q.resolution ? q.resolution + "p" : "Auto"));
+    if (i === currentQualities.length - 1) b.classList.add("active");
+    b.addEventListener("click", () => {
+      qb.querySelectorAll("button").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+      if (currentKind === "hls") loadHls(q.manifestUrl);
+      else loadMp4(q.url);
+    });
+    qb.appendChild(b);
+  });
+  qb.classList.add("open");
+}
+
+loadHome();
+</script>
+</body>
+</html>
