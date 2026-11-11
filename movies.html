@@ -86,7 +86,9 @@
    net52's manifest is hotlink-protected; the resolver fetches it
    server-side and serves it back with CORS *).
 
-   Resolver: GET https://aayush-tv-minter.vercel.app/api/resolve-movie
+   Resolver: GET https://aayush-tv-movies-geesc6d8g6fchvfk.koreacentral-01.azurewebsites.net/api/resolve-movie
+   (Azure, primary — Vercel is blocked from the video site's playlist
+   files; Vercel is the fallback if Azure is unreachable)
      ?home=movie|show   -> featured + category rows (net52, primary)
      ?q=<query>         -> net52 search
      ?info=<id1>,<id2>  -> titles for a row's posters (lazy)
@@ -101,7 +103,8 @@
    play answers are cached for only 5 minutes.
 ------------------------------------------------------------------ */
 
-const MOVIE_RESOLVER = "https://aayush-tv-minter.vercel.app/api/resolve-movie";
+const MOVIE_RESOLVER = "https://aayush-tv-movies-geesc6d8g6fchvfk.koreacentral-01.azurewebsites.net/api/resolve-movie";
+const MOVIE_RESOLVER_FALLBACK = "https://aayush-tv-minter.vercel.app/api/resolve-movie";
 const $ = (id) => document.getElementById(id);
 
 let hls = null;
@@ -122,9 +125,19 @@ function posterUrl(id) {
 }
 
 async function getJSON(url) {
-  const r = await fetch(url);
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  return r.json();
+  // Primary is Azure (Vercel is blocked from the video site's
+  // playlist files); fall back to Vercel if Azure is unreachable.
+  try {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  } catch (e) {
+    if (!url.startsWith(MOVIE_RESOLVER)) throw e;
+    const fb = url.replace(MOVIE_RESOLVER, MOVIE_RESOLVER_FALLBACK);
+    const r = await fetch(fb);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    return r.json();
+  }
 }
 
 /* ---------- catalogue ---------- */
