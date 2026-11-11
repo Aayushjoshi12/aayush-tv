@@ -55,6 +55,7 @@
   <video id="player" controls autoplay playsinline></video>
   <iframe id="frame-player" title="Premium player" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
   <div id="source-switch" style="display:none;margin-top:8px;font-size:13px;color:#9aa1b2"></div>
+  <div id="offline-note" style="display:none;padding:28px 18px;text-align:center;color:#9aa1b2;font-size:15px;line-height:1.6"></div>
 </div>
 
 <div id="grid"></div>
@@ -543,6 +544,7 @@ function showPremiumEmbed(url, name) {
   const video = $("player");
   const frame = $("frame-player");
   const sw = $("source-switch");
+  $("offline-note").style.display = "none";
   video.style.display = "none";
   frame.classList.add("open");
   frame.src = url;
@@ -555,6 +557,22 @@ function showPremiumEmbed(url, name) {
   } else {
     sw.style.display = "none";
   }
+}
+
+// A Premium channel with no working source at all (its source is
+// down and no backup plays): show a plain offline notice instead
+// of a dead player or the provider's watch page. The channel plays
+// again by itself the moment its source returns — a later tap
+// re-checks, so nothing here needs a tap.
+function showPremiumOffline(name) {
+  $("player").style.display = "none";
+  $("frame-player").classList.remove("open");
+  $("frame-player").src = "about:blank";
+  $("source-switch").style.display = "none";
+  $("now-playing").innerHTML = `Now playing: <b>${name}</b> <span style="color:#ff5252">● OFFLINE</span>`;
+  const note = $("offline-note");
+  note.textContent = `${name} is offline right now — its source is down and no backup is playing. It will play here when the source returns.`;
+  note.style.display = "block";
 }
 function updateSourceSwitch(name) {
   const sw = $("source-switch");
@@ -583,6 +601,8 @@ async function playChannel(id, name) {
   if (frameEl) { frameEl.classList.remove("open"); frameEl.src = "about:blank"; }
   const swEl = $("source-switch");
   if (swEl) swEl.style.display = "none";
+  const offEl = $("offline-note");
+  if (offEl) offEl.style.display = "none";
   premiumEmbeds = [];
   premiumWatchUrl = "";
   video.style.display = "";
@@ -626,7 +646,12 @@ async function playChannel(id, name) {
         showPremiumEmbed(embedSources[0].url, name);
         return;
       } else {
-        showPremiumEmbed(entry.watch, name);
+        // No source at all: the channel's source is down and no
+        // backup plays. Show the offline notice — not a dead player
+        // and not the provider's watch page. (The watch page stays
+        // as the last resort only when the resolver itself could
+        // not be reached, above.)
+        showPremiumOffline(name);
         return;
       }
     } else if (entry.url) {
