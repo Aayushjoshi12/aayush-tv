@@ -81,8 +81,18 @@ const NEPAL_PROXY_URL = "";
 const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net"; // base only — fetch appends /api/stream (FIX 2026-11-03: full /api/stream URL here made the fetch hit .../api/stream/api/stream → 404)
 
 const CATS = ["📋 All Channels", "🇳🇵 Nepali TV", "📰 News", "🎭 Entertainment",
-  "🎬 Movies", "🏏 Sports", "🧸 Kids", "🎵 Music", "🌿 Discovery",
+  "🎬 Movies", "🏏 Sports", "⚽ LaLiga", "🧸 Kids", "🎵 Music", "🌿 Discovery",
   "🕉 Religious", "🌍 International", "📺 Other"];
+
+// NEW SECTION — LaLiga (2026-11-11). Only these two channels are new.
+// They stream via BINTV watch pages (HTML, not direct .m3u8), so they
+// carry externalUrl instead of a mintable NetTV id or a direct url.
+// Playback for them is handled in playChannel() below; nothing else
+// in this file reads externalUrl.
+const LALIGA_CHANNELS = [
+  { id: "laliga-dazn", name: "DAZN LaLiga", logo: "", externalUrl: "https://bintv-cc.pages.dev/?src=ch_968835b6053b&t=DAZN%20LaLiga", source: "bintv" },
+  { id: "laliga-movistar", name: "Movistar LaLiga", logo: "", externalUrl: "https://bintv-cc.pages.dev/?src=ch_148f90dc1db7&t=Movistar%20LaLiga", source: "bintv" },
+];
 
 let allChannels = [];
 let activeCat = CATS[0];
@@ -94,6 +104,7 @@ const $ = (id) => document.getElementById(id);
 function classify(name) {
   const n = name.toLowerCase().trim();
   const has = (...ws) => ws.some(w => n.includes(w));
+  if (has("laliga", "la liga")) return "⚽ LaLiga";
   if (has("sport", "espn", "ten 1", "ten 2", "ten 3", "ten 5", "1 sport", "setanta",
     "dd sports", "ptv sports", "action sports", "a sports", "npl live")) return "🏏 Sports";
   if (has("cbeebies", "baby tv", "nick", "cartoon", "pogo", "disney", "hungama",
@@ -161,7 +172,7 @@ function renderGrid() {
     (!q || ch.name.toLowerCase().includes(q)));
   $("status").textContent = list.length ? `${list.length} channels` : "No channels match.";
   $("grid").innerHTML = list.map(ch => {
-    const src = ch.altUrl ? "2 sources" : (ch.source === "indie" ? "independent" : "");
+    const src = ch.altUrl ? "2 sources" : (ch.source === "indie" ? "independent" : (ch.source === "bintv" ? "BINTV ↗" : ""));
     return `<div class="card" tabindex="0" data-id="${ch.id}" data-name="${ch.name.replace(/"/g, "&quot;")}">
       <img src="${ch.logo}" alt="" loading="lazy" onerror="this.style.display='none'">
       <div class="name">${ch.name}</div>
@@ -249,6 +260,14 @@ async function playChannel(id, name) {
     let url;
     let altUrl = null;
     const entry = allChannels.find(c => c.id === id) || {};
+    if (entry.externalUrl) {
+      // NEW SECTION — LaLiga only: BINTV watch pages are HTML pages,
+      // not direct .m3u8 streams, so they open in a new tab instead
+      // of going through the <video> player. Other channels are unaffected.
+      $("now-playing").innerHTML = `Opening <b>${name}</b> in a new tab…`;
+      window.open(entry.externalUrl, "_blank", "noopener");
+      return;
+    }
     if (entry.url) {
       // Independent source: the link is already direct, no resolver
       // round trip needed.
@@ -459,6 +478,12 @@ async function init() {
         if (hit) { if (!hit.altUrl) hit.altUrl = ch.url; }
         else merged.push({ ...ch, source: "indie" });
       }
+    }
+    // NEW SECTION — LaLiga (2026-11-11): append the two BINTV channels
+    // after the existing sources are merged, so they appear in the grid
+    // without changing how any existing channel is loaded.
+    for (const ch of LALIGA_CHANNELS) {
+      if (!byNorm.has(norm(ch.name))) { merged.push({ ...ch }); byNorm.set(norm(ch.name), ch); }
     }
     if (!merged.length) {
       if (techList !== null && indieList !== null) {
