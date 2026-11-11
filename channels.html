@@ -201,7 +201,17 @@ function renderCats() {
     `<button data-cat="${c}" class="${c === activeCat ? "active" : ""}">${c}</button>`
   ).join("");
   document.querySelectorAll("#cats button").forEach(b =>
-    b.addEventListener("click", () => { activeCat = b.dataset.cat; renderCats(); renderGrid(); }));
+    b.addEventListener("click", () => {
+      activeCat = b.dataset.cat; renderCats(); renderGrid();
+      // Opening the Premium section warms every Premium link at
+      // once: by the time a tile is tapped its answer is usually
+      // already cached, so the tap plays at once instead of
+      // waiting on the resolver (and its cold start). Failures
+      // are silent here — the tap retries.
+      if (activeCat.includes("Premium")) {
+        PREMIUM_CHANNELS.forEach(c => resolvePremium(c.id).catch(() => {}));
+      }
+    }));
 }
 
 function renderGrid() {
