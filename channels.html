@@ -846,9 +846,15 @@ async function init() {
     // after the existing sources are merged, so they appear in the grid
     // without changing how any existing channel is loaded. Their
     // category is set here (not by classify), so they land in Premium
-    // whatever their name contains.
+    // whatever their name contains. Premium entries are ALWAYS added,
+    // even when a channel of the same name already exists in the
+    // techjail/indie lists — the Premium tile is a different source
+    // (resolver + failover), and skipping it on a name match silently
+    // dropped beIN Sports 2, beIN Sports 3 and Star Sports Select 2
+    // (11 Nov 2026: the section showed 157 tiles instead of 163).
     for (const ch of PREMIUM_CHANNELS) {
-      if (!byNorm.has(norm(ch.name))) { merged.push({ ...ch, category: "⭐ Premium" }); byNorm.set(norm(ch.name), ch); }
+      merged.push({ ...ch, category: "⭐ Premium" });
+      if (!byNorm.has(norm(ch.name))) byNorm.set(norm(ch.name), ch);
     }
     // NEW — free direct channel (2026-11-11): same append, same dedupe.
     for (const ch of FREE_DIRECT_CHANNELS) {
