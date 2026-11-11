@@ -185,7 +185,7 @@ async function loadHome() {
       d.featured.forEach((f) => {
         const card = makeCard(
           { id: f.id, title: f.title, year: f.year, poster: f.poster },
-          (it) => openTitle(it.id, it.title || f.title)
+          (it) => openTitle(it.id, it.title || f.title, it.year || f.year || "")
         );
         card.classList.add("featured");
         card.dataset.id = f.id;
@@ -203,7 +203,7 @@ async function loadHome() {
         ids.push(it.id);
         const card = makeCard(
           { id: it.id, title: "", poster: it.poster },
-          (item, c) => openTitle(item.id, c.dataset.title || "")
+          (item, c) => openTitle(item.id, c.dataset.title || "", c.dataset.year || "")
         );
         card.dataset.id = it.id;
         rowEl.appendChild(card);
@@ -256,7 +256,7 @@ async function runSearch(q) {
       const rowEl = el("div", "row");
       rowEl.style.flexWrap = "wrap";
       items.forEach((it) => {
-        const card = makeCard(it, (item) => openTitle(item.id, item.title));
+        const card = makeCard(it, (item) => openTitle(item.id, item.title, item.year || ""));
         card.dataset.id = it.id;
         rowEl.appendChild(card);
       });
@@ -269,7 +269,7 @@ async function runSearch(q) {
 
 /* ---------- detail + playback ---------- */
 
-async function openTitle(id, title) {
+async function openTitle(id, title, year) {
   // Movies play straight away; series open their episode list.
   try {
     const d = await getJSON(
@@ -279,10 +279,10 @@ async function openTitle(id, title) {
       showDetail(d, id);
       return;
     }
-    playTitle(id, d.title || title || "");
+    playTitle(id, d.title || title || "", d.year || year || "");
   } catch {
     // Detail failed: try playing directly with the known title.
-    playTitle(id, title || "");
+    playTitle(id, title || "", year || "");
   }
 }
 
@@ -307,7 +307,7 @@ function showDetail(d, id) {
       b.addEventListener("click", () => {
         eps.querySelectorAll("button").forEach((x) => x.classList.remove("playing"));
         b.classList.add("playing");
-        playTitle(e.id, (d.title || "") + " " + (e.season || "") + (e.episode || ""));
+        playTitle(e.id, (d.title || "") + " " + (e.season || "") + (e.episode || ""), d.year || "");
       });
       eps.appendChild(b);
     });
@@ -328,7 +328,7 @@ function escapeHtml(s) {
 
 const playCache = {}; // id -> {at, data} (5 min; links are signed)
 
-async function playTitle(id, title) {
+async function playTitle(id, title, year) {
   const wrap = $("player-wrap");
   const note = $("play-note");
   const qb = $("quality-bar");
@@ -349,7 +349,8 @@ async function playTitle(id, title) {
     try {
       data = await getJSON(
         MOVIE_RESOLVER + "?play=" + encodeURIComponent(id) +
-        "&title=" + encodeURIComponent(title || "")
+        "&title=" + encodeURIComponent(title || "") +
+        "&year=" + encodeURIComponent(year || "")
       );
       playCache[id] = { at: Date.now(), data };
     } catch {
