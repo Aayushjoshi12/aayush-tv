@@ -64,7 +64,7 @@
   <h1><span>▶</span> Aayush TV <span style="color:#e8eaf0">· 🎬 Movies</span></h1>
   <a href="channels.html">📺 Channels</a>
   <a href="index.html">🏏 NPL Live</a>
-  <input id="search" type="text" placeholder="Search movies &amp; shows..." autocomplete="off">
+  <input id="search" type="text" placeholder="Search MoviesMod..." autocomplete="off">
 </header>
 
 <div id="player-wrap">
@@ -98,7 +98,11 @@
    (Azure, primary — Vercel is blocked from the video site's playlist
    files; Vercel is the fallback if Azure is unreachable)
      ?home=movie|show   -> featured + category rows (net52, primary)
-     ?q=<query>         -> net52 search
+     ?q=<query>         -> net52 search (streaming catalogue; the
+                          home rows use it, not the search box)
+     ?dq=<query>        -> MoviesMod search (the search box searches
+                          MoviesMod only — 21,704 titles from its
+                          sitemap index; results are download titles)
      ?info=<id1>,<id2>  -> titles for a row's posters (lazy)
      ?detail=<id>       -> full details + episodes (TV) + suggestions
      ?play=<id>&title=  -> fresh stream: net52 HLS first (kind "hls",
@@ -160,15 +164,21 @@ async function getJSON(url) {
 function makeCard(item, onTap) {
   const card = el("div", "card");
   const poster = el("div", "poster");
-  const img = document.createElement("img");
-  img.src = item.poster || posterUrl(item.id);
-  img.alt = item.title || "";
-  img.loading = "lazy";
-  img.onerror = () => {
-    img.remove();
+  // MoviesMod search results have no poster and no streaming id:
+  // show the 🎬 tile directly instead of a broken image request.
+  if (item.poster || item.id) {
+    const img = document.createElement("img");
+    img.src = item.poster || posterUrl(item.id);
+    img.alt = item.title || "";
+    img.loading = "lazy";
+    img.onerror = () => {
+      img.remove();
+      poster.appendChild(el("div", "noimg", "🎬"));
+    };
+    poster.appendChild(img);
+  } else {
     poster.appendChild(el("div", "noimg", "🎬"));
-  };
-  poster.appendChild(img);
+  }
   card.appendChild(poster);
   card.appendChild(el("div", "name", item.title || "…"));
   if (item.year) card.appendChild(el("div", "year", item.year));
@@ -267,7 +277,11 @@ async function runSearch(q) {
   main.querySelectorAll("#rows > *").forEach((n) => (n.style.display = "none"));
   status.textContent = "Searching...";
   try {
-    const d = await getJSON(MOVIE_RESOLVER + "?q=" + encodeURIComponent(q));
+    // Search is MoviesMod only (the user's request, 12 Nov 2026):
+    // ?dq= searches the MoviesMod catalogue index, not the
+    // streaming site. Results are download titles — tapping one
+    // opens its download view.
+    const d = await getJSON(MOVIE_RESOLVER + "?dq=" + encodeURIComponent(q));
     const items = d.items || [];
     status.textContent = items.length
       ? items.length + " result" + (items.length === 1 ? "" : "s") + ' for "' + q + '"'
@@ -280,12 +294,11 @@ async function runSearch(q) {
     }
     resEl.innerHTML = "";
     if (items.length) {
-      resEl.appendChild(el("div", "row-title", "Search results"));
+      resEl.appendChild(el("div", "row-title", "Search results — MoviesMod"));
       const rowEl = el("div", "row");
       rowEl.style.flexWrap = "wrap";
       items.forEach((it) => {
-        const card = makeCard(it, (item) => openTitle(item.id, item.title, item.year || ""));
-        card.dataset.id = it.id;
+        const card = makeCard(it, (item) => openMoviesMod(item));
         rowEl.appendChild(card);
       });
       resEl.appendChild(rowEl);
@@ -293,6 +306,37 @@ async function runSearch(q) {
   } catch {
     status.textContent = "Search failed — please try again.";
   }
+}
+
+/* ---------- MoviesMod result (download view) ---------- */
+
+function openMoviesMod(item) {
+  currentTitle = item.title || "";
+  currentYear = item.year || "";
+  const wrap = $("player-wrap");
+  const panel = $("detail-panel");
+  const note = $("play-note");
+  note.style.display = "none";
+  $("quality-bar").classList.remove("open");
+  $("quality-bar").innerHTML = "";
+  wrap.classList.add("open");
+  $("now-playing").innerHTML =
+    "Download: <b>" + escapeHtml(currentTitle) + "</b>" +
+    (currentYear ? " (" + escapeHtml(currentYear) + ")" : "");
+  panel.innerHTML = "";
+  panel.appendChild(el("h2", "", currentTitle));
+  panel.appendChild(
+    el("div", "meta", [currentYear, "MoviesMod"].filter(Boolean).join(" · "))
+  );
+  panel.appendChild(
+    el("div", "desc", "Tap Download below to get the file — one tap, no waiting rooms.")
+  );
+  panel.classList.add("open");
+  const dlBtn = $("dl-btn");
+  dlBtn.classList.add("show");
+  dlBtn.onclick = downloadTitle;
+  $("dl-note").classList.remove("show");
+  wrap.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 /* ---------- detail + playback ---------- */
@@ -499,7 +543,8 @@ async function downloadTitle() {
     a.textContent = "Tap here to download";
     note.appendChild(a);
     note.classList.add("show");
-    window.open(d.downloadUrl, "_blank", "noopener");
+    // No window.open here: the link above is the single tap target.
+    // (Auto-opening AND showing the link opened the file page twice.)
   } catch {
     note.textContent = "Could not fetch the download link — please try again.";
     note.classList.add("show");
