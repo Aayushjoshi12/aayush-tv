@@ -542,6 +542,72 @@ function renderSeriesNote(note, d, title) {
 }
 
 // Show one season's whole-season zips + an episode loader.
+// ---------- season-episode prefetch + cache ----------
+// "Show single episodes" (?season=) resolves every archive of the
+// season server-side (each through the multi-hop chain), so it
+// takes 5-10s if it only starts when the button is tapped. Start
+// it the moment a season is picked — the user reads the pack links
+// first, so the episodes are usually ready by the time they tap
+// the button. Episode lists are also cached 24h like downloads.
+const EP_CACHE_KEY = "aayush-ep-cache-v1";
+let episodePrefetch = null; // {key, promise}
+function epCacheKey(title, year, site, slug, seasonNum) {
+  return [title, year || "", site || "", slug || "", seasonNum].join("|").toLowerCase();
+}
+function epCacheGet(key) {
+  try {
+    const all = JSON.parse(localStorage.getItem(EP_CACHE_KEY) || "{}");
+    const hit = all[key];
+    if (hit && Date.now() - hit.at < DL_CACHE_TTL_MS) return hit.data;
+  } catch {}
+  return null;
+}
+function epCacheSet(key, data) {
+  try {
+    const all = JSON.parse(localStorage.getItem(EP_CACHE_KEY) || "{}");
+    all[key] = { at: Date.now(), data };
+    for (const k of Object.keys(all)) {
+      if (Date.now() - all[k].at > DL_CACHE_TTL_MS) delete all[k];
+    }
+    localStorage.setItem(EP_CACHE_KEY, JSON.stringify(all));
+  } catch {}
+}
+async function fetchSeasonEpisodes(seasonNum, title) {
+  const base =
+    "?season=" + encodeURIComponent(title) +
+    "&sn=" + encodeURIComponent(seasonNum) +
+    "&year=" + encodeURIComponent(currentYear || "") +
+    (currentSite ? "&site=" + encodeURIComponent(currentSite) : "") +
+    (currentSlug ? "&slug=" + encodeURIComponent(currentSlug) : "");
+  let d = null;
+  try {
+    const r = await fetch(MOVIE_RESOLVER + base);
+    if (r.ok) d = await r.json();
+  } catch {}
+  if (!d || d.noSource || !(d.episodes || []).length) {
+    try {
+      d = await getJSON(MOVIE_RESOLVER_FALLBACK + base);
+    } catch {
+      d = null;
+    }
+  }
+  return d && !d.noSource && (d.episodes || []).length ? d : null;
+}
+function prefetchSeasonEpisodes(seasonNum, title) {
+  const key = epCacheKey(currentTitle, currentYear, currentSite, currentSlug, seasonNum);
+  const cached = epCacheGet(key);
+  if (cached) {
+    episodePrefetch = { key, promise: Promise.resolve(cached) };
+    return;
+  }
+  episodePrefetch = {
+    key,
+    promise: fetchSeasonEpisodes(seasonNum, title)
+      .then((d) => { if (d) epCacheSet(key, d); return d; })
+      .catch(() => null),
+  };
+}
+
 function pickSeason(seasonNum, btn, title) {
   const holder = $("season-holder");
   if (!holder || !currentSeries) return;
@@ -553,6 +619,10 @@ function pickSeason(seasonNum, btn, title) {
     holder.appendChild(el("div", "sec", "📦 Download " + label + " at once"));
     s.packs.forEach((p) => holder.appendChild(qualityLink(p, title)));
   }
+  // Start resolving this season's single episodes NOW, while the
+  // user reads the pack links — "Show single episodes" then shows
+  // them at once instead of waiting 5-10s.
+  prefetchSeasonEpisodes(seasonNum, title);
   const epBtn = el("button", "epq", "🎞️ Show single episodes");
   epBtn.addEventListener("click", () => loadSeasonEpisodes(seasonNum, epBtn, title));
   holder.appendChild(el("div", "sec", "Or one episode at a time"));
@@ -563,31 +633,27 @@ function pickSeason(seasonNum, btn, title) {
 }
 
 // Load a season's episodes (?season=) and render them with
-// direct download links per quality.
+// direct download links per quality. The episodes were already
+// being resolved in the background since the season was picked
+// (see prefetchSeasonEpisodes), so this usually returns at once;
+// if the user tapped the button before the prefetch finished, it
+// waits for the same in-flight answer instead of starting over.
 async function loadSeasonEpisodes(seasonNum, btn, title) {
   const holder = $("ep-holder");
   if (!holder) return;
   btn.disabled = true;
   btn.textContent = "Loading episodes…";
-  const base =
-    "?season=" + encodeURIComponent(title) +
-    "&sn=" + encodeURIComponent(seasonNum) +
-    "&year=" + encodeURIComponent(currentYear || "") +
-    (currentSite ? "&site=" + encodeURIComponent(currentSite) : "") +
-    (currentSlug ? "&slug=" + encodeURIComponent(currentSlug) : "");
   let d = null;
   try {
-    const r = await fetch(MOVIE_RESOLVER + base);
-    if (r.ok) d = await r.json();
-  } catch {
-    // Fall through to Azure below.
-  }
-  if (!d || d.noSource || !(d.episodes || []).length) {
-    try {
-      d = await getJSON(MOVIE_RESOLVER_FALLBACK + base);
-    } catch {
-      d = null;
+    const key = epCacheKey(currentTitle, currentYear, currentSite, currentSlug, seasonNum);
+    if (episodePrefetch && episodePrefetch.key === key) {
+      d = await episodePrefetch.promise;
+    } else {
+      d = await fetchSeasonEpisodes(seasonNum, title);
+      if (d) epCacheSet(key, d);
     }
+  } catch {
+    d = null;
   }
   btn.disabled = false;
   if (!d || d.noSource || !(d.episodes || []).length) {
