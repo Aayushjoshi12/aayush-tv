@@ -460,12 +460,30 @@ async function downloadTitle() {
   btn.textContent = "Finding download…";
   note.classList.remove("show");
   note.textContent = "";
+  // Downloads use Vercel FIRST: Azure Korea's IPs are Cloudflare-
+  // blocked by links.modpro.blog (the download-link host), so Azure
+  // always answers noSource for ?dl= while Vercel (Mumbai) works.
+  // Azure is the fallback if Vercel fails. (Streaming still uses
+  // Azure first — Vercel is blocked from the video site instead.)
+  const dlQuery =
+    "?dl=" + encodeURIComponent(title) +
+    "&year=" + encodeURIComponent(currentYear || "") +
+    "&quality=720p";
+  let d = null;
   try {
-    const d = await getJSON(
-      MOVIE_RESOLVER + "?dl=" + encodeURIComponent(title) +
-      "&year=" + encodeURIComponent(currentYear || "") +
-      "&quality=720p"
-    );
+    const r = await fetch(MOVIE_RESOLVER_FALLBACK + dlQuery);
+    if (r.ok) d = await r.json();
+  } catch {
+    // Fall through to Azure below.
+  }
+  if (!d || d.noSource || !d.downloadUrl) {
+    try {
+      d = await getJSON(MOVIE_RESOLVER + dlQuery);
+    } catch {
+      d = null;
+    }
+  }
+  try {
     if (!d || d.noSource || !d.downloadUrl) {
       note.textContent = "No download found for this title yet. Try another one.";
       note.classList.add("show");
