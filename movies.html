@@ -6,41 +6,66 @@
 <title>🎬 Movies — Aayush TV</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.13), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.08), transparent 70%); background-attachment: fixed; }
+  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.16), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.10), transparent 70%), radial-gradient(600px 260px at 8% 100%, rgba(255,59,59,.06), transparent 70%); background-attachment: fixed; }
   header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 16px 20px 12px; border-bottom: 1px solid #232838; }
-  h1 { font-size: 24px; font-weight: 800; letter-spacing: .2px; margin-bottom: 10px; }
-  h1 span { color: #ff3b3b; }
+  h1 { font-size: 26px; font-weight: 800; letter-spacing: .2px; margin-bottom: 10px; background: linear-gradient(90deg, #fff, #ffb3b3 55%, #ff3b3b); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  h1 span { -webkit-text-fill-color: #ff3b3b; }
   header a { color: #ff5252; font-size: 14px; text-decoration: none; display: inline-block; margin-right: 14px; }
-  #search { width: 100%; padding: 11px 12px 11px 40px; border-radius: 999px; border: 1px solid #2a3040; background: #151a26 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa1b2' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") no-repeat 13px center; color: #fff; font-size: 15px; outline: none; transition: border-color .15s, box-shadow .15s; }
+  header a:hover { text-decoration: underline; }
+  #search { width: 100%; padding: 12px 12px 12px 42px; border-radius: 999px; border: 1px solid #2a3040; background: #151a26 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa1b2' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") no-repeat 14px center; color: #fff; font-size: 15px; outline: none; transition: border-color .15s, box-shadow .15s; }
   #search:focus { border-color: #ff3b3b; box-shadow: 0 0 0 3px rgba(255,59,59,.18); }
   #detail-wrap { display: none; padding: 16px 20px 0; max-width: 1440px; margin: 0 auto; }
   #detail-wrap.open { display: block; }
-  #detail-panel { padding: 16px; background: #12162a; border: 1px solid #262d42; border-radius: 14px; }
-  #detail-panel h2 { font-size: 18px; margin-bottom: 6px; }
-  #detail-panel .meta { font-size: 13px; color: #9aa1b2; margin-bottom: 10px; }
-  #detail-panel .desc { font-size: 14px; line-height: 1.6; color: #cfd3dd; margin-bottom: 12px; }
-  #dl-btn { display: none; margin-top: 12px; padding: 10px 18px; border-radius: 12px; border: 1px solid #ff3b3b; background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; }
+  #detail-panel { padding: 18px; background: linear-gradient(160deg, #141a2e, #12162a); border: 1px solid #2a3150; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }
+  #detail-panel .d-top { display: flex; gap: 16px; align-items: flex-start; }
+  #detail-panel .d-poster { flex: 0 0 110px; width: 110px; aspect-ratio: 2 / 3; border-radius: 12px; overflow: hidden; background: radial-gradient(120px 90px at 50% 40%, #232a42, #161b2c); border: 1px solid #262d42; }
+  #detail-panel .d-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  #detail-panel h2 { font-size: 20px; margin-bottom: 6px; line-height: 1.3; }
+  #detail-panel .meta { font-size: 13px; color: #9aa1b2; margin-bottom: 8px; }
+  #detail-panel .desc { font-size: 14px; line-height: 1.6; color: #cfd3dd; margin-bottom: 4px; }
+  #detail-panel .tag { display: inline-block; font-size: 11px; font-weight: 700; letter-spacing: .4px; padding: 3px 8px; border-radius: 999px; background: rgba(255,59,59,.15); color: #ff8a8a; border: 1px solid rgba(255,59,59,.35); margin-bottom: 8px; }
+  #detail-panel .tag.series { background: rgba(80,120,255,.15); color: #9db4ff; border-color: rgba(80,120,255,.4); }
+  #dl-btn { display: none; margin-top: 14px; padding: 11px 20px; border-radius: 12px; border: 1px solid #ff3b3b; background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; box-shadow: 0 6px 18px rgba(255,59,59,.35); }
   #dl-btn.show { display: inline-block; }
   #dl-btn:disabled { opacity: .6; cursor: wait; }
-  #dl-note { display: none; margin-top: 10px; font-size: 13px; color: #9aa1b2; line-height: 1.6; }
+  #dl-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  #dl-note { display: none; margin-top: 12px; font-size: 13px; color: #9aa1b2; line-height: 1.7; }
   #dl-note.show { display: block; }
   #dl-note a { color: #4ade80; font-weight: 700; }
+  #dl-note .sec { font-size: 13px; font-weight: 800; color: #f2f4fa; margin: 10px 0 6px; }
+  #dl-note .sec:first-child { margin-top: 0; }
+  .qlink { display: inline-block; padding: 7px 14px; margin: 3px 6px 3px 0; border-radius: 999px; border: 1px solid rgba(74,222,128,.45); background: rgba(74,222,128,.10); color: #4ade80; font-weight: 700; font-size: 13px; text-decoration: none; }
+  .qlink:hover { background: rgba(74,222,128,.22); }
+  .epbtn { display: inline-block; padding: 6px 12px; margin: 3px 6px 3px 0; border-radius: 10px; border: 1px solid #2a3040; background: #1a2032; color: #e8eaf0; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .epbtn:hover { border-color: #ff3b3b; color: #fff; }
+  .epbtn:disabled { opacity: .6; cursor: wait; }
+  .epq { display: inline-block; padding: 5px 11px; margin: 2px 5px 2px 0; border-radius: 999px; border: 1px solid rgba(80,120,255,.45); background: rgba(80,120,255,.10); color: #9db4ff; font-weight: 700; font-size: 12px; cursor: pointer; }
+  .epq:hover { background: rgba(80,120,255,.22); }
   main { max-width: 1440px; margin: 0 auto; padding: 18px 20px 36px; }
+  .hero { padding: 26px 4px 6px; }
+  .hero h2 { font-size: 30px; font-weight: 800; line-height: 1.2; letter-spacing: -.3px; }
+  .hero h2 em { font-style: normal; color: #ff3b3b; }
+  .hero p { color: #9aa1b2; font-size: 15px; line-height: 1.6; margin-top: 8px; max-width: 640px; }
   .row-title { font-size: 18px; font-weight: 800; margin: 22px 0 12px; }
-  .row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
+  .row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
   .row::-webkit-scrollbar { height: 6px; }
   .row::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 3px; }
   .card { flex: 0 0 auto; width: 150px; cursor: pointer; }
-  .card .poster { position: relative; width: 150px; aspect-ratio: 2 / 3; border-radius: 12px; overflow: hidden; background: radial-gradient(120px 90px at 50% 40%, #232a42, #161b2c); border: 1px solid #262d42; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
-  .card:hover .poster { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 10px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(255,59,59,.35); }
+  .card .poster { position: relative; width: 150px; aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; background: radial-gradient(120px 90px at 50% 40%, #232a42, #161b2c); border: 1px solid #262d42; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .card:hover .poster { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 1px rgba(255,59,59,.35); }
+  .card .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .card .poster .noimg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: #ff5c5c; }
+  .card .badge { position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 800; letter-spacing: .4px; padding: 3px 7px; border-radius: 999px; background: rgba(11,14,20,.82); color: #9db4ff; border: 1px solid rgba(80,120,255,.5); backdrop-filter: blur(4px); }
+  .card .badge.movie { color: #ff8a8a; border-color: rgba(255,59,59,.5); }
   .card .name { font-size: 13px; font-weight: 600; line-height: 1.35; margin-top: 8px; color: #f2f4fa; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .card .year { font-size: 12px; color: #9aa1b2; margin-top: 2px; }
-  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-  .chips button { padding: 7px 14px; border-radius: 20px; border: 1px solid #2a3040; background: #151a26; color: #cfd3dd; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .card .site { display: inline-block; font-size: 11px; font-weight: 700; color: #7dd3fc; background: rgba(125,211,252,.10); border: 1px solid rgba(125,211,252,.3); padding: 2px 7px; border-radius: 999px; margin-top: 5px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+  .chips button { padding: 8px 15px; border-radius: 20px; border: 1px solid #2a3040; background: #151a26; color: #cfd3dd; cursor: pointer; font-size: 13px; font-weight: 600; transition: border-color .15s, color .15s; }
   .chips button:hover { border-color: #ff3b3b; color: #fff; }
   #status { padding: 8px 20px 20px; color: #9aa1b2; font-size: 14px; text-align: center; }
   .hint { color: #9aa1b2; font-size: 14px; line-height: 1.6; margin-top: 8px; }
+  .foot { text-align: center; color: #6b7280; font-size: 12px; padding: 10px 20px 26px; }
 </style>
 </head>
 <body>
@@ -48,7 +73,7 @@
   <h1><span>▶</span> Aayush TV <span style="color:#e8eaf0">· 🎬 Movies</span></h1>
   <a href="channels.html">📺 Channels</a>
   <a href="index.html">🏏 NPL Live</a>
-  <input id="search" type="text" placeholder="Search MoviesMod..." autocomplete="off">
+  <input id="search" type="text" placeholder="Search 31,000+ movies &amp; series..." autocomplete="off">
 </header>
 
 <div id="detail-wrap">
@@ -59,12 +84,15 @@
 
 <main id="main">
   <div id="home-hint">
-    <div class="row-title">Download movies</div>
-    <div class="hint">Search 21,700+ movies from MoviesMod — tap a result, then Download and pick a quality (480p / 720p / 1080p). One tap, no waiting rooms.</div>
+    <div class="hero">
+      <h2>Movies &amp; series, <em>one tap</em> to download.</h2>
+      <p>Search 31,000+ titles from MoviesMod, MoviesLeech, UHDMovies and AnimeFlix — movies and full TV series. Tap a result, then Download and pick a quality. For a series, grab the whole season in one zip, or a single episode.</p>
+    </div>
     <div class="chips" id="popular-chips"></div>
   </div>
 </main>
 <div id="status"></div>
+<div class="foot">Aayush TV · Movies — free downloads from the modlist network</div>
 
 <script>
 /* ------------------------------------------------------------------
@@ -72,18 +100,24 @@
    NetMirror streaming was removed 12 Nov 2026 (the user asked:
    "remove the netmirror it not working only keep dowllad site").
    There is no video player here anymore: this page searches the
-   MoviesMod catalogue and resolves one-click download links.
+   modlist catalogue and resolves one-click download links.
 
    Resolver: GET https://aayush-tv-minter.vercel.app/api/resolve-movie
    (Vercel is PRIMARY for downloads — Azure Korea's IPs are
    Cloudflare-blocked by links.modpro.blog, the download-link host,
    so Azure always answers noSource for ?dl= / ?dlall=)
-     ?dq=<query>        -> MoviesMod search (21,704 titles from its
-                          sitemap index; results are download titles)
-     ?dlall=<title>&year= -> EVERY quality MoviesMod has for the
-                          title (480p/720p/1080p/2160p, highest
-                          first) as {qualities: [{quality,
-                          downloadUrl, filename, size, pageUrl}]}
+   Modes:
+     ?dq=<query>        -> search the whole modlist network
+                          (31,160 titles; results carry poster +
+                          site + a series flag)
+     ?dlall=<title>&year=&site=&slug= -> EVERY quality for a MOVIE
+                          (480p/720p/1080p/2160p, highest first)
+     ?series=<title>&year=&site=&slug= -> a TV SERIES:
+                          packs (whole season zips, one/quality),
+                          episodes [{ep, qualities:[{quality,
+                          archiveId, blogBase}]}], seasons
+                          (per-quality season files)
+     ?ep=<archiveId>&blog=<host>&page=<url> -> ONE episode file
      ?dl=<title>&year=&quality= -> one quality only (kept for
                           backwards compat)
 ------------------------------------------------------------------ */
@@ -96,6 +130,7 @@ let currentTitle = "";
 let currentYear = "";
 let currentSite = "";
 let currentSlug = "";
+let currentPageUrl = "";
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -125,13 +160,20 @@ async function getJSON(url) {
   }
 }
 
+// A result is a TV series when its slug names a season
+// ("...-season-1-...", "...-s01-...") — movies have no season.
+function isSeries(item) {
+  const s = String((item && item.slug) || "").toLowerCase();
+  return /season/.test(s) || /s\d{1,2}(e\d{1,3})?/.test(s);
+}
+
 /* ---------- cards ---------- */
 
 function makeCard(item, onTap) {
   const card = el("div", "card");
   const poster = el("div", "poster");
-  // MoviesMod / modlist results carry a real poster URL from the
-  // site's sitemap; show it, falling back to the 🎬 tile.
+  // Modlist results carry a real poster URL from the site's
+  // sitemap; show it, falling back to the 🎬 tile.
   if (item.poster) {
     const img = document.createElement("img");
     img.src = item.poster;
@@ -145,15 +187,20 @@ function makeCard(item, onTap) {
   } else {
     poster.appendChild(el("div", "noimg", "🎬"));
   }
+  const series = isSeries(item);
+  poster.appendChild(el("div", "badge" + (series ? "" : " movie"), series ? "📺 SERIES" : "🎬 MOVIE"));
   card.appendChild(poster);
   card.appendChild(el("div", "name", item.title || "…"));
   if (item.year) card.appendChild(el("div", "year", item.year));
-  if (item.siteName) card.appendChild(el("div", "year", item.siteName));
+  if (item.siteName) {
+    const pill = el("span", "site", item.siteName);
+    card.appendChild(pill);
+  }
   card.addEventListener("click", () => onTap(item, card));
   return card;
 }
 
-/* ---------- search (MoviesMod only) ---------- */
+/* ---------- search (whole modlist network) ---------- */
 
 let searchTimer = null;
 $("search").addEventListener("input", () => {
@@ -189,7 +236,7 @@ async function runSearch(q) {
     }
     resEl.innerHTML = "";
     if (items.length) {
-      resEl.appendChild(el("div", "row-title", "Search results — MoviesMod"));
+      resEl.appendChild(el("div", "row-title", "Search results"));
       const rowEl = el("div", "row");
       rowEl.style.flexWrap = "wrap";
       items.forEach((it) => {
@@ -203,37 +250,73 @@ async function runSearch(q) {
   }
 }
 
-/* ---------- MoviesMod result (download view) ---------- */
+/* ---------- result (download view) ---------- */
 
 function openMoviesMod(item) {
   currentTitle = item.title || "";
   currentYear = item.year || "";
   currentSite = item.site || "";
   currentSlug = item.slug || "";
+  currentPageUrl = "";
+  const series = isSeries(item);
   const wrap = $("detail-wrap");
   const panel = $("detail-panel");
   wrap.classList.add("open");
   panel.innerHTML = "";
-  panel.appendChild(el("h2", "", currentTitle));
-  panel.appendChild(
+  const top = el("div", "d-top");
+  const poster = el("div", "d-poster");
+  if (item.poster) {
+    const img = document.createElement("img");
+    img.src = item.poster;
+    img.alt = currentTitle;
+    img.onerror = () => { poster.textContent = "🎬"; poster.style.fontSize = "32px"; poster.style.display = "flex"; poster.style.alignItems = "center"; poster.style.justifyContent = "center"; };
+    poster.appendChild(img);
+  } else {
+    poster.textContent = "🎬";
+    poster.style.fontSize = "32px";
+    poster.style.display = "flex";
+    poster.style.alignItems = "center";
+    poster.style.justifyContent = "center";
+  }
+  top.appendChild(poster);
+  const info = el("div", "");
+  info.appendChild(el("div", "tag" + (series ? " series" : ""), series ? "📺 TV SERIES" : "🎬 MOVIE"));
+  info.appendChild(el("h2", "", currentTitle));
+  info.appendChild(
     el("div", "meta", [currentYear, item.siteName || "MoviesMod"].filter(Boolean).join(" · "))
   );
-  panel.appendChild(
-    el("div", "desc", "Tap Download below to get the file — one tap, no waiting rooms.")
+  info.appendChild(
+    el("div", "desc", series
+      ? "Download the whole season in one zip, or pick a single episode — choose a quality and tap."
+      : "Tap Download below to get the file — one tap, no waiting rooms.")
   );
+  top.appendChild(info);
+  panel.appendChild(top);
   const dlBtn = $("dl-btn");
   dlBtn.classList.add("show");
+  dlBtn.textContent = series ? "⬇ Get season / episodes" : "⬇ Download";
   dlBtn.onclick = downloadTitle;
   $("dl-note").classList.remove("show");
+  $("dl-note").innerHTML = "";
   wrap.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
-/* ---------- one-click download (MoviesMod, all qualities) ---------- */
+/* ---------- downloads ---------- */
 
-// Resolves a download link for the current title via the resolver's
-// ?dlall= mode (MoviesMod chain, server-side) and shows every
-// quality as a link. The file page is DriveSeed; the actual file
-// download there is one click in the visitor's browser.
+function qualityLink(q, title) {
+  const a = document.createElement("a");
+  a.href = q.downloadUrl;
+  a.target = "_blank";
+  a.rel = "noopener";
+  a.className = "qlink";
+  a.textContent = (q.quality || "file") + (q.size ? " (" + q.size + ")" : "");
+  a.title = q.filename || title;
+  return a;
+}
+
+// Resolves a download link for the current title. Movies use
+// ?dlall= (every quality); series use ?series= (whole-season
+// packs + an episode list; one episode resolves on demand).
 async function downloadTitle() {
   const btn = $("dl-btn");
   const note = $("dl-note");
@@ -242,59 +325,123 @@ async function downloadTitle() {
   btn.disabled = true;
   btn.textContent = "Finding downloads…";
   note.classList.remove("show");
-  note.textContent = "";
-  // Downloads use Vercel FIRST: Azure Korea's IPs are Cloudflare-
-  // blocked by links.modpro.blog (the download-link host), so Azure
-  // always answers noSource for ?dlall= while Vercel (Mumbai) works.
-  // Azure is the fallback if Vercel fails.
-  // ?dlall= returns EVERY quality MoviesMod has for the title
-  // (480p/720p/1080p/2160p), so the user picks — not just 720p.
-  const dlQuery =
-    "?dlall=" + encodeURIComponent(title) +
+  note.innerHTML = "";
+  const series = currentSlug && isSeries({ slug: currentSlug });
+  const base =
+    (series ? "?series=" : "?dlall=") + encodeURIComponent(title) +
     "&year=" + encodeURIComponent(currentYear || "") +
     (currentSite ? "&site=" + encodeURIComponent(currentSite) : "") +
     (currentSlug ? "&slug=" + encodeURIComponent(currentSlug) : "");
   let d = null;
   try {
-    const r = await fetch(MOVIE_RESOLVER + dlQuery);
+    const r = await fetch(MOVIE_RESOLVER + base);
     if (r.ok) d = await r.json();
   } catch {
     // Fall through to Azure below.
   }
-  if (!d || d.noSource || !(d.qualities || []).length) {
+  if (!d || d.noSource || (!series && !(d.qualities || []).length) || (series && !d.packs && !d.episodes && !d.seasons)) {
     try {
-      d = await getJSON(MOVIE_RESOLVER_FALLBACK + dlQuery);
+      d = await getJSON(MOVIE_RESOLVER_FALLBACK + base);
     } catch {
       d = null;
     }
   }
   try {
-    const quals = (d && d.qualities) || [];
-    if (!d || d.noSource || !quals.length) {
+    if (!d || d.noSource) {
       note.textContent = "No download found for this title yet. Try another one.";
       note.classList.add("show");
       return;
     }
     note.innerHTML = "";
-    note.appendChild(document.createTextNode("Download — pick a quality: "));
-    quals.forEach((q, i) => {
-      const a = document.createElement("a");
-      a.href = q.downloadUrl;
-      a.target = "_blank";
-      a.rel = "noopener";
-      a.textContent =
-        (q.quality || "file") + (q.size ? " (" + q.size + ")" : "");
-      a.title = q.filename || title;
-      note.appendChild(a);
-      if (i < quals.length - 1) note.appendChild(document.createTextNode(" · "));
-    });
+    if (series) {
+      currentPageUrl = d.pageUrl || "";
+      renderSeriesNote(note, d, title);
+    } else {
+      const quals = d.qualities || [];
+      if (!quals.length) {
+        note.textContent = "No download found for this title yet. Try another one.";
+        note.classList.add("show");
+        return;
+      }
+      note.appendChild(el("div", "sec", "Download — pick a quality"));
+      quals.forEach((q) => note.appendChild(qualityLink(q, title)));
+    }
     note.classList.add("show");
   } catch {
     note.textContent = "Could not fetch the download link — please try again.";
     note.classList.add("show");
   } finally {
     btn.disabled = false;
-    btn.textContent = "⬇ Download";
+    btn.textContent = series ? "⬇ Get season / episodes" : "⬇ Download";
+  }
+}
+
+// Series download view: whole-season packs first, then one
+// episode at a time (each episode's quality resolves on tap).
+function renderSeriesNote(note, d, title) {
+  const packs = d.packs || [];
+  const seasons = d.seasons || [];
+  const episodes = d.episodes || [];
+  if (packs.length) {
+    note.appendChild(el("div", "sec", "📦 Download whole season at once"));
+    packs.forEach((p) => note.appendChild(qualityLink(p, title)));
+  }
+  if (seasons.length) {
+    note.appendChild(el("div", "sec", "📦 Download this season"));
+    seasons.forEach((s) => note.appendChild(qualityLink(s, title)));
+  }
+  if (episodes.length) {
+    note.appendChild(el("div", "sec", "🎞️ Or one episode at a time"));
+    episodes.forEach((ep) => {
+      const row = el("div", "");
+      row.appendChild(el("span", "", "Ep " + ep.ep + "  "));
+      row.querySelector("span").style.fontWeight = "700";
+      row.querySelector("span").style.color = "#f2f4fa";
+      row.querySelector("span").style.marginRight = "4px";
+      (ep.qualities || []).forEach((q) => {
+        const b = el("button", "epq", (q.quality || "file"));
+        b.addEventListener("click", () => downloadEpisode(q, ep.ep, b, title));
+        row.appendChild(b);
+      });
+      note.appendChild(row);
+    });
+  }
+  if (!packs.length && !seasons.length && !episodes.length) {
+    note.textContent = "No download found for this title yet. Try another one.";
+  }
+}
+
+// One episode, on demand: ?ep= resolves that archive to a file
+// and swaps the button for the download link.
+async function downloadEpisode(q, epNum, btn, title) {
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "…";
+  const query =
+    "?ep=" + encodeURIComponent(q.archiveId) +
+    "&blog=" + encodeURIComponent(q.blogBase) +
+    (currentPageUrl ? "&page=" + encodeURIComponent(currentPageUrl) : "");
+  let d = null;
+  try {
+    const r = await fetch(MOVIE_RESOLVER + query);
+    if (r.ok) d = await r.json();
+  } catch {
+    // Fall through to Azure below.
+  }
+  if (!d || d.noSource) {
+    try {
+      d = await getJSON(MOVIE_RESOLVER_FALLBACK + query);
+    } catch {
+      d = null;
+    }
+  }
+  if (d && !d.noSource && d.downloadUrl) {
+    const a = qualityLink(d, title);
+    btn.replaceWith(a);
+  } else {
+    btn.disabled = false;
+    btn.textContent = old;
+    btn.title = "That episode is not available right now.";
   }
 }
 
@@ -303,6 +450,7 @@ async function downloadTitle() {
 const POPULAR = [
   "Avengers", "Dune", "Inception", "Interstellar", "John Wick",
   "Spider-Man", "Pushpa 2", "Jawan", "Oppenheimer", "Joker",
+  "Breaking Bad", "Squid Game", "Loki", "Wednesday",
 ];
 const chipsEl = $("popular-chips");
 POPULAR.forEach((t) => {
