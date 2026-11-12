@@ -295,6 +295,94 @@ async function runSearch(q) {
 
 /* ---------- result (download view) ---------- */
 
+// ---------- download prefetch + cache ----------
+// Download links are slow (~4-8s: the resolver walks a multi-hop
+// chain per quality, and a cold Vercel function adds ~4s more).
+// So the links are resolved as soon as a title is tapped, not
+// when Download is tapped: by the time the user reads the panel
+// and taps Download, the answer is usually already here. The
+// resolved DriveSeed file URLs are stable, so they are also cached
+// in localStorage for 24h — a repeat download is instant.
+const DL_CACHE_KEY = "aayush-dl-cache-v1";
+const DL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+let downloadPrefetch = null; // {key, promise}
+let currentIsSeries = false;
+function dlCacheKey(title, year, site, slug) {
+  return [title, year || "", site || "", slug || ""].join("|").toLowerCase();
+}
+function dlCacheGet(key) {
+  try {
+    const all = JSON.parse(localStorage.getItem(DL_CACHE_KEY) || "{}");
+    const hit = all[key];
+    if (hit && Date.now() - hit.at < DL_CACHE_TTL_MS) return hit.data;
+  } catch {}
+  return null;
+}
+function dlCacheSet(key, data) {
+  try {
+    const all = JSON.parse(localStorage.getItem(DL_CACHE_KEY) || "{}");
+    all[key] = { at: Date.now(), data };
+    // Keep the cache small: drop entries older than the TTL.
+    for (const k of Object.keys(all)) {
+      if (Date.now() - all[k].at > DL_CACHE_TTL_MS) delete all[k];
+    }
+    localStorage.setItem(DL_CACHE_KEY, JSON.stringify(all));
+  } catch {}
+}
+// The actual resolution: series view first, movie view as fallback
+// (a series whose slug hides it still opens as a series). When the
+// tapped item is already known to be a movie, the series check is
+// skipped — it costs a whole page fetch — and only runs if the
+// movie view comes back empty.
+async function resolveDownload(title, year, site, slug, knownSeries) {
+  const common =
+    "&year=" + encodeURIComponent(year || "") +
+    (site ? "&site=" + encodeURIComponent(site) : "") +
+    (slug ? "&slug=" + encodeURIComponent(slug) : "");
+  const trySeries = async () => {
+    const base = "?series=" + encodeURIComponent(title) + common;
+    let d = null;
+    try {
+      const r = await fetch(MOVIE_RESOLVER + base);
+      if (r.ok) d = await r.json();
+    } catch {}
+    if (!d || d.noSource || !(d.seasons || []).length) {
+      try { d = await getJSON(MOVIE_RESOLVER_FALLBACK + base); } catch { d = null; }
+    }
+    return d && !d.noSource && (d.seasons || []).length ? { series: true, data: d } : null;
+  };
+  const tryMovie = async () => {
+    const base = "?dlall=" + encodeURIComponent(title) + common;
+    let d = null;
+    try {
+      const r = await fetch(MOVIE_RESOLVER + base);
+      if (r.ok) d = await r.json();
+    } catch {}
+    if (!d || d.noSource || !(d.qualities || []).length) {
+      try { d = await getJSON(MOVIE_RESOLVER_FALLBACK + base); } catch { d = null; }
+    }
+    return d && !d.noSource && (d.qualities || []).length ? { series: false, data: d } : null;
+  };
+  if (knownSeries) return (await trySeries()) || (await tryMovie());
+  const movie = await tryMovie();
+  if (movie) return movie;
+  return await trySeries();
+}
+function prefetchDownload() {
+  const key = dlCacheKey(currentTitle, currentYear, currentSite, currentSlug);
+  const cached = dlCacheGet(key);
+  if (cached) {
+    downloadPrefetch = { key, promise: Promise.resolve(cached) };
+    return;
+  }
+  downloadPrefetch = {
+    key,
+    promise: resolveDownload(currentTitle, currentYear, currentSite, currentSlug, currentIsSeries)
+      .then((res) => { if (res) dlCacheSet(key, res); return res; })
+      .catch(() => null),
+  };
+}
+
 function openMoviesMod(item) {
   currentTitle = item.title || "";
   currentYear = item.year || "";
@@ -302,6 +390,12 @@ function openMoviesMod(item) {
   currentSlug = item.slug || "";
   currentPageUrl = "";
   const series = isSeries(item);
+  currentIsSeries = series;
+  // Start resolving the download links NOW, while the user reads
+  // the panel — Download then shows them at once instead of
+  // waiting ~4-8s (or ~10-14s for a movie, which used to run a
+  // series check first).
+  prefetchDownload();
   const wrap = $("detail-wrap");
   const panel = $("detail-panel");
   wrap.classList.add("open");
@@ -357,12 +451,11 @@ function qualityLink(q, title) {
   return a;
 }
 
-// Resolves a download link for the current title. The page does
-// NOT guess series vs movie from the slug — it asks the resolver
-// for the series view first (?series=), which fast-fails when the
-// page has no episode archives, and falls back to the movie view
-// (?dlall=). That way a series whose slug hides it (e.g.
-// "stranger-things-hindi-...") still opens as a series.
+// Shows the download links for the current title. The links were
+// already being resolved in the background since the title was
+// tapped (see prefetchDownload), so this usually returns at once;
+// if the user tapped Download before the prefetch finished, it
+// waits for the same in-flight answer instead of starting over.
 async function downloadTitle() {
   const btn = $("dl-btn");
   const note = $("dl-note");
@@ -372,49 +465,25 @@ async function downloadTitle() {
   btn.textContent = "Finding downloads…";
   note.classList.remove("show");
   note.innerHTML = "";
-  const common =
-    "&year=" + encodeURIComponent(currentYear || "") +
-    (currentSite ? "&site=" + encodeURIComponent(currentSite) : "") +
-    (currentSlug ? "&slug=" + encodeURIComponent(currentSlug) : "");
-  // Try the series view first.
-  let d = null;
+  let res = null;
   let series = false;
-  const seriesBase = "?series=" + encodeURIComponent(title) + common;
   try {
-    const r = await fetch(MOVIE_RESOLVER + seriesBase);
-    if (r.ok) d = await r.json();
+    const key = dlCacheKey(currentTitle, currentYear, currentSite, currentSlug);
+    if (downloadPrefetch && downloadPrefetch.key === key) {
+      res = await downloadPrefetch.promise;
+    } else {
+      res = await resolveDownload(currentTitle, currentYear, currentSite, currentSlug, currentIsSeries);
+      if (res) dlCacheSet(key, res);
+    }
   } catch {
-    // Fall through to Azure below.
+    res = null;
   }
-  if (!d || d.noSource || !(d.seasons || []).length) {
-    try {
-      d = await getJSON(MOVIE_RESOLVER_FALLBACK + seriesBase);
-    } catch {
-      d = null;
-    }
-  }
-  if (d && !d.noSource && (d.seasons || []).length) {
-    series = true;
-  } else {
-    // Not a series page — try the movie view.
-    d = null;
-    const movieBase = "?dlall=" + encodeURIComponent(title) + common;
-    try {
-      const r = await fetch(MOVIE_RESOLVER + movieBase);
-      if (r.ok) d = await r.json();
-    } catch {
-      // Fall through to Azure below.
-    }
-    if (!d || d.noSource || !(d.qualities || []).length) {
-      try {
-        d = await getJSON(MOVIE_RESOLVER_FALLBACK + movieBase);
-      } catch {
-        d = null;
-      }
-    }
+  if (res) {
+    series = res.series;
+    var d = res.data;
   }
   try {
-    if (!d || d.noSource) {
+    if (!res || !d || d.noSource) {
       note.textContent = "No download found for this title yet. Try another one.";
       note.classList.add("show");
       return;
