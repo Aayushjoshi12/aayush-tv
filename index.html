@@ -139,7 +139,7 @@
 // MINTER_URL: a standalone link minter serving GET /api/stream?id=1412.
 // Verified working 2026-11-03 (impers, Korea Central). Play fetches a
 // fresh link from it on every press.
-const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net"; // base only — fetch appends /api/stream (FIX 2026-11-03: full /api/stream URL here made the fetch hit .../api/stream/api/stream → 404)
+const MINTER_URL = "https://aayush-tv-minter.vercel.app"; // base only — fetch appends /api/stream (FIX 2026-11-12: the Azure techjail minter's upstream huritv9/getlink.php is gone — http 301 -> https 404 "File not found" — so it returns "Upstream failed" for every channel. Vercel's stream.js now calls the working huritv8/getlink.php instead. The Azure function itself is untouched.)
 
 const $ = (id) => document.getElementById(id);
 const ATTEMPT_TIMEOUT_MS = 8000;
