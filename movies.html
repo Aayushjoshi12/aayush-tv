@@ -89,6 +89,7 @@
       <p>Search 31,000+ titles from MoviesMod, MoviesLeech, UHDMovies and AnimeFlix — movies and full TV series. Tap a result, then Download and pick a quality. For a series, grab the whole season in one zip, or a single episode.</p>
     </div>
     <div class="chips" id="popular-chips"></div>
+    <div id="new-row-wrap"></div>
   </div>
 </main>
 <div id="status"></div>
@@ -526,6 +527,32 @@ POPULAR.forEach((t) => {
   });
   chipsEl.appendChild(b);
 });
+
+/* ---------- 🆕 New on the sites (home row) ---------- */
+// The newest titles across the whole modlist network, rebuilt
+// daily from the sites' sitemaps (tools/build-modlist-index.py
+// -> public/modlist-new.json, newest 24 by <lastmod>). Shown on
+// the home page so a new movie or series appears here without
+// searching. Same cards as search results — tap opens the
+// download view.
+const NEW_FEED_URL = "https://aayush-tv-minter.vercel.app/modlist-new.json";
+async function loadNewRow() {
+  const wrap = $("new-row-wrap");
+  if (!wrap) return;
+  try {
+    const items = await getJSON(NEW_FEED_URL);
+    if (!Array.isArray(items) || !items.length) return;
+    wrap.appendChild(el("div", "row-title", "🆕 New on the sites"));
+    const row = el("div", "row");
+    items.forEach((it) => {
+      row.appendChild(makeCard(it, (item) => openMoviesMod(item)));
+    });
+    wrap.appendChild(row);
+  } catch {
+    // New row is a bonus — a failed feed must not break the page.
+  }
+}
+loadNewRow();
 </script>
 </body>
 </html>
