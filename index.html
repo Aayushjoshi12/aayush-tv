@@ -194,7 +194,7 @@ async function playNPL() {
   if (myPlay !== playToken) return;
   // The stream is plain http, which browsers block on https pages.
   if (url.startsWith("http:") && location.protocol === "https:") {
-    $("now-playing").innerHTML = `This feed is plain http, which browsers block on secure (https) pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> and press play.`;
+    $("now-playing").innerHTML = `This feed is plain http, which browsers block on secure (https) pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> and press play. (abe dalle, yo site http ma khol, https ma chaldaina)`;
     return;
   }
   // Show the video element now that we have a playable source.
