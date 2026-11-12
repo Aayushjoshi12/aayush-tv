@@ -131,6 +131,7 @@ let currentYear = "";
 let currentSite = "";
 let currentSlug = "";
 let currentPageUrl = "";
+let currentSeries = null;
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -339,7 +340,7 @@ async function downloadTitle() {
   } catch {
     // Fall through to Azure below.
   }
-  if (!d || d.noSource || (!series && !(d.qualities || []).length) || (series && !d.packs && !d.episodes && !d.seasons)) {
+  if (!d || d.noSource || (!series && !(d.qualities || []).length) || (series && !(d.seasons || []).length)) {
     try {
       d = await getJSON(MOVIE_RESOLVER_FALLBACK + base);
     } catch {
@@ -376,75 +377,109 @@ async function downloadTitle() {
   }
 }
 
-// Series download view: whole-season packs first, then one
-// episode at a time (each episode's quality resolves on tap).
+// Series download view: pick a SEASON first (S1, S2, S3…), then
+// that season's whole-season zip, or load its episodes and pick
+// one (e.g. S2E5). The ?series= answer groups packs by season;
+// episodes resolve on demand via ?season= because the episode
+// number lives in the file name, not the archive title.
 function renderSeriesNote(note, d, title) {
-  const packs = d.packs || [];
   const seasons = d.seasons || [];
-  const episodes = d.episodes || [];
-  if (packs.length) {
-    note.appendChild(el("div", "sec", "📦 Download whole season at once"));
-    packs.forEach((p) => note.appendChild(qualityLink(p, title)));
+  if (!seasons.length) {
+    note.textContent = "No download found for this series yet. Try another one.";
+    return;
   }
-  if (seasons.length) {
-    note.appendChild(el("div", "sec", "📦 Download this season"));
-    seasons.forEach((s) => note.appendChild(qualityLink(s, title)));
+  currentPageUrl = d.pageUrl || "";
+  currentSeries = d;
+  note.appendChild(el("div", "sec", "Pick a season"));
+  const picker = el("div", "");
+  seasons.forEach((s) => {
+    const label = s.season === 0 ? "All seasons" : "Season " + s.season;
+    const b = el("button", "epq", label);
+    b.addEventListener("click", () => pickSeason(s.season, b, title));
+    picker.appendChild(b);
+  });
+  note.appendChild(picker);
+  const holder = el("div", "");
+  holder.id = "season-holder";
+  note.appendChild(holder);
+  // Auto-open the first season so the user sees downloads at once.
+  pickSeason(seasons[0].season, picker.querySelector("button"), title);
+}
+
+// Show one season's whole-season zips + an episode loader.
+function pickSeason(seasonNum, btn, title) {
+  const holder = $("season-holder");
+  if (!holder || !currentSeries) return;
+  const s = (currentSeries.seasons || []).find((x) => x.season === seasonNum);
+  if (!s) return;
+  holder.innerHTML = "";
+  const label = seasonNum === 0 ? "All seasons" : "Season " + seasonNum;
+  if ((s.packs || []).length) {
+    holder.appendChild(el("div", "sec", "📦 Download " + label + " at once"));
+    s.packs.forEach((p) => holder.appendChild(qualityLink(p, title)));
   }
-  if (episodes.length) {
-    note.appendChild(el("div", "sec", "🎞️ Or one episode at a time"));
-    episodes.forEach((ep) => {
-      const row = el("div", "");
-      row.appendChild(el("span", "", "Ep " + ep.ep + "  "));
-      row.querySelector("span").style.fontWeight = "700";
-      row.querySelector("span").style.color = "#f2f4fa";
-      row.querySelector("span").style.marginRight = "4px";
-      (ep.qualities || []).forEach((q) => {
-        const b = el("button", "epq", (q.quality || "file"));
-        b.addEventListener("click", () => downloadEpisode(q, ep.ep, b, title));
-        row.appendChild(b);
-      });
-      note.appendChild(row);
-    });
+  const epBtn = el("button", "epq", "🎞️ Show single episodes");
+  epBtn.addEventListener("click", () => loadSeasonEpisodes(seasonNum, epBtn, title));
+  holder.appendChild(el("div", "sec", "Or one episode at a time"));
+  holder.appendChild(epBtn);
+  const epHolder = el("div", "");
+  epHolder.id = "ep-holder";
+  holder.appendChild(epHolder);
+}
+
+// Load a season's episodes (?season=) and render them with
+// direct download links per quality.
+async function loadSeasonEpisodes(seasonNum, btn, title) {
+  const holder = $("ep-holder");
+  if (!holder) return;
+  btn.disabled = true;
+  btn.textContent = "Loading episodes…";
+  const base =
+    "?season=" + encodeURIComponent(title) +
+    "&sn=" + encodeURIComponent(seasonNum) +
+    "&year=" + encodeURIComponent(currentYear || "") +
+    (currentSite ? "&site=" + encodeURIComponent(currentSite) : "") +
+    (currentSlug ? "&slug=" + encodeURIComponent(currentSlug) : "");
+  let d = null;
+  try {
+    const r = await fetch(MOVIE_RESOLVER + base);
+    if (r.ok) d = await r.json();
+  } catch {
+    // Fall through to Azure below.
   }
-  if (!packs.length && !seasons.length && !episodes.length) {
+  if (!d || d.noSource || !(d.episodes || []).length) {
+    try {
+      d = await getJSON(MOVIE_RESOLVER_FALLBACK + base);
+    } catch {
+      d = null;
+    }
+  }
+  btn.disabled = false;
+  if (!d || d.noSource || !(d.episodes || []).length) {
+    btn.textContent = "🎞️ Show single episodes";
+    holder.appendChild(
+      el("div", "desc", "No single episodes listed for this season — grab the whole-season zip above and pick the episode out of it.")
+    );
+    return;
+  }
+  btn.style.display = "none";
+  d.episodes.forEach((ep) => {
+    const row = el("div", "");
+    const tag = el("span", "", "Ep " + ep.ep + "  ");
+    tag.style.fontWeight = "700";
+    tag.style.color = "#f2f4fa";
+    tag.style.marginRight = "4px";
+    row.appendChild(tag);
+    (ep.qualities || []).forEach((q) => row.appendChild(qualityLink(q, title)));
+    holder.appendChild(row);
+  });
+}
     note.textContent = "No download found for this title yet. Try another one.";
   }
 }
 
 // One episode, on demand: ?ep= resolves that archive to a file
 // and swaps the button for the download link.
-async function downloadEpisode(q, epNum, btn, title) {
-  btn.disabled = true;
-  const old = btn.textContent;
-  btn.textContent = "…";
-  const query =
-    "?ep=" + encodeURIComponent(q.archiveId) +
-    "&blog=" + encodeURIComponent(q.blogBase) +
-    (currentPageUrl ? "&page=" + encodeURIComponent(currentPageUrl) : "");
-  let d = null;
-  try {
-    const r = await fetch(MOVIE_RESOLVER + query);
-    if (r.ok) d = await r.json();
-  } catch {
-    // Fall through to Azure below.
-  }
-  if (!d || d.noSource) {
-    try {
-      d = await getJSON(MOVIE_RESOLVER_FALLBACK + query);
-    } catch {
-      d = null;
-    }
-  }
-  if (d && !d.noSource && d.downloadUrl) {
-    const a = qualityLink(d, title);
-    btn.replaceWith(a);
-  } else {
-    btn.disabled = false;
-    btn.textContent = old;
-    btn.title = "That episode is not available right now.";
-  }
-}
-
 /* ---------- popular quick-search chips ---------- */
 
 const POPULAR = [
