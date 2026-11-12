@@ -36,6 +36,12 @@
   #detail-panel .eps button { padding: 7px 12px; border-radius: 10px; border: 1px solid #2a3040; background: #151a26; color: #e8eaf0; cursor: pointer; font-size: 13px; font-weight: 600; }
   #detail-panel .eps button:hover { border-color: #ff3b3b; }
   #detail-panel .eps button.playing { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); border-color: #ff3b3b; color: #fff; }
+  #dl-btn { display: none; margin-top: 12px; padding: 10px 18px; border-radius: 12px; border: 1px solid #ff3b3b; background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; }
+  #dl-btn.show { display: inline-block; }
+  #dl-btn:disabled { opacity: .6; cursor: wait; }
+  #dl-note { display: none; margin-top: 10px; font-size: 13px; color: #9aa1b2; line-height: 1.6; }
+  #dl-note.show { display: block; }
+  #dl-note a { color: #4ade80; font-weight: 700; }
   main { max-width: 1440px; margin: 0 auto; padding: 18px 20px 36px; }
   .row-title { font-size: 18px; font-weight: 800; margin: 22px 0 12px; }
   .row { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
@@ -65,6 +71,8 @@
   <div id="now-playing"></div>
   <video id="player" controls autoplay playsinline crossorigin="anonymous"></video>
   <div id="quality-bar"></div>
+  <button id="dl-btn" type="button">⬇ Download</button>
+  <div id="dl-note"></div>
   <div id="play-note"></div>
   <div id="detail-panel"></div>
 </div>
@@ -98,6 +106,12 @@
                           proxy), falling back to the Astro backup
                           (kind "mp4", signed .mp4 streams) when
                           net52 has no source for the title.
+     ?dl=<title>&year=  -> one-click download: the resolver follows
+                          the MoviesMod chain server-side and returns
+                          the DriveSeed file page (downloadUrl,
+                          quality, filename, size). The file page
+                          opens in a new tab; the file itself
+                          downloads there in one click.
    Links are signed and expire (net52 tokens ~hours, Astro mp4 ~9h),
    so nothing is hard-coded: every tap fetches a fresh link, and
    play answers are cached for only 5 minutes.
@@ -111,6 +125,7 @@ let hls = null;
 let currentQualities = [];
 let currentKind = null;
 let currentTitle = "";
+let currentYear = "";
 let currentTracks = [];
 
 function el(tag, cls, text) {
@@ -331,6 +346,13 @@ function showDetail(d, id) {
   // Also show the player area (it opens when an episode is tapped).
   $("player-wrap").classList.add("open");
   $("now-playing").innerHTML = "Now playing: <b>" + escapeHtml(d.title || "") + "</b> — pick an episode below";
+  // Download button for the series (resolves the MoviesMod link).
+  currentTitle = d.title || "";
+  currentYear = d.year || "";
+  const dlBtn = $("dl-btn");
+  dlBtn.classList.add("show");
+  dlBtn.onclick = downloadTitle;
+  $("dl-note").classList.remove("show");
 }
 
 function escapeHtml(s) {
@@ -379,6 +401,12 @@ async function playTitle(id, title, year) {
   }
 
   currentTitle = title || data.title || "";
+  currentYear = year || data.year || "";
+  // Download button: one tap resolves the MoviesMod download link.
+  const dlBtn = $("dl-btn");
+  dlBtn.classList.add("show");
+  dlBtn.onclick = downloadTitle;
+  $("dl-note").classList.remove("show");
   const badge = data.source === "net52"
     ? '<span class="src">net52 · HLS</span>'
     : '<span class="src backup">backup · mp4</span>';
@@ -414,6 +442,52 @@ async function playTitle(id, title, year) {
     const best = currentQualities[currentQualities.length - 1];
     loadMp4(best.url);
     buildQualityBar();
+  }
+}
+
+/* ---------- one-click download (MoviesMod) ---------- */
+
+// Resolves a direct download link for the current title via the
+// resolver's ?dl= mode (MoviesMod chain, server-side) and opens the
+// file page. The file page is DriveSeed; the actual file download
+// there is one click in the visitor's browser.
+async function downloadTitle() {
+  const btn = $("dl-btn");
+  const note = $("dl-note");
+  const title = currentTitle;
+  if (!title) return;
+  btn.disabled = true;
+  btn.textContent = "Finding download…";
+  note.classList.remove("show");
+  note.textContent = "";
+  try {
+    const d = await getJSON(
+      MOVIE_RESOLVER + "?dl=" + encodeURIComponent(title) +
+      "&year=" + encodeURIComponent(currentYear || "") +
+      "&quality=720p"
+    );
+    if (!d || d.noSource || !d.downloadUrl) {
+      note.textContent = "No download found for this title yet. Try another one.";
+      note.classList.add("show");
+      return;
+    }
+    const label = [d.filename || title, d.size ? "(" + d.size + ")" : "", d.quality ? d.quality : ""].filter(Boolean).join(" ");
+    note.innerHTML = "";
+    note.appendChild(document.createTextNode("Download ready: " + label + " — "));
+    const a = document.createElement("a");
+    a.href = d.downloadUrl;
+    a.target = "_blank";
+    a.rel = "noopener";
+    a.textContent = "Tap here to download";
+    note.appendChild(a);
+    note.classList.add("show");
+    window.open(d.downloadUrl, "_blank", "noopener");
+  } catch {
+    note.textContent = "Could not fetch the download link — please try again.";
+    note.classList.add("show");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "⬇ Download";
   }
 }
 
