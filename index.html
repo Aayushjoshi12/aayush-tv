@@ -7,74 +7,138 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; }
-  header { position: sticky; top: 0; z-index: 10; background: #0b0e14; padding: 16px 20px 12px; border-bottom: 1px solid #232838; }
-  h1 { font-size: 22px; }
-  h1 span { color: #ff3b3b; }
-  header a { color: #9aa1b2; font-size: 13px; text-decoration: none; }
-  main { max-width: 860px; margin: 0 auto; padding: 16px 20px 40px; }
-  #player-wrap { margin: 8px 0 12px; }
-  video { width: 100%; max-height: 62vh; background: #000; border-radius: 10px; }
-  #now-playing { font-size: 15px; margin-bottom: 8px; }
+  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.13), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.08), transparent 70%); background-attachment: fixed; }
+  a { color: inherit; }
+  /* ---- shared header ---- */
+  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid #232838; }
+  .head-inner { max-width: 1200px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .brand { font-size: 24px; font-weight: 800; letter-spacing: .2px; text-decoration: none; color: #fff; }
+  .brand span { color: #ff3b3b; }
+  nav.main-nav { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; transition: background .15s, color .15s; }
+  nav.main-nav a:hover { background: #1a2033; color: #fff; }
+  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; }
+  /* ---- page ---- */
+  main { max-width: 1200px; margin: 0 auto; padding: 20px 20px 40px; }
+  .hero { padding: 10px 0 18px; }
+  .hero h2 { font-size: 34px; font-weight: 800; letter-spacing: -.4px; line-height: 1.15; }
+  .hero h2 em { font-style: normal; color: #ff3b3b; }
+  .hero p { color: #9aa1b2; font-size: 15px; line-height: 1.6; margin-top: 8px; max-width: 640px; }
+  .live-badge { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: .6px; color: #ff5252; background: rgba(255,59,59,.12); border: 1px solid rgba(255,59,59,.4); padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; }
+  /* ---- player ---- */
+  #player-wrap { margin: 4px 0 18px; }
+  #player-poster { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 62vh; background: radial-gradient(600px 300px at 50% 30%, #2a1e2e, #0b0e14 70%), linear-gradient(160deg, #181d2d, #0b0e14); border: 1px solid #232838; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; cursor: pointer; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
+  #player-poster .big-play { width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, #ff3b3b, #ff5c5c); display: flex; align-items: center; justify-content: center; font-size: 30px; color: #fff; box-shadow: 0 8px 28px rgba(255,59,59,.45); transition: transform .15s; }
+  #player-poster:hover .big-play { transform: scale(1.06); }
+  #player-poster .poster-title { font-size: 22px; font-weight: 800; }
+  #player-poster .poster-sub { font-size: 14px; color: #9aa1b2; }
+  video { width: 100%; max-height: 62vh; background: #000; border-radius: 16px; border: 1px solid #232838; box-shadow: 0 12px 40px rgba(0,0,0,.5); display: none; }
+  video.open { display: block; }
+  #now-playing { font-size: 16px; margin: 12px 0 4px; }
   #now-playing b { color: #ff5252; }
-  .play-btn { display: inline-block; margin: 4px 0 12px; padding: 12px 22px; border-radius: 8px; border: none; background: #ff3b3b; color: #fff; font-size: 16px; cursor: pointer; }
-  .box { background: #151a26; border: 1px solid #232838; border-radius: 10px; padding: 14px 16px; margin: 12px 0; font-size: 14px; line-height: 1.55; }
-  .box h2 { font-size: 15px; margin-bottom: 6px; color: #ff5252; }
-  .box p { margin: 4px 0; color: #cfd3dd; }
+  /* ---- cards / boxes ---- */
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } .hero h2 { font-size: 26px; } }
+  .box { background: linear-gradient(160deg, #181d2d, #12162a); border: 1px solid #262d42; border-radius: 14px; padding: 18px 20px; font-size: 14px; line-height: 1.6; }
+  .box h2 { font-size: 16px; margin-bottom: 8px; color: #ff5252; }
+  .box h2 .dim { color: #9aa1b2; font-weight: 600; font-size: 13px; }
+  .box p { margin: 6px 0; color: #cfd3dd; }
+  .box p b { color: #f2f4fa; }
   .note { background: #2a1f0d; border: 1px solid #8a6d1b; color: #f0d48a; }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
-  td, th { padding: 5px 4px; border-bottom: 1px solid #232838; text-align: left; }
-  th { color: #9aa1b2; font-weight: 600; }
+  .note a { color: #ffd166; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
+  td, th { padding: 7px 6px; border-bottom: 1px solid #232838; text-align: left; }
+  th { color: #9aa1b2; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
+  tr.leader td { color: #ffd166; font-weight: 700; }
+  .dim { color: #9aa1b2; font-size: 12px; }
+  .match { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #232838; }
+  .match:last-child { border-bottom: none; }
+  .match .time { color: #ff5252; font-weight: 700; white-space: nowrap; }
+  /* ---- footer ---- */
+  footer { border-top: 1px solid #232838; margin-top: 20px; }
+  .foot-inner { max-width: 1200px; margin: 0 auto; padding: 22px 20px 28px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; color: #9aa1b2; font-size: 13px; }
+  .foot-inner b { color: #f2f4fa; }
+  .foot-inner nav a { color: #cfd3dd; text-decoration: none; margin-right: 16px; }
+  .foot-inner nav a:hover { color: #fff; }
 </style>
 </head>
 <body>
 <header>
-  <h1><span>▶</span> Aayush TV — NPL Live</h1>
-  <a href="channels.html">← All channels</a>
+  <div class="head-inner">
+    <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
+    <nav class="main-nav">
+      <a href="index.html" class="active">🏏 NPL Live</a>
+      <a href="channels.html">📺 Channels</a>
+      <a href="movies.html">🎬 Movies</a>
+    </nav>
+  </div>
 </header>
+
 <main>
-  <div id="player-wrap">
-    <div id="now-playing">NPL Live — press play to watch the match.</div>
-    <video id="player" controls playsinline></video>
-    <button class="play-btn" id="play-btn">▶ Play NPL Live</button>
+  <div class="hero">
+    <span class="live-badge">● LIVE · SEASON 3</span>
+    <h2>Nepal Premier League, <em>live.</em></h2>
+    <p>Watch NPL Season 3 from TU Ground, Kirtipur — 26 Oct to 21 Nov 2026. Press play and the live feed starts here.</p>
   </div>
 
-  <div class="box note">Live — pressing Play fetches a fresh link from the minter, so it keeps working day after day. If the first server doesn't respond, it automatically tries another one. The embedded test link (valid until Nov 3 evening) is only a fallback now. If it doesn't play, the feed itself is blocked — use the official routes below.</div>
+  <div id="player-wrap">
+    <div id="player-poster" role="button" tabindex="0" aria-label="Play NPL Live">
+      <div class="big-play">▶</div>
+      <div class="poster-title">NPL Live — Season 3</div>
+      <div class="poster-sub">Tap to watch · TU Ground, Kirtipur</div>
+    </div>
+    <video id="player" controls playsinline></video>
+    <div id="now-playing"></div>
+  </div>
 
-  <div class="box">
+  <div class="grid2">
+    <div class="box">
+      <h2>Today — Thu 12 Nov <span class="dim">· TU Ground</span></h2>
+      <div class="match"><span><b>Biratnagar Kings</b> vs Pokhara Avengers</span><span class="time">12:30 NPT</span></div>
+      <div class="match"><span><b>Karnali Yaks</b> vs Lumbini Lions</span><span class="time">4:30 NPT</span></div>
+      <p class="dim" style="margin-top:10px">League stage ends Sun 15 Nov. Playoffs: Qualifier 1 Tue 17 Nov, Eliminator Wed 18 Nov, Qualifier 2 Thu 19 Nov, Final Sat 21 Nov.</p>
+    </div>
+
+    <div class="box">
+      <h2>Points table <span class="dim">· after Match 21 (10 Nov)</span></h2>
+      <table>
+        <tr><th>#</th><th>Team</th><th>Played</th><th>Pts</th></tr>
+        <tr class="leader"><td>1</td><td>Kathmandu Gorkhas</td><td>5</td><td>8</td></tr>
+        <tr><td>2</td><td>Sudurpaschim Royals</td><td>6</td><td>8</td></tr>
+        <tr><td>3</td><td>Lumbini Lions</td><td>5</td><td>7</td></tr>
+        <tr><td>4</td><td>Chitwan Rhinos</td><td>5</td><td>5</td></tr>
+        <tr><td>5</td><td>Janakpur Bolts</td><td>5</td><td>4</td></tr>
+        <tr><td>6</td><td>Karnali Yaks</td><td>4</td><td>4</td></tr>
+        <tr><td>7</td><td>Biratnagar Kings</td><td>5</td><td>4</td></tr>
+        <tr><td>8</td><td>Pokhara Avengers</td><td>5</td><td>0</td></tr>
+      </table>
+      <p class="dim">Top four go to the playoffs. 2 points for a win.</p>
+    </div>
+  </div>
+
+  <div class="box note" style="margin-top:16px">
     <h2>Watch officially</h2>
     <p>Himalaya Sports on cable / DTH, or the NetTV season pass (Rs 400) on the NetTV app and website. No free official live stream exists for NPL Season 3.</p>
   </div>
 
-  <div class="box">
-    <h2>NPL Season 3 — TU Ground, Kirtipur</h2>
-    <p><b>Mon Nov 2:</b> Kathmandu beat Karnali by 4 wickets (181/6 in 19.4 ov); Sudurpaschim beat Chitwan by 5 wickets (131/5 in 16.4 ov).</p>
-    <p><b>Tue Nov 3:</b> Biratnagar vs Janakpur 12:30, Lumbini vs Pokhara 17:00.</p>
-    <table>
-      <tr><th>Team</th><th>Played</th><th>Pts</th></tr>
-      <tr><td>Karnali Yaks</td><td>3</td><td>4</td></tr>
-      <tr><td>Janakpur Bolts</td><td>3</td><td>4</td></tr>
-      <tr><td>Sudurpaschim Royals</td><td>4</td><td>4</td></tr>
-      <tr><td>Lumbini Lions</td><td>2</td><td>3</td></tr>
-      <tr><td>Chitwan Rhinos</td><td>3</td><td>3</td></tr>
-      <tr><td>Kathmandu Gurkhas</td><td>2</td><td>2</td></tr>
-      <tr><td>Biratnagar Kings</td><td>3</td><td>2</td></tr>
-      <tr><td>Pokhara Avengers</td><td>2</td><td>0</td></tr>
-    </table>
-    <p style="color:#9aa1b2;font-size:12px">Points after Nov 2.</p>
+  <div class="box" style="margin-top:16px">
+    <h2>More to watch</h2>
+    <p><b>📺 Channels</b> — 500+ live channels, plus the ⭐ Premium sports section. <b>🎬 Movies</b> — 31,000+ movies &amp; series to download, with new titles on the home page every day.</p>
   </div>
 </main>
 
-<script>
-// Test link, minted fresh on 2026-11-02 (~21:18 NPT) from
-// getlink.php for CHID 1412 (NPL Live). Valid 24h, so it stops
-// working around Nov 3 evening. It is only a fallback now: the
-// Play button fetches a fresh link from MINTER_URL first.
-const TEST_STREAM_URL = "http://202.79.40.253/iptvlivestream/hpremiumPAID/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9MTEvMi8yMDI2IDM6MzM6MDEgUE0maGFzaF92YWx1ZT1zZXQyZ0FnZ3V3cFFlTXdrL1BCcnJBPT0mdmFsaWRtaW51dGVzPTE0NDAmaWQ9MjAw";
+<footer>
+  <div class="foot-inner">
+    <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
+    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a></nav>
+    <div>© 2026 Aayush TV</div>
+  </div>
+</footer>
 
+<script>
 // MINTER_URL: a standalone link minter serving GET /api/stream?id=1412.
 // Verified working 2026-11-03 (impers, Korea Central). Play fetches a
-// fresh link from it on every press; TEST_STREAM_URL is only a fallback.
+// fresh link from it on every press.
 const MINTER_URL = "https://aayush-tv-minter-kr-b7cqc2h0ewamhaaq.koreacentral-01.azurewebsites.net"; // base only — fetch appends /api/stream (FIX 2026-11-03: full /api/stream URL here made the fetch hit .../api/stream/api/stream → 404)
 
 const $ = (id) => document.getElementById(id);
@@ -84,12 +148,10 @@ let hls = null;
 let playToken = 0;
 
 // Mint a fresh NPL link, preferring a Wowza host we haven't tried yet.
-// The minter rotates hosts (e.g. 202.79.40.235 served the playlist while
-// 202.79.40.247 refused it from the assistant's VM on 2026-11-03), so a
-// single failed draw doesn't prove the feed is down. Tries up to 3 mints
-// to find an untried host; falls back to the last minted URL if every
-// draw repeats a tried host. Returns null only if the minter can't be
-// reached at all.
+// The minter rotates hosts, so a single failed draw doesn't prove the
+// feed is down. Tries up to 3 mints to find an untried host; falls
+// back to the last minted URL if every draw repeats a tried host.
+// Returns null only if the minter can't be reached at all.
 async function mintFreshNPL(triedHosts) {
   if (!MINTER_URL) return null;
   let lastUrl = null;
@@ -123,23 +185,27 @@ async function playNPL() {
     }
     return url;
   };
-  // Resolve the stream URL: a minter first (fresh link every press),
-  // else the embedded test link while it is still valid.
+  const showError = (msg) => { $("now-playing").textContent = msg; };
   let url = await mint();
-  if (!url) url = TEST_STREAM_URL;
+  if (!url) {
+    showError("Could not reach the live feed right now — please try again in a moment.");
+    return;
+  }
   if (myPlay !== playToken) return;
   // The stream is plain http, which browsers block on https pages.
   if (url.startsWith("http:") && location.protocol === "https:") {
-    $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> over plain http and press play.`;
+    $("now-playing").innerHTML = `This feed is plain http, which browsers block on secure (https) pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> and press play.`;
     return;
   }
+  // Show the video element now that we have a playable source.
+  $("player-poster").style.display = "none";
+  video.classList.add("open");
   $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span>`;
   if (hls) { hls.destroy(); hls = null; }
   video.onerror = null;
   let watchdog = null;
   let liveAttempt = 0;
   const clearWatchdog = () => { if (watchdog) { clearTimeout(watchdog); watchdog = null; } };
-  const showError = (msg) => { clearWatchdog(); $("now-playing").textContent = msg; };
   const onPlaying = () => {
     if (myPlay !== playToken) return;
     clearWatchdog();
@@ -154,8 +220,7 @@ async function playNPL() {
     // Host lottery: the minted link's Wowza host may refuse this
     // connection while another host serves it. Re-mint for a fresh
     // host draw (up to MAX_PLAY_ATTEMPTS tries in total) before
-    // telling the user the feed is blocked. Only possible when the
-    // minter supplied the link; the expiring test link gets one shot.
+    // telling the user the feed is blocked.
     if (usedMinter && liveAttempt < MAX_PLAY_ATTEMPTS) {
       $("now-playing").textContent = `That server didn't respond — trying another server (${liveAttempt + 1} of ${MAX_PLAY_ATTEMPTS})…`;
       const next = await mint();
@@ -188,11 +253,8 @@ async function playNPL() {
   startHls(url);
 }
 
-$("play-btn").addEventListener("click", playNPL);
-// Say up front on https that the http stream cannot play here.
-if (location.protocol === "https:") {
-  $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> over plain http and press play.`;
-}
+$("player-poster").addEventListener("click", playNPL);
+$("player-poster").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playNPL(); } });
 </script>
 </body>
 </html>

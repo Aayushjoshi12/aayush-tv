@@ -7,11 +7,17 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.16), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.10), transparent 70%), radial-gradient(600px 260px at 8% 100%, rgba(255,59,59,.06), transparent 70%); background-attachment: fixed; }
-  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 16px 20px 12px; border-bottom: 1px solid #232838; }
+  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 0; border-bottom: 1px solid #232838; }
+  .head-inner { max-width: 1440px; margin: 0 auto; padding: 14px 20px 10px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .brand { font-size: 24px; font-weight: 800; letter-spacing: .2px; text-decoration: none; color: #fff; flex-shrink: 0; }
+  .brand span { color: #ff3b3b; }
+  nav.main-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; transition: background .15s, color .15s; }
+  nav.main-nav a:hover { background: #1a2033; color: #fff; }
+  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; }
+  .search-row { max-width: 1440px; margin: 0 auto; padding: 0 20px 12px; }
   h1 { font-size: 26px; font-weight: 800; letter-spacing: .2px; margin-bottom: 10px; background: linear-gradient(90deg, #fff, #ffb3b3 55%, #ff3b3b); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   h1 span { -webkit-text-fill-color: #ff3b3b; }
-  header a { color: #ff5252; font-size: 14px; text-decoration: none; display: inline-block; margin-right: 14px; }
-  header a:hover { text-decoration: underline; }
   #search { width: 100%; padding: 12px 12px 12px 42px; border-radius: 999px; border: 1px solid #2a3040; background: #151a26 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa1b2' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") no-repeat 14px center; color: #fff; font-size: 15px; outline: none; transition: border-color .15s, box-shadow .15s; }
   #search:focus { border-color: #ff3b3b; box-shadow: 0 0 0 3px rgba(255,59,59,.18); }
   #detail-wrap { display: none; padding: 16px 20px 0; max-width: 1440px; margin: 0 auto; }
@@ -50,6 +56,12 @@
   .row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
   .row::-webkit-scrollbar { height: 6px; }
   .row::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 3px; }
+  /* New-on-the-sites is a wrapping grid, not a horizontal scroller:
+     every new title is visible at once, nothing is cut off at the
+     right edge. Search results keep the scrolling .row. */
+  .grid-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
+  .grid-row .card { width: auto; }
+  .grid-row .card .poster { width: 100%; }
   .card { flex: 0 0 auto; width: 150px; cursor: pointer; }
   .card .poster { position: relative; width: 150px; aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; background: radial-gradient(120px 90px at 50% 40%, #232a42, #161b2c); border: 1px solid #262d42; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
   .card:hover .poster { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 1px rgba(255,59,59,.35); }
@@ -65,15 +77,27 @@
   .chips button:hover { border-color: #ff3b3b; color: #fff; }
   #status { padding: 8px 20px 20px; color: #9aa1b2; font-size: 14px; text-align: center; }
   .hint { color: #9aa1b2; font-size: 14px; line-height: 1.6; margin-top: 8px; }
-  .foot { text-align: center; color: #6b7280; font-size: 12px; padding: 10px 20px 26px; }
+  /* ---- footer ---- */
+  footer { border-top: 1px solid #232838; margin-top: 8px; }
+  .foot-inner { max-width: 1440px; margin: 0 auto; padding: 22px 20px 28px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; color: #9aa1b2; font-size: 13px; }
+  .foot-inner b { color: #f2f4fa; }
+  .foot-inner nav a { color: #cfd3dd; text-decoration: none; margin-right: 16px; }
+  .foot-inner nav a:hover { color: #fff; }
 </style>
 </head>
 <body>
 <header>
-  <h1><span>▶</span> Aayush TV <span style="color:#e8eaf0">· 🎬 Movies</span></h1>
-  <a href="channels.html">📺 Channels</a>
-  <a href="index.html">🏏 NPL Live</a>
-  <input id="search" type="text" placeholder="Search 31,000+ movies &amp; series... or paste an IMDb code like tt1160419" autocomplete="off">
+  <div class="head-inner">
+    <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
+    <nav class="main-nav">
+      <a href="index.html">🏏 NPL Live</a>
+      <a href="channels.html">📺 Channels</a>
+      <a href="movies.html" class="active">🎬 Movies</a>
+    </nav>
+  </div>
+  <div class="search-row">
+    <input id="search" type="text" placeholder="Search 31,000+ movies &amp; series... or paste an IMDb code like tt1160419" autocomplete="off">
+  </div>
 </header>
 
 <div id="detail-wrap">
@@ -93,7 +117,13 @@
   </div>
 </main>
 <div id="status"></div>
-<div class="foot">Aayush TV · Movies — free downloads from the modlist network</div>
+<footer>
+  <div class="foot-inner">
+    <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
+    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a></nav>
+    <div>© 2026 Aayush TV</div>
+  </div>
+</footer>
 
 <script>
 /* ------------------------------------------------------------------
@@ -544,7 +574,7 @@ async function loadNewRow() {
     wrap.innerHTML = "";
     if (!Array.isArray(items) || !items.length) return;
     wrap.appendChild(el("div", "row-title", "🆕 New on the sites"));
-    const row = el("div", "row");
+    const row = el("div", "grid-row");
     items.forEach((it) => {
       row.appendChild(makeCard(it, (item) => openMoviesMod(item)));
     });

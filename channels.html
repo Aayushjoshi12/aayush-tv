@@ -8,7 +8,16 @@
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.13), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.08), transparent 70%); background-attachment: fixed; }
-  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 16px 20px 12px; border-bottom: 1px solid #232838; }
+  html { scroll-padding-top: 150px; }
+  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 0; border-bottom: 1px solid #232838; }
+  .head-inner { max-width: 1440px; margin: 0 auto; padding: 14px 20px 10px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .brand { font-size: 24px; font-weight: 800; letter-spacing: .2px; text-decoration: none; color: #fff; flex-shrink: 0; }
+  .brand span { color: #ff3b3b; }
+  nav.main-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; background: none; border: none; transition: background .15s, color .15s; }
+  nav.main-nav a:hover { background: #1a2033; color: #fff; }
+  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; }
+  .search-row { max-width: 1440px; margin: 0 auto; padding: 0 20px 12px; }
   h1 { font-size: 24px; font-weight: 800; letter-spacing: .2px; margin-bottom: 10px; }
   h1 span { color: #ff3b3b; }
   header a { background: rgba(255,59,59,.10); border: 1px solid rgba(255,59,59,.35); padding: 5px 12px; border-radius: 20px; }
@@ -38,8 +47,14 @@
   .card:hover, .card:focus-visible { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 10px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(255,59,59,.35); outline: none; }
   .card:active { transform: translateY(-1px); }
   .logo-box { position: relative; height: 76px; border-radius: 10px; background: radial-gradient(120px 60px at 50% 40%, #232a42, #161b2c); margin-bottom: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-  .logo-box img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; padding: 10px 12px; background: #1a2033; }
+  .logo-box img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; padding: 8px 10px; background: #1a2033; }
   .logo-fallback { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: 800; letter-spacing: 1px; color: #ff5c5c; background: linear-gradient(135deg, #2a1e2e, #1a2033); }
+  /* ---- footer ---- */
+  footer { border-top: 1px solid #232838; margin-top: 8px; }
+  .foot-inner { max-width: 1440px; margin: 0 auto; padding: 22px 20px 28px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; color: #9aa1b2; font-size: 13px; }
+  .foot-inner b { color: #f2f4fa; }
+  .foot-inner nav a { color: #cfd3dd; text-decoration: none; margin-right: 16px; background: none; border: none; padding: 0; }
+  .foot-inner nav a:hover { color: #fff; }
   .card .name { font-size: 13px; font-weight: 600; line-height: 1.35; color: #f2f4fa; }
   .card .src { display: inline-block; font-size: 10.5px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; margin-top: 7px; padding: 3px 8px; border-radius: 20px; }
   .card .src-premium { color: #ffd166; background: rgba(255,209,102,.12); border: 1px solid rgba(255,209,102,.35); }
@@ -52,13 +67,18 @@
 </head>
 <body>
 <header>
-  <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-    <h1 style="margin-bottom:0;flex-shrink:0"><span>▶</span> Aayush TV</h1>
-    <button id="premium-top" type="button">⭐ Premium</button>
+  <div class="head-inner">
+    <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
+    <nav class="main-nav">
+      <a href="index.html">🏏 NPL Live</a>
+      <a href="channels.html" class="active">📺 Channels</a>
+      <a href="movies.html">🎬 Movies</a>
+    </nav>
+    <button id="premium-top" type="button" style="margin-left:auto">⭐ Premium</button>
   </div>
-  <a href="index.html" style="color:#ff5252;font-size:14px;text-decoration:none;display:inline-block;margin-bottom:10px">🏏 NPL Live — watch now</a>
-  <a href="movies.html" style="color:#ff5252;font-size:14px;text-decoration:none;display:inline-block;margin-bottom:10px;margin-left:14px">🎬 Movies</a>
-  <input id="search" type="text" placeholder="Search channels...">
+  <div class="search-row">
+    <input id="search" type="text" placeholder="Search channels...">
+  </div>
 </header>
 
 <div id="setup-note"></div>
@@ -74,6 +94,14 @@
 
 <div id="grid"></div>
 <div id="status">Loading channels...</div>
+
+<footer>
+  <div class="foot-inner">
+    <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
+    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a></nav>
+    <div>© 2026 Aayush TV</div>
+  </div>
+</footer>
 
 <script>
 /* ------------------------------------------------------------------
@@ -141,7 +169,7 @@ const PREMIUM_CHANNELS = [
   { id: "premium-bein-max-5-francais", key: "bein-max-5-francais", name: "beIN Max 5 Francais", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/beinsports.png", path: "kckkoedv-2594", watch: "https://bintv-cc.pages.dev/?src=ch_bb9e911dacf1&t=beIN%20Max%205%20Francais", source: "premium" },
   { id: "premium-bein-max-6-francais", key: "bein-max-6-francais", name: "beIN Max 6 Francais", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/beinsports.png", path: "wqjlbwll-2258", watch: "https://bintv-cc.pages.dev/?src=ch_4e97fe2f8091&t=beIN%20Max%206%20Francais", source: "premium" },
   { id: "premium-bein-max-7-francais", key: "bein-max-7-francais", name: "beIN Max 7 Francais", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/beinsports.png", path: "np4biwf3-3097", watch: "https://bintv-cc.pages.dev/?src=ch_fad2ec48e496&t=beIN%20Max%207%20Francais", source: "premium" },
-  { id: "premium-bein-sports", key: "bein-sports", name: "beIN Sports", logo: "https://assets-us-01.kc-usercontent.com/31dbcbc6-da4c-0033-328a-d7621d0fa726/1318873e-8501-4f79-bb69-182d741cf9ad/beIN%20SPORTS%20Portada.jpg?ver=03-06-2025?w=3840&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;q=75", path: "u36ftfcy-7101", watch: "https://bintv-cc.pages.dev/?src=ch_0ab170ec9aee&t=beIN%20Sports", source: "premium" },
+  { id: "premium-bein-sports", key: "bein-sports", name: "beIN Sports", logo: "https://assets-us-01.kc-usercontent.com/31dbcbc6-da4c-0033-328a-d7621d0fa726/1318873e-8501-4f79-bb69-182d741cf9ad/beIN%20SPORTS%20Portada.jpg?ver=03-06-2025?w=3840&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;q=75", path: "u36ftfcy-7101", watch: "https://bintv-cc.pages.dev/?src=ch_0ab170ec9aee&t=beIN%20Sports", source: "premium" },
   { id: "premium-bein-sports-francais-1", key: "bein-sports-francais-1", name: "beIN Sports Francais 1", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/beinsports.png", path: "gbw09ann-983", watch: "https://bintv-cc.pages.dev/?src=ch_293a08646503&t=beIN%20Sports%20Francais%201", source: "premium" },
   { id: "premium-bein-sports-francais-2", key: "bein-sports-francais-2", name: "beIN Sports Francais 2", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/beinsports.png", path: "ahl77cgo-3597", watch: "https://bintv-cc.pages.dev/?src=ch_46fe13211501&t=beIN%20Sports%20Francais%202", source: "premium" },
   { id: "premium-bein-sports-francais-3", key: "bein-sports-francais-3", name: "beIN Sports Francais 3", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/beinsports.png", path: "fcxpeb2i-9275", watch: "https://bintv-cc.pages.dev/?src=ch_bcfda56a3554&t=beIN%20Sports%20Francais%203", source: "premium" },
@@ -154,41 +182,41 @@ const PREMIUM_CHANNELS = [
   { id: "premium-bein-sports-mena-7", key: "bein-sports-mena-7", name: "beIN Sports MENA 7", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/images/beIN%20SPORTS%20Portada.jpg", path: "mmww1kss-3568", watch: "https://bintv-cc.pages.dev/?src=ch_10bc8833b231&t=beIN%20Sports%20MENA%207", source: "premium" },
   { id: "premium-bein-sports-mena-8", key: "bein-sports-mena-8", name: "beIN Sports MENA 8", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/images/beIN%20SPORTS%20Portada.jpg", path: "80ynbnuv-5382", watch: "https://bintv-cc.pages.dev/?src=ch_94b376a12ad8&t=beIN%20Sports%20MENA%208", source: "premium" },
   { id: "premium-bein-sports-mena-9", key: "bein-sports-mena-9", name: "beIN Sports MENA 9", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/images/beIN%20SPORTS%20Portada.jpg", path: "ltcqnszh-6218", watch: "https://bintv-cc.pages.dev/?src=ch_11046d7c9cb0&t=beIN%20Sports%20MENA%209", source: "premium" },
-  { id: "premium-canal-sport-2-pl", key: "canal-sport-2-pl", name: "CANAL+ Sport 2 PL", logo: "https://i.postimg.cc/ZRtsQkk0/Frame-(3).png", path: "vz0b8dai-3533", watch: "https://bintv-cc.pages.dev/?src=ch_1f14249bb342&t=CANAL%2B%20Sport%202%20PL", source: "premium" },
-  { id: "premium-canal-sport-3-pl", key: "canal-sport-3-pl", name: "CANAL+ Sport 3 PL", logo: "https://i.postimg.cc/ZRtsQkk0/Frame-(3).png", path: "f9q2whgc-7787", watch: "https://bintv-cc.pages.dev/?src=ch_a83d33449804&t=CANAL%2B%20Sport%203%20PL", source: "premium" },
-  { id: "premium-canal-sport-4-pl", key: "canal-sport-4-pl", name: "CANAL+ Sport 4 PL", logo: "https://i.postimg.cc/ZRtsQkk0/Frame-(3).png", path: "rcbsp9o1-5913", watch: "https://bintv-cc.pages.dev/?src=ch_0d7c4b0f87a8&t=CANAL%2B%20Sport%204%20PL", source: "premium" },
-  { id: "premium-canal-sport-5-pl", key: "canal-sport-5-pl", name: "CANAL+ Sport 5 PL", logo: "https://i.postimg.cc/ZRtsQkk0/Frame-(3).png", path: "ayehdrp1-4306", watch: "https://bintv-cc.pages.dev/?src=ch_4131f16927f5&t=CANAL%2B%20Sport%205%20PL", source: "premium" },
-  { id: "premium-canal-sport-6-pl", key: "canal-sport-6-pl", name: "CANAL+ Sport 6 PL", logo: "https://i.postimg.cc/ZRtsQkk0/Frame-(3).png", path: "qrmke5x4-2028", watch: "https://bintv-cc.pages.dev/?src=ch_0cf301fbcd19&t=CANAL%2B%20Sport%206%20PL", source: "premium" },
-  { id: "premium-canal-sport-pl", key: "canal-sport-pl", name: "CANAL+ Sport PL", logo: "https://i.postimg.cc/ZRtsQkk0/Frame-(3).png", path: "jr4cynbo-9272", watch: "https://bintv-cc.pages.dev/?src=ch_726071869506&t=CANAL%2B%20Sport%20PL", source: "premium" },
+  { id: "premium-canal-sport-2-pl", key: "canal-sport-2-pl", name: "CANAL+ Sport 2 PL", logo: "https://upload.wikimedia.org/wikipedia/commons/4/4c/Canal%2B_Sport_Logo_2013.png", path: "vz0b8dai-3533", watch: "https://bintv-cc.pages.dev/?src=ch_1f14249bb342&t=CANAL%2B%20Sport%202%20PL", source: "premium" },
+  { id: "premium-canal-sport-3-pl", key: "canal-sport-3-pl", name: "CANAL+ Sport 3 PL", logo: "https://upload.wikimedia.org/wikipedia/commons/4/4c/Canal%2B_Sport_Logo_2013.png", path: "f9q2whgc-7787", watch: "https://bintv-cc.pages.dev/?src=ch_a83d33449804&t=CANAL%2B%20Sport%203%20PL", source: "premium" },
+  { id: "premium-canal-sport-4-pl", key: "canal-sport-4-pl", name: "CANAL+ Sport 4 PL", logo: "https://upload.wikimedia.org/wikipedia/commons/4/4c/Canal%2B_Sport_Logo_2013.png", path: "rcbsp9o1-5913", watch: "https://bintv-cc.pages.dev/?src=ch_0d7c4b0f87a8&t=CANAL%2B%20Sport%204%20PL", source: "premium" },
+  { id: "premium-canal-sport-5-pl", key: "canal-sport-5-pl", name: "CANAL+ Sport 5 PL", logo: "https://upload.wikimedia.org/wikipedia/commons/4/4c/Canal%2B_Sport_Logo_2013.png", path: "ayehdrp1-4306", watch: "https://bintv-cc.pages.dev/?src=ch_4131f16927f5&t=CANAL%2B%20Sport%205%20PL", source: "premium" },
+  { id: "premium-canal-sport-6-pl", key: "canal-sport-6-pl", name: "CANAL+ Sport 6 PL", logo: "https://upload.wikimedia.org/wikipedia/commons/4/4c/Canal%2B_Sport_Logo_2013.png", path: "qrmke5x4-2028", watch: "https://bintv-cc.pages.dev/?src=ch_0cf301fbcd19&t=CANAL%2B%20Sport%206%20PL", source: "premium" },
+  { id: "premium-canal-sport-pl", key: "canal-sport-pl", name: "CANAL+ Sport PL", logo: "https://upload.wikimedia.org/wikipedia/commons/4/4c/Canal%2B_Sport_Logo_2013.png", path: "jr4cynbo-9272", watch: "https://bintv-cc.pages.dev/?src=ch_726071869506&t=CANAL%2B%20Sport%20PL", source: "premium" },
   { id: "premium-cbs-sports-network", key: "cbs-sports-network", name: "CBS Sports Network", logo: "https://www.paramountshop.com/cdn/shop/files/cbssportsnetwork-mobile-min.png", path: "9c2jwr40-3407", watch: "https://bintv-cc.pages.dev/?src=ch_e75ccde59cc2&t=CBS%20Sports%20Network", source: "premium" },
-  { id: "premium-dazn-1-germany", key: "dazn-1-germany", name: "DAZN 1 Germany", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=12dpnhddhmpm71228raanhyxs2_image-header_pDach_1723627450000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "3dk8rxui-6212", watch: "https://bintv-cc.pages.dev/?src=ch_5941ac89a238&t=DAZN%201%20Germany", source: "premium" },
-  { id: "premium-dazn-1-italia", key: "dazn-1-italia", name: "DAZN 1 Italia", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=pterrit4f2xu1pa2r6x87y5e9_image-header_pIt_1724315365000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "gmoqoz7b-4945", watch: "https://bintv-cc.pages.dev/?src=ch_33f4684d2eb8&t=DAZN%201%20Italia", source: "premium" },
-  { id: "premium-dazn-1-portugal", key: "dazn-1-portugal", name: "DAZN 1 Portugal", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1o4eamzb4env61ddc8wv4ra06l_image-header_pRow_1720521601000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "3zhczzbl-9086", watch: "https://bintv-cc.pages.dev/?src=ch_e652a93a0694&t=DAZN%201%20Portugal", source: "premium" },
+  { id: "premium-dazn-1-germany", key: "dazn-1-germany", name: "DAZN 1 Germany", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=12dpnhddhmpm71228raanhyxs2_image-header_pDach_1723627450000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "3dk8rxui-6212", watch: "https://bintv-cc.pages.dev/?src=ch_5941ac89a238&t=DAZN%201%20Germany", source: "premium" },
+  { id: "premium-dazn-1-italia", key: "dazn-1-italia", name: "DAZN 1 Italia", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=pterrit4f2xu1pa2r6x87y5e9_image-header_pIt_1724315365000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "gmoqoz7b-4945", watch: "https://bintv-cc.pages.dev/?src=ch_33f4684d2eb8&t=DAZN%201%20Italia", source: "premium" },
+  { id: "premium-dazn-1-portugal", key: "dazn-1-portugal", name: "DAZN 1 Portugal", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1o4eamzb4env61ddc8wv4ra06l_image-header_pRow_1720521601000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "3zhczzbl-9086", watch: "https://bintv-cc.pages.dev/?src=ch_e652a93a0694&t=DAZN%201%20Portugal", source: "premium" },
   { id: "premium-dazn-1-es", key: "dazn-1-es", name: "DAZN 1 Spain", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=hn9vkic8rbfi1ndrym8sw2qh7_image-header_pEs_1723035920000", path: "sq26inyf-2660", watch: "https://bintv-cc.pages.dev/?src=ch_aaa7c0f78ebc&t=DAZN%201%20Spain", source: "premium" },
-  { id: "premium-dazn-1-usa", key: "dazn-1-usa", name: "DAZN 1 USA", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1owzb99m9mnzy15hjxolpukwul_image-header_pUs_1771501796000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "jyqzet0b-2901", watch: "https://bintv-cc.pages.dev/?src=ch_ba155522853e&t=DAZN%201%20USA", source: "premium" },
+  { id: "premium-dazn-1-usa", key: "dazn-1-usa", name: "DAZN 1 USA", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1owzb99m9mnzy15hjxolpukwul_image-header_pUs_1771501796000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "jyqzet0b-2901", watch: "https://bintv-cc.pages.dev/?src=ch_ba155522853e&t=DAZN%201%20USA", source: "premium" },
   { id: "premium-dazn-2-germany", key: "dazn-2-germany", name: "DAZN 2 Germany", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1ni1lpwjtnxmr1xklfoptrt2mz_image-header_pDach_1723628653000", path: "tnifspj6-852", watch: "https://bintv-cc.pages.dev/?src=ch_b4a73413a675&t=DAZN%202%20Germany", source: "premium" },
-  { id: "premium-dazn-2-spain", key: "dazn-2-spain", name: "DAZN 2 Spain", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=2ouwtae8ad7l1fxviow9bowpk_image-header_pEs_1723118632000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "0o3vlabk-4088", watch: "https://bintv-cc.pages.dev/?src=ch_6eb6f764f13b&t=DAZN%202%20Spain", source: "premium" },
-  { id: "premium-dazn-f1", key: "dazn-f1", name: "DAZN F1", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=14ln25pmjdv031ejxsmg8dczsu_image-header_pEs_1723117975000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "5rvazszz-6983", watch: "https://bintv-cc.pages.dev/?src=ch_a57b8790fc07&t=DAZN%20F1", source: "premium" },
+  { id: "premium-dazn-2-spain", key: "dazn-2-spain", name: "DAZN 2 Spain", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=2ouwtae8ad7l1fxviow9bowpk_image-header_pEs_1723118632000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "0o3vlabk-4088", watch: "https://bintv-cc.pages.dev/?src=ch_6eb6f764f13b&t=DAZN%202%20Spain", source: "premium" },
+  { id: "premium-dazn-f1", key: "dazn-f1", name: "DAZN F1", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=14ln25pmjdv031ejxsmg8dczsu_image-header_pEs_1723117975000&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "5rvazszz-6983", watch: "https://bintv-cc.pages.dev/?src=ch_a57b8790fc07&t=DAZN%20F1", source: "premium" },
   { id: "premium-dazn-laliga", key: "dazn-laliga", name: "DAZN LaLiga", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-header_pEs_1723118324000", path: "fw2jrum9-448", watch: "https://bintv-cc.pages.dev/?src=ch_968835b6053b&t=DAZN%20LaLiga", source: "premium" },
   { id: "premium-eleven-sports-1", key: "eleven-sports-1", name: "Eleven Sports 1", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/100659.png", path: "gg28wwh4-6849", watch: "https://bintv-cc.pages.dev/?src=ch_61c234e26036&t=Eleven%20Sports%201", source: "premium" },
   { id: "premium-eleven-sports-2", key: "eleven-sports-2", name: "Eleven Sports 2", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/100659.png", path: "pw0y0gzx-7614", watch: "https://bintv-cc.pages.dev/?src=ch_41537ecbdec5&t=Eleven%20Sports%202", source: "premium" },
   { id: "premium-eleven-sports-3", key: "eleven-sports-3", name: "Eleven Sports 3", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/100659.png", path: "ytjrtde4-6087", watch: "https://bintv-cc.pages.dev/?src=ch_c5550fcd285b&t=Eleven%20Sports%203", source: "premium" },
   { id: "premium-eleven-sports-4", key: "eleven-sports-4", name: "Eleven Sports 4", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/100659.png", path: "boc7cv4y-6161", watch: "https://bintv-cc.pages.dev/?src=ch_32dc9660c41e&t=Eleven%20Sports%204", source: "premium" },
   { id: "premium-espn", key: "espn", name: "ESPN", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "o9bl8cai-7223", watch: "https://bintv-cc.pages.dev/?src=ch_e1949dc8115d&t=ESPN", source: "premium" },
-  { id: "premium-espn-deportes", key: "espn-deportes", name: "ESPN Deportes", logo: "https://i.ibb.co/Y7zHmbbz/i.png", path: "6trsant7-1421", watch: "https://bintv-cc.pages.dev/?src=ch_9ae0c63c7533&t=ESPN%20Deportes", source: "premium" },
+  { id: "premium-espn-deportes", key: "espn-deportes", name: "ESPN Deportes", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "6trsant7-1421", watch: "https://bintv-cc.pages.dev/?src=ch_9ae0c63c7533&t=ESPN%20Deportes", source: "premium" },
   { id: "premium-espn2", key: "espn2", name: "ESPN2", logo: "https://discgolf.ultiworld.com/wp-content/uploads/2020/10/ESPN2.png", path: "33jhpzfr-936", watch: "https://bintv-cc.pages.dev/?src=ch_555ad51b43a4&t=ESPN2", source: "premium" },
-  { id: "premium-espnews", key: "espnews", name: "ESPNEWS", logo: "https://i.ibb.co/5h4LGFHq/image.png", path: "mftslez4-3364", watch: "https://bintv-cc.pages.dev/?src=ch_28f05ff9e94a&t=ESPNEWS", source: "premium" },
-  { id: "premium-espnu", key: "espnu", name: "ESPNU", logo: "https://i.ibb.co/Lh5jHVDm/ESPNU-logo-1-jpg.webp", path: "wqbwjjhf-9771", watch: "https://bintv-cc.pages.dev/?src=ch_9d146dfb0c45&t=ESPNU", source: "premium" },
+  { id: "premium-espnews", key: "espnews", name: "ESPNEWS", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "mftslez4-3364", watch: "https://bintv-cc.pages.dev/?src=ch_28f05ff9e94a&t=ESPNEWS", source: "premium" },
+  { id: "premium-espnu", key: "espnu", name: "ESPNU", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "wqbwjjhf-9771", watch: "https://bintv-cc.pages.dev/?src=ch_9d146dfb0c45&t=ESPNU", source: "premium" },
   { id: "premium-fox-deportes", key: "fox-deportes", name: "Fox Deportes", logo: "https://foxsports-wordpress-www-prsupports-prod.s3.amazonaws.com/uploads/sites/2/2016/12/LOGO-DEPORTES-1040x585.jpg", path: "8p0wjr6t-3317", watch: "https://bintv-cc.pages.dev/?src=ch_423129d24589&t=Fox%20Deportes", source: "premium" },
   { id: "premium-fox-sports-1", key: "fox-sports-1", name: "Fox Sports 1", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/37/2015_Fox_Sports_1_logo.svg/1280px-2015_Fox_Sports_1_logo.svg.png", path: "f4ijr4sl-187", watch: "https://bintv-cc.pages.dev/?src=ch_1553beb4b96d&t=Fox%20Sports%201", source: "premium" },
   { id: "premium-fox-sports-2", key: "fox-sports-2", name: "Fox Sports 2", logo: "https://upload.wikimedia.org/wikipedia/commons/thumb/3/38/FS2_logo_2015.svg/1280px-FS2_logo_2015.svg.png", path: "p5562bwm-3285", watch: "https://bintv-cc.pages.dev/?src=ch_f5a3d5a4234c&t=Fox%20Sports%202", source: "premium" },
-  { id: "premium-fox-sports-501", key: "fox-sports-501", name: "Fox Sports 501", logo: "https://i.ibb.co/Y4bTS1p7/image.webp", path: "imifneoj-1417", watch: "https://bintv-cc.pages.dev/?src=ch_def2e89fc5b2&t=Fox%20Sports%20501", source: "premium" },
+  { id: "premium-fox-sports-501", key: "fox-sports-501", name: "Fox Sports 501", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Fox_Sports_Networks_logo.svg/500px-Fox_Sports_Networks_logo.svg.png", path: "imifneoj-1417", watch: "https://bintv-cc.pages.dev/?src=ch_def2e89fc5b2&t=Fox%20Sports%20501", source: "premium" },
   { id: "premium-fox-sports-502", key: "fox-sports-502", name: "Fox Sports 502", logo: "https://i.postimg.cc/5NBbWrWm/Minimalist-bintv-Wordmark.png", path: "caxq9d5g-1854", watch: "https://bintv-cc.pages.dev/?src=ch_28f2e7bea222&t=Fox%20Sports%20502", source: "premium" },
-  { id: "premium-fox-sports-503", key: "fox-sports-503", name: "Fox Sports 503", logo: "https://i.ibb.co/xS4MkGSL/image.webp", path: "t1ilns5i-746", watch: "https://bintv-cc.pages.dev/?src=ch_6776cda0922c&t=Fox%20Sports%20503", source: "premium" },
-  { id: "premium-fox-sports-504", key: "fox-sports-504", name: "Fox Sports 504", logo: "https://i.ibb.co/SXvQLc0M/image.webp", path: "m5ys2t2z-7410", watch: "https://bintv-cc.pages.dev/?src=ch_7593f1845750&t=Fox%20Sports%20504", source: "premium" },
-  { id: "premium-fox-sports-505", key: "fox-sports-505", name: "Fox Sports 505", logo: "https://i.ibb.co/prKZGNLt/image.webp", path: "p0jkpm12-1140", watch: "https://bintv-cc.pages.dev/?src=ch_2ea7542f9195&t=Fox%20Sports%20505", source: "premium" },
-  { id: "premium-fox-sports-506", key: "fox-sports-506", name: "Fox Sports 506", logo: "https://i.ibb.co/Swks4Lmj/image.webp", path: "9hg9rzzh-2937", watch: "https://bintv-cc.pages.dev/?src=ch_6958d745c57b&t=Fox%20Sports%20506", source: "premium" },
-  { id: "premium-fox-sports-507", key: "fox-sports-507", name: "Fox Sports 507", logo: "https://i.ibb.co/7d6VgDVL/image.webp", path: "s1npqmod-9335", watch: "https://bintv-cc.pages.dev/?src=ch_e1c3fe5fe1f7&t=Fox%20Sports%20507", source: "premium" },
+  { id: "premium-fox-sports-503", key: "fox-sports-503", name: "Fox Sports 503", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Fox_Sports_Networks_logo.svg/500px-Fox_Sports_Networks_logo.svg.png", path: "t1ilns5i-746", watch: "https://bintv-cc.pages.dev/?src=ch_6776cda0922c&t=Fox%20Sports%20503", source: "premium" },
+  { id: "premium-fox-sports-504", key: "fox-sports-504", name: "Fox Sports 504", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Fox_Sports_Networks_logo.svg/500px-Fox_Sports_Networks_logo.svg.png", path: "m5ys2t2z-7410", watch: "https://bintv-cc.pages.dev/?src=ch_7593f1845750&t=Fox%20Sports%20504", source: "premium" },
+  { id: "premium-fox-sports-505", key: "fox-sports-505", name: "Fox Sports 505", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Fox_Sports_Networks_logo.svg/500px-Fox_Sports_Networks_logo.svg.png", path: "p0jkpm12-1140", watch: "https://bintv-cc.pages.dev/?src=ch_2ea7542f9195&t=Fox%20Sports%20505", source: "premium" },
+  { id: "premium-fox-sports-506", key: "fox-sports-506", name: "Fox Sports 506", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Fox_Sports_Networks_logo.svg/500px-Fox_Sports_Networks_logo.svg.png", path: "9hg9rzzh-2937", watch: "https://bintv-cc.pages.dev/?src=ch_6958d745c57b&t=Fox%20Sports%20506", source: "premium" },
+  { id: "premium-fox-sports-507", key: "fox-sports-507", name: "Fox Sports 507", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/2/2b/Fox_Sports_Networks_logo.svg/500px-Fox_Sports_Networks_logo.svg.png", path: "s1npqmod-9335", watch: "https://bintv-cc.pages.dev/?src=ch_e1c3fe5fe1f7&t=Fox%20Sports%20507", source: "premium" },
   { id: "premium-go3-sport-1", key: "go3-sport-1", name: "Go3 Sport 1", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/go3sport.png", path: "2tsl2cbn-6969", watch: "https://bintv-cc.pages.dev/?src=ch_c015b902964f&t=Go3%20Sport%201", source: "premium" },
   { id: "premium-go3-sport-2", key: "go3-sport-2", name: "Go3 Sport 2", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/go3sport.png", path: "gu0zawp0-8172", watch: "https://bintv-cc.pages.dev/?src=ch_76f948d2f821&t=Go3%20Sport%202", source: "premium" },
   { id: "premium-go3-sport-3", key: "go3-sport-3", name: "Go3 Sport 3", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/go3sport.png", path: "gu0zawp0-5456", watch: "https://bintv-cc.pages.dev/?src=ch_9944298a1738&t=Go3%20Sport%203", source: "premium" },
@@ -207,8 +235,8 @@ const PREMIUM_CHANNELS = [
   { id: "premium-movistar-plus", key: "movistar-plus", name: "Movistar Plus", logo: "https://imagenes.hobbyconsolas.com/uploads/imagenes/2026/05/11/6a01f2422d3b19-96205427.jpeg", path: "b6a3cjbx-9022", watch: "https://bintv-cc.pages.dev/?src=ch_fcee6a9d0399&t=Movistar%20Plus", source: "premium" },
   { id: "premium-nba-tv", key: "nba-tv", name: "NBA TV", logo: "https://static.cdn.turner.com/styles/header_image_1500x500_cropped/s3/nba-tv-16x9-1.jpg?itok=6H8mrlyR", path: "8tl2ksef-2775", watch: "https://bintv-cc.pages.dev/?src=ch_57a31433058b&t=NBA%20TV", source: "premium" },
   { id: "premium-nbc-sports-bay-area", key: "nbc-sports-bay-area", name: "NBC Sports Bay Area", logo: "https://cdn.mos.cms.futurecdn.net/d7jWexxhtezRZ6ryLHyKmd.jpeg", path: "soipf80d-8441", watch: "https://bintv-cc.pages.dev/?src=ch_8182033eb8ab&t=NBC%20Sports%20Bay%20Area", source: "premium" },
-  { id: "premium-nbc-sports-philadelphia", key: "nbc-sports-philadelphia", name: "NBC Sports Philadelphia", logo: "https://media.nbcsportsphiladelphia.com/2023/04/Philly-Landmark.png?resize=1200%2C675&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=85&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;strip=all", path: "03uxmg2p-8674", watch: "https://bintv-cc.pages.dev/?src=ch_ea320a260c71&t=NBC%20Sports%20Philadelphia", source: "premium" },
-  { id: "premium-nfl-network", key: "nfl-network", name: "NFL Network", logo: "https://i.ibb.co/ZRsTndvV/tfki7njrm3y8jycbtkrx.jpg", path: "a40czx8e-4022", watch: "https://bintv-cc.pages.dev/?src=ch_ed68f4fb0431&t=NFL%20Network", source: "premium" },
+  { id: "premium-nbc-sports-philadelphia", key: "nbc-sports-philadelphia", name: "NBC Sports Philadelphia", logo: "https://media.nbcsportsphiladelphia.com/2023/04/Philly-Landmark.png?resize=1200%2C675&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;quality=85&amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;amp;strip=all", path: "03uxmg2p-8674", watch: "https://bintv-cc.pages.dev/?src=ch_ea320a260c71&t=NBC%20Sports%20Philadelphia", source: "premium" },
+  { id: "premium-nfl-network", key: "nfl-network", name: "NFL Network", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/9/95/NFL%2B_logo.svg/500px-NFL%2B_logo.svg.png", path: "a40czx8e-4022", watch: "https://bintv-cc.pages.dev/?src=ch_ed68f4fb0431&t=NFL%20Network", source: "premium" },
   { id: "premium-nhl-network", key: "nhl-network", name: "NHL Network", logo: "https://media.d3.nhle.com/image/private/t_ratio16_9-size50/prd/lhum6z3hyaga9ahnjow0.png", path: "kelcwql2-1938", watch: "https://bintv-cc.pages.dev/?src=ch_9dd8b30ecfc8&t=NHL%20Network", source: "premium" },
   { id: "premium-polsat-sport-1", key: "polsat-sport-1", name: "Polsat Sport 1", logo: "https://staticeu.sweet.tv/images/cache/v2/channel_banner/COEd/3809-polsat-sport-1-hd.png", path: "pi5dqsjd-8964", watch: "https://bintv-cc.pages.dev/?src=ch_0d8a615c7cb0&t=Polsat%20Sport%201", source: "premium" },
   { id: "premium-polsat-sport-2", key: "polsat-sport-2", name: "Polsat Sport 2", logo: "https://staticeu.sweet.tv/images/cache/v2/channel_banner/COId/3810-polsat-sport-2-hd.png", path: "njs5pc6k-5347", watch: "https://bintv-cc.pages.dev/?src=ch_dad77643dce5&t=Polsat%20Sport%202", source: "premium" },
@@ -216,24 +244,24 @@ const PREMIUM_CHANNELS = [
   { id: "premium-polsat-sport-fight", key: "polsat-sport-fight", name: "Polsat Sport Fight", logo: "https://staticeu.sweet.tv/images/cache/v2/channel_banner/COUd/3813-polsat-sport-fight-hd.png", path: "mkr6nvqt-4662", watch: "https://bintv-cc.pages.dev/?src=ch_d52f3134d200&t=Polsat%20Sport%20Fight", source: "premium" },
   { id: "premium-premier-sports-1-ie", key: "premier-sports-1-ie", name: "Premier Sports 1 IE", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/premiersports.png", path: "nf1skh2l-1926", watch: "https://bintv-cc.pages.dev/?src=ch_444ee7ca0e12&t=Premier%20Sports%201%20IE", source: "premium" },
   { id: "premium-premier-sports-2-ie", key: "premier-sports-2-ie", name: "Premier Sports 2 IE", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/premiersports.png", path: "c8prf9yh-2498", watch: "https://bintv-cc.pages.dev/?src=ch_253936fe381d&t=Premier%20Sports%202%20IE", source: "premium" },
-  { id: "premium-sky-sport-1-nz", key: "sky-sport-1-nz", name: "Sky Sport 1 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "8num3afh-8204", watch: "https://bintv-cc.pages.dev/?src=ch_b06280b150af&t=Sky%20Sport%201%20NZ", source: "premium" },
-  { id: "premium-sky-sport-2-nz", key: "sky-sport-2-nz", name: "Sky Sport 2 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "sl9un97j-4474", watch: "https://bintv-cc.pages.dev/?src=ch_e0b0da298408&t=Sky%20Sport%202%20NZ", source: "premium" },
+  { id: "premium-sky-sport-1-nz", key: "sky-sport-1-nz", name: "Sky Sport 1 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "8num3afh-8204", watch: "https://bintv-cc.pages.dev/?src=ch_b06280b150af&t=Sky%20Sport%201%20NZ", source: "premium" },
+  { id: "premium-sky-sport-2-nz", key: "sky-sport-2-nz", name: "Sky Sport 2 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "sl9un97j-4474", watch: "https://bintv-cc.pages.dev/?src=ch_e0b0da298408&t=Sky%20Sport%202%20NZ", source: "premium" },
   { id: "premium-sky-sport-24", key: "sky-sport-24", name: "Sky Sport 24", logo: "https://mir-s3-cdn-cf.behance.net/project_modules/max_1200_webp/dfa89629775883.5602ff6b0aacf.jpg", path: "1k3ckb2m-8796", watch: "https://bintv-cc.pages.dev/?src=ch_4158e0bf40ae&t=Sky%20Sport%2024", source: "premium" },
-  { id: "premium-sky-sport-3-nz", key: "sky-sport-3-nz", name: "Sky Sport 3 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "ldfbs8gf-7885", watch: "https://bintv-cc.pages.dev/?src=ch_193a71c7058f&t=Sky%20Sport%203%20NZ", source: "premium" },
-  { id: "premium-sky-sport-4-nz", key: "sky-sport-4-nz", name: "Sky Sport 4 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "h0ryosf9-1736", watch: "https://bintv-cc.pages.dev/?src=ch_b100cd08f815&t=Sky%20Sport%204%20NZ", source: "premium" },
-  { id: "premium-sky-sport-5-nz", key: "sky-sport-5-nz", name: "Sky Sport 5 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "32f9u4no-5828", watch: "https://bintv-cc.pages.dev/?src=ch_70ae6a537512&t=Sky%20Sport%205%20NZ", source: "premium" },
-  { id: "premium-sky-sport-6-nz", key: "sky-sport-6-nz", name: "Sky Sport 6 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "wghuk9nx-1967", watch: "https://bintv-cc.pages.dev/?src=ch_83bd2236ebb7&t=Sky%20Sport%206%20NZ", source: "premium" },
-  { id: "premium-sky-sport-7-nz", key: "sky-sport-7-nz", name: "Sky Sport 7 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "dohvga1l-2284", watch: "https://bintv-cc.pages.dev/?src=ch_e956c397d86b&t=Sky%20Sport%207%20NZ", source: "premium" },
-  { id: "premium-sky-sport-8-nz", key: "sky-sport-8-nz", name: "Sky Sport 8 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "asxdfczr-9050", watch: "https://bintv-cc.pages.dev/?src=ch_80c393ed8e57&t=Sky%20Sport%208%20NZ", source: "premium" },
-  { id: "premium-sky-sport-9-nz", key: "sky-sport-9-nz", name: "Sky Sport 9 NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "kb1ngcei-9972", watch: "https://bintv-cc.pages.dev/?src=ch_c89dfc8c5d5f&t=Sky%20Sport%209%20NZ", source: "premium" },
-  { id: "premium-sky-sport-arena-it", key: "sky-sport-arena-it", name: "Sky Sport Arena IT", logo: "https://api-stg.cloudstreamer.cc/?c=sky-sport-arena", path: "akfl7ls6-2231", watch: "https://bintv-cc.pages.dev/?src=ch_e7780ac9b06a&t=Sky%20Sport%20Arena%20IT", source: "premium" },
+  { id: "premium-sky-sport-3-nz", key: "sky-sport-3-nz", name: "Sky Sport 3 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "ldfbs8gf-7885", watch: "https://bintv-cc.pages.dev/?src=ch_193a71c7058f&t=Sky%20Sport%203%20NZ", source: "premium" },
+  { id: "premium-sky-sport-4-nz", key: "sky-sport-4-nz", name: "Sky Sport 4 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "h0ryosf9-1736", watch: "https://bintv-cc.pages.dev/?src=ch_b100cd08f815&t=Sky%20Sport%204%20NZ", source: "premium" },
+  { id: "premium-sky-sport-5-nz", key: "sky-sport-5-nz", name: "Sky Sport 5 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "32f9u4no-5828", watch: "https://bintv-cc.pages.dev/?src=ch_70ae6a537512&t=Sky%20Sport%205%20NZ", source: "premium" },
+  { id: "premium-sky-sport-6-nz", key: "sky-sport-6-nz", name: "Sky Sport 6 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "wghuk9nx-1967", watch: "https://bintv-cc.pages.dev/?src=ch_83bd2236ebb7&t=Sky%20Sport%206%20NZ", source: "premium" },
+  { id: "premium-sky-sport-7-nz", key: "sky-sport-7-nz", name: "Sky Sport 7 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "dohvga1l-2284", watch: "https://bintv-cc.pages.dev/?src=ch_e956c397d86b&t=Sky%20Sport%207%20NZ", source: "premium" },
+  { id: "premium-sky-sport-8-nz", key: "sky-sport-8-nz", name: "Sky Sport 8 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "asxdfczr-9050", watch: "https://bintv-cc.pages.dev/?src=ch_80c393ed8e57&t=Sky%20Sport%208%20NZ", source: "premium" },
+  { id: "premium-sky-sport-9-nz", key: "sky-sport-9-nz", name: "Sky Sport 9 NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "kb1ngcei-9972", watch: "https://bintv-cc.pages.dev/?src=ch_c89dfc8c5d5f&t=Sky%20Sport%209%20NZ", source: "premium" },
+  { id: "premium-sky-sport-arena-it", key: "sky-sport-arena-it", name: "Sky Sport Arena IT", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "akfl7ls6-2231", watch: "https://bintv-cc.pages.dev/?src=ch_e7780ac9b06a&t=Sky%20Sport%20Arena%20IT", source: "premium" },
   { id: "premium-sky-sport-bundesliga", key: "sky-sport-bundesliga", name: "Sky Sport Bundesliga", logo: "https://www.sportsvideo.org/wp-content/uploads/2024/12/Sky-Sports-Bundesliega-featured.png", path: "bsudwrf4-653", watch: "https://bintv-cc.pages.dev/?src=ch_408760fd1b5d&t=Sky%20Sport%20Bundesliga", source: "premium" },
-  { id: "premium-sky-sport-calcio-it", key: "sky-sport-calcio-it", name: "Sky Sport Calcio IT", logo: "https://i.postimg.cc/RhnJsRmT/Frame-10.png", path: "gib0w25z-357", watch: "https://bintv-cc.pages.dev/?src=ch_8db3b7426441&t=Sky%20Sport%20Calcio%20IT", source: "premium" },
-  { id: "premium-sky-sport-f1-italia", key: "sky-sport-f1-italia", name: "Sky Sport F1 Italia", logo: "https://api-stg.cloudstreamer.cc/?c=sky-sport-f1-italia", path: "t5mpn192-927", watch: "https://bintv-cc.pages.dev/?src=ch_ceb6b6f7a780&t=Sky%20Sport%20F1%20Italia", source: "premium" },
-  { id: "premium-sky-sport-max-it", key: "sky-sport-max-it", name: "Sky Sport Max IT", logo: "https://api-stg.cloudstreamer.cc/?c=sky-sport-max", path: "jfgks9vt-7958", watch: "https://bintv-cc.pages.dev/?src=ch_c28fba47257e&t=Sky%20Sport%20Max%20IT", source: "premium" },
-  { id: "premium-sky-sport-motogp-it", key: "sky-sport-motogp-it", name: "Sky Sport MotoGP IT", logo: "https://api-stg.cloudstreamer.cc/?c=sky-sport-motogp", path: "z1b9nwhr-4813", watch: "https://bintv-cc.pages.dev/?src=ch_eb129473eff6&t=Sky%20Sport%20MotoGP%20IT", source: "premium" },
-  { id: "premium-sky-sport-select-nz", key: "sky-sport-select-nz", name: "Sky Sport Select NZ", logo: "https://i.ibb.co/v4NvkZst/Untitled-design.png", path: "b6ca3188-8449", watch: "https://bintv-cc.pages.dev/?src=ch_0c9196b3c494&t=Sky%20Sport%20Select%20NZ", source: "premium" },
-  { id: "premium-sky-sport-tennis-it", key: "sky-sport-tennis-it", name: "Sky Sport Tennis IT", logo: "https://i.postimg.cc/rw53XXjJ/Frame-10-(1).png", path: "mssnlmj6-4172", watch: "https://bintv-cc.pages.dev/?src=ch_62dbbb315a41&t=Sky%20Sport%20Tennis%20IT", source: "premium" },
+  { id: "premium-sky-sport-calcio-it", key: "sky-sport-calcio-it", name: "Sky Sport Calcio IT", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "gib0w25z-357", watch: "https://bintv-cc.pages.dev/?src=ch_8db3b7426441&t=Sky%20Sport%20Calcio%20IT", source: "premium" },
+  { id: "premium-sky-sport-f1-italia", key: "sky-sport-f1-italia", name: "Sky Sport F1 Italia", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "t5mpn192-927", watch: "https://bintv-cc.pages.dev/?src=ch_ceb6b6f7a780&t=Sky%20Sport%20F1%20Italia", source: "premium" },
+  { id: "premium-sky-sport-max-it", key: "sky-sport-max-it", name: "Sky Sport Max IT", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "jfgks9vt-7958", watch: "https://bintv-cc.pages.dev/?src=ch_c28fba47257e&t=Sky%20Sport%20Max%20IT", source: "premium" },
+  { id: "premium-sky-sport-motogp-it", key: "sky-sport-motogp-it", name: "Sky Sport MotoGP IT", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "z1b9nwhr-4813", watch: "https://bintv-cc.pages.dev/?src=ch_eb129473eff6&t=Sky%20Sport%20MotoGP%20IT", source: "premium" },
+  { id: "premium-sky-sport-select-nz", key: "sky-sport-select-nz", name: "Sky Sport Select NZ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "b6ca3188-8449", watch: "https://bintv-cc.pages.dev/?src=ch_0c9196b3c494&t=Sky%20Sport%20Select%20NZ", source: "premium" },
+  { id: "premium-sky-sport-tennis-it", key: "sky-sport-tennis-it", name: "Sky Sport Tennis IT", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/5/5b/Sky_Sport_-_Logo_2018.svg/500px-Sky_Sport_-_Logo_2018.svg.png", path: "mssnlmj6-4172", watch: "https://bintv-cc.pages.dev/?src=ch_62dbbb315a41&t=Sky%20Sport%20Tennis%20IT", source: "premium" },
   { id: "premium-sky-sport-uno", key: "sky-sport-uno", name: "Sky Sport Uno", logo: "https://i.imgur.com/dnoy7mK.png", path: "pqd6qx47-4522", watch: "https://bintv-cc.pages.dev/?src=ch_7fa2166bd667&t=Sky%20Sport%20Uno", source: "premium" },
   { id: "premium-sky-sports", key: "sky-sports", name: "Sky Sports+", logo: "https://e0.365dm.com/24/07/2048x1152/skysports-ssplus-sky-sports-plus_6644064.jpg", path: "jwrj2d6p-8874", watch: "https://bintv-cc.pages.dev/?src=ch_47a060bfba37&t=Sky%20Sports%2B", source: "premium" },
   { id: "premium-sky-sports-action", key: "sky-sports-action", name: "Sky Sports Action", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/skysportsaction.png", path: "3ym6q5iy-878", watch: "https://bintv-cc.pages.dev/?src=ch_7379cfb9d496&t=Sky%20Sports%20Action", source: "premium" },
@@ -257,7 +285,7 @@ const PREMIUM_CHANNELS = [
   { id: "premium-sport-tv3", key: "sport-tv3", name: "Sport TV3", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/sportv-pt.png", path: "dbo09jwh-5404", watch: "https://bintv-cc.pages.dev/?src=ch_35f35ef94a15&t=Sport%20TV3", source: "premium" },
   { id: "premium-sport-tv4", key: "sport-tv4", name: "Sport TV4", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/sportv-pt.png", path: "t218wwwk-3361", watch: "https://bintv-cc.pages.dev/?src=ch_69b3a8d22f46&t=Sport%20TV4", source: "premium" },
   { id: "premium-sport-tv5", key: "sport-tv5", name: "Sport TV5", logo: "https://cdn.jsdelivr.net/gh/willthequeencome/img-cdn/sportv-pt.png", path: "twg31g84-6394", watch: "https://bintv-cc.pages.dev/?src=ch_58e9de926c56&t=Sport%20TV5", source: "premium" },
-  { id: "premium-sportdigital-fussball", key: "sportdigital-fussball", name: "SPORTDIGITAL FUSSBALL", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=712wbfqz8apl1k09rf681eqxd_image-header_pDach_1661948855000&amp;amp;amp;amp;amp;amp;amp;amp;quality=70", path: "9bn5lr9r-5959", watch: "https://bintv-cc.pages.dev/?src=ch_a2f202b8da0b&t=SPORTDIGITAL%20FUSSBALL", source: "premium" },
+  { id: "premium-sportdigital-fussball", key: "sportdigital-fussball", name: "SPORTDIGITAL FUSSBALL", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=712wbfqz8apl1k09rf681eqxd_image-header_pDach_1661948855000&amp;amp;amp;amp;amp;amp;amp;quality=70", path: "9bn5lr9r-5959", watch: "https://bintv-cc.pages.dev/?src=ch_a2f202b8da0b&t=SPORTDIGITAL%20FUSSBALL", source: "premium" },
   { id: "premium-tennis-channel", key: "tennis-channel", name: "Tennis Channel", logo: "https://s10019.cdn.ncms.io/wp-content/uploads/2026/05/tenn2.jpg.jpeg", path: "80nrh660-13", watch: "https://bintv-cc.pages.dev/?src=ch_e96150a2570e&t=Tennis%20Channel", source: "premium" },
   { id: "premium-tnt-1", key: "tnt-1", name: "TNT Sports 1", logo: "https://cdn.mos.cms.futurecdn.net/y3oPitXYAwGJnyTHFYo5qB.jpeg", path: "e0lyrkhr-1002", watch: "https://bintv-cc.pages.dev/?src=ch_a97e4e499bf0&t=TNT%20Sports%201", source: "premium" },
   { id: "premium-tnt-sports-2", key: "tnt-sports-2", name: "TNT Sports 2", logo: "https://cdn.mos.cms.futurecdn.net/y3oPitXYAwGJnyTHFYo5qB.jpeg", path: "it7aytqh-1540", watch: "https://bintv-cc.pages.dev/?src=ch_18c353114405&t=TNT%20Sports%202", source: "premium" },
@@ -270,35 +298,35 @@ const PREMIUM_CHANNELS = [
   { id: "premium-unite8-sports-1-zee-caf", key: "unite8-sports-1-zee-caf", name: "Unite8 Sports 1 / ZEE CAFÉ", logo: "https://exchange4media.gumlet.io/news-photo/155155-Z1.jpg", path: "tnxwmkhb-3003", watch: "https://bintv-cc.pages.dev/?src=ch_f424a8fab24d&t=Unite8%20Sports%201%20/%20ZEE%20CAF%C3%89", source: "premium" },
   { id: "premium-willow-cricket", key: "willow-cricket", name: "Willow Cricket", logo: "https://mgpindia.com/wp-content/uploads/2021/10/willow-logo.jpg", path: "spd8gpoh-6586", watch: "https://bintv-cc.pages.dev/?src=ch_97127a13cdb7&t=Willow%20Cricket", source: "premium" },
   { id: "premium-willow-cricket-2", key: "willow-cricket-2", name: "Willow Cricket 2", logo: "https://d229kpbsb5jevy.cloudfront.net/tv/1920/1080/languages/WILLOW-2.jpg", path: "14quawd5-8819", watch: "https://bintv-cc.pages.dev/?src=ch_9282b9d0e267&t=Willow%20Cricket%202", source: "premium" },
-  { id: "premium-eurosport-1", key: "eurosport-1", name: "Eurosport 1", logo: "", path: "", watch: "https://matchora.to/embed/channel/1913128", source: "premium" },
-  { id: "premium-eurosport-2", key: "eurosport-2", name: "Eurosport 2", logo: "", path: "", watch: "https://matchora.to/embed/channel/1913126", source: "premium" },
-  { id: "premium-espn-3", key: "espn-3", name: "ESPN 3", logo: "", path: "", watch: "https://matchora.to/embed/channel/890657", source: "premium" },
-  { id: "premium-espn-2-latin-america", key: "espn-2-latin-america", name: "ESPN 2 Latin America", logo: "", path: "", watch: "https://daddylive.mov/", source: "premium" },
-  { id: "premium-espn-3-latin-america", key: "espn-3-latin-america", name: "ESPN 3 Latin America", logo: "", path: "", watch: "https://daddylive.mov/", source: "premium" },
-  { id: "premium-dazn-2", key: "dazn-2", name: "DAZN 2", logo: "", path: "", watch: "https://matchora.to/embed/channel/317037", source: "premium" },
-  { id: "premium-dazn-3", key: "dazn-3", name: "DAZN 3", logo: "", path: "", watch: "https://matchora.to/embed/channel/317038", source: "premium" },
-  { id: "premium-dazn-4", key: "dazn-4", name: "DAZN 4", logo: "", path: "", watch: "https://matchora.to/embed/channel/317039", source: "premium" },
-  { id: "premium-dazn-5", key: "dazn-5", name: "DAZN 5", logo: "", path: "", watch: "https://matchora.to/embed/channel/317040", source: "premium" },
-  { id: "premium-dazn-combat", key: "dazn-combat", name: "DAZN Combat", logo: "", path: "", watch: "https://matchora.to/embed/channel/1917694", source: "premium" },
-  { id: "premium-bein-sports-2", key: "bein-sports-2", name: "beIN Sports 2", logo: "", path: "", watch: "https://matchora.to/embed/channel/1660411", source: "premium" },
-  { id: "premium-bein-sports-3", key: "bein-sports-3", name: "beIN Sports 3", logo: "", path: "", watch: "https://matchora.to/embed/channel/1660409", source: "premium" },
-  { id: "premium-bein-sports-xtra", key: "bein-sports-xtra", name: "beIN SPORTS XTRA", logo: "", path: "", watch: "https://daddylive.mov/", source: "premium" },
-  { id: "premium-bein-sports-xtra-en-espanol", key: "bein-sports-xtra-en-espanol", name: "beIN SPORTS XTRA en Espanol", logo: "", path: "", watch: "https://daddylive.mov/", source: "premium" },
-  { id: "premium-cbs-sports-golazo-network", key: "cbs-sports-golazo-network", name: "CBS Sports Golazo Network", logo: "", path: "", watch: "https://tvnow247.top/embed/308/", source: "premium" },
-  { id: "premium-cbs-sports-hq", key: "cbs-sports-hq", name: "CBS Sports HQ", logo: "", path: "", watch: "https://daddylive.mov/", source: "premium" },
-  { id: "premium-nbc-sports-now", key: "nbc-sports-now", name: "NBC Sports NOW", logo: "", path: "", watch: "https://daddylive.mov/", source: "premium" },
-  { id: "premium-premier-sports-1", key: "premier-sports-1", name: "Premier Sports 1", logo: "", path: "", watch: "https://matchora.to/embed/channel/1032487", source: "premium" },
-  { id: "premium-premier-sports-2", key: "premier-sports-2", name: "Premier Sports 2", logo: "", path: "", watch: "https://matchora.to/embed/channel/1032486", source: "premium" },
-  { id: "premium-star-sports-1", key: "star-sports-1", name: "Star Sports 1", logo: "", path: "", watch: "https://matchora.to/embed/channel/282677", source: "premium" },
-  { id: "premium-star-sports-2", key: "star-sports-2", name: "Star Sports 2", logo: "", path: "", watch: "https://matchora.to/embed/channel/282673", source: "premium" },
-  { id: "premium-star-sports-select-1", key: "star-sports-select-1", name: "Star Sports Select 1", logo: "", path: "", watch: "https://matchora.to/embed/channel/282675", source: "premium" },
-  { id: "premium-star-sports-select-2", key: "star-sports-select-2", name: "Star Sports Select 2", logo: "", path: "", watch: "https://matchora.to/embed/channel/282676", source: "premium" },
-  { id: "premium-supersport-premier-league", key: "supersport-premier-league", name: "SuperSport Premier League", logo: "", path: "", watch: "https://matchora.to/embed/channel/833281", source: "premium" },
-  { id: "premium-supersport-football", key: "supersport-football", name: "SuperSport Football", logo: "", path: "", watch: "https://matchora.to/embed/channel/144417", source: "premium" },
-  { id: "premium-tsn-2", key: "tsn-2", name: "TSN 2", logo: "", path: "", watch: "https://matchora.to/embed/channel/177345", source: "premium" },
-  { id: "premium-sportsnet-one", key: "sportsnet-one", name: "Sportsnet ONE", logo: "", path: "", watch: "https://matchora.to/embed/channel/1920740", source: "premium" },
-  { id: "premium-sportsnet-360", key: "sportsnet-360", name: "Sportsnet 360", logo: "", path: "", watch: "https://matchora.to/embed/channel/1920742", source: "premium" },
-  { id: "premium-tnt-sports-5", key: "tnt-sports-5", name: "TNT Sports 5", logo: "", path: "", watch: "https://matchora.to/embed/channel/1004550", source: "premium" },
+  { id: "premium-eurosport-1", key: "eurosport-1", name: "Eurosport 1", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Eurosport_Logo_%282011-2015%29.svg/500px-Eurosport_Logo_%282011-2015%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/1913128", source: "premium" },
+  { id: "premium-eurosport-2", key: "eurosport-2", name: "Eurosport 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Eurosport_Logo_%282011-2015%29.svg/500px-Eurosport_Logo_%282011-2015%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/1913126", source: "premium" },
+  { id: "premium-espn-3", key: "espn-3", name: "ESPN 3", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "", watch: "https://matchora.to/embed/channel/890657", source: "premium" },
+  { id: "premium-espn-2-latin-america", key: "espn-2-latin-america", name: "ESPN 2 Latin America", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
+  { id: "premium-espn-3-latin-america", key: "espn-3-latin-america", name: "ESPN 3 Latin America", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
+  { id: "premium-dazn-2", key: "dazn-2", name: "DAZN 2", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/317037", source: "premium" },
+  { id: "premium-dazn-3", key: "dazn-3", name: "DAZN 3", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/317038", source: "premium" },
+  { id: "premium-dazn-4", key: "dazn-4", name: "DAZN 4", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/317039", source: "premium" },
+  { id: "premium-dazn-5", key: "dazn-5", name: "DAZN 5", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/317040", source: "premium" },
+  { id: "premium-dazn-combat", key: "dazn-combat", name: "DAZN Combat", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/1917694", source: "premium" },
+  { id: "premium-bein-sports-2", key: "bein-sports-2", name: "beIN Sports 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/1660411", source: "premium" },
+  { id: "premium-bein-sports-3", key: "bein-sports-3", name: "beIN Sports 3", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/1660409", source: "premium" },
+  { id: "premium-bein-sports-xtra", key: "bein-sports-xtra", name: "beIN SPORTS XTRA", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
+  { id: "premium-bein-sports-xtra-en-espanol", key: "bein-sports-xtra-en-espanol", name: "beIN SPORTS XTRA en Espanol", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
+  { id: "premium-cbs-sports-golazo-network", key: "cbs-sports-golazo-network", name: "CBS Sports Golazo Network", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/CBS_Eye_%28Didot%29.svg/500px-CBS_Eye_%28Didot%29.svg.png", path: "", watch: "https://tvnow247.top/embed/308/", source: "premium" },
+  { id: "premium-cbs-sports-hq", key: "cbs-sports-hq", name: "CBS Sports HQ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/CBS_Eye_%28Didot%29.svg/500px-CBS_Eye_%28Didot%29.svg.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
+  { id: "premium-nbc-sports-now", key: "nbc-sports-now", name: "NBC Sports NOW", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/87/NBC_Sports_Group_Logo.png/500px-NBC_Sports_Group_Logo.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
+  { id: "premium-premier-sports-1", key: "premier-sports-1", name: "Premier Sports 1", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b5/Premier_sports_logo_2018.svg/500px-Premier_sports_logo_2018.svg.png", path: "", watch: "https://matchora.to/embed/channel/1032487", source: "premium" },
+  { id: "premium-premier-sports-2", key: "premier-sports-2", name: "Premier Sports 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b5/Premier_sports_logo_2018.svg/500px-Premier_sports_logo_2018.svg.png", path: "", watch: "https://matchora.to/embed/channel/1032486", source: "premium" },
+  { id: "premium-star-sports-1", key: "star-sports-1", name: "Star Sports 1", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.to/embed/channel/282677", source: "premium" },
+  { id: "premium-star-sports-2", key: "star-sports-2", name: "Star Sports 2", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.to/embed/channel/282673", source: "premium" },
+  { id: "premium-star-sports-select-1", key: "star-sports-select-1", name: "Star Sports Select 1", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.to/embed/channel/282675", source: "premium" },
+  { id: "premium-star-sports-select-2", key: "star-sports-select-2", name: "Star Sports Select 2", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.to/embed/channel/282676", source: "premium" },
+  { id: "premium-supersport-premier-league", key: "supersport-premier-league", name: "SuperSport Premier League", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/SuperSport_Albania.svg/500px-SuperSport_Albania.svg.png", path: "", watch: "https://matchora.to/embed/channel/833281", source: "premium" },
+  { id: "premium-supersport-football", key: "supersport-football", name: "SuperSport Football", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/SuperSport_Albania.svg/500px-SuperSport_Albania.svg.png", path: "", watch: "https://matchora.to/embed/channel/144417", source: "premium" },
+  { id: "premium-tsn-2", key: "tsn-2", name: "TSN 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/87/TSN_logo_%28original%29.svg/500px-TSN_logo_%28original%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/177345", source: "premium" },
+  { id: "premium-sportsnet-one", key: "sportsnet-one", name: "Sportsnet ONE", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Logo_Sportsnet_2011.svg/500px-Logo_Sportsnet_2011.svg.png", path: "", watch: "https://matchora.to/embed/channel/1920740", source: "premium" },
+  { id: "premium-sportsnet-360", key: "sportsnet-360", name: "Sportsnet 360", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Logo_Sportsnet_2011.svg/500px-Logo_Sportsnet_2011.svg.png", path: "", watch: "https://matchora.to/embed/channel/1920742", source: "premium" },
+  { id: "premium-tnt-sports-5", key: "tnt-sports-5", name: "TNT Sports 5", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/TNT_Sports_2021_logo.svg/500px-TNT_Sports_2021_logo.svg.png", path: "", watch: "https://matchora.to/embed/channel/1004550", source: "premium" },
 ];
 
 // NEW — free direct stream that actually plays (2026-11-11). The premium
@@ -397,8 +425,11 @@ function renderCats() {
 }
 
 // Header Premium button (top right): opens the Premium section.
+// Tapping it again goes back to All Channels, so it behaves like
+// a filter toggle, not a one-way link.
 $("premium-top").addEventListener("click", () => {
-  activeCat = PREMIUM_CAT; renderCats(); renderGrid();
+  activeCat = activeCat === PREMIUM_CAT ? CATS[0] : PREMIUM_CAT;
+  renderCats(); renderGrid();
 });
 
 function renderGrid() {
@@ -929,7 +960,17 @@ async function init() {
     }
     // A channel that already carries a category (the Premium section
     // sets it when appending) keeps it; the rest are classified by name.
-    allChannels = merged.map(ch => ({ ...ch, category: ch.category || classify(ch.name) }));
+// Channel names arrive with typos from the source lists
+// ("Telivision", "Indegenous", "Shamay"). Fix them once at load
+// so search, cards and the player all show the correct name,
+// even if a future cache refresh re-introduces the typos.
+function cleanName(name) {
+  return String(name || "")
+    .replace(/Telivision/g, "Television")
+    .replace(/Indegenous/g, "Indigenous")
+    .replace(/Sahara Shamay/g, "Sahara Samaya");
+}
+    allChannels = merged.map(ch => ({ ...ch, name: cleanName(ch.name), category: ch.category || classify(ch.name) }));
     renderGrid();
   };
   // GitHub Pages has no server, so both lists come without one:
