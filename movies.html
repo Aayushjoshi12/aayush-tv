@@ -501,7 +501,7 @@ async function downloadTitle() {
   const title = currentTitle;
   if (!title) return;
   btn.disabled = true;
-  btn.textContent = "Finding download…";
+  btn.textContent = "Finding downloads…";
   note.classList.remove("show");
   note.textContent = "";
   // Downloads use Vercel FIRST: Azure Korea's IPs are Cloudflare-
@@ -509,10 +509,11 @@ async function downloadTitle() {
   // always answers noSource for ?dl= while Vercel (Mumbai) works.
   // Azure is the fallback if Vercel fails. (Streaming still uses
   // Azure first — Vercel is blocked from the video site instead.)
+  // ?dlall= returns EVERY quality MoviesMod has for the title
+  // (480p/720p/1080p/2160p), so the user picks — not just 720p.
   const dlQuery =
-    "?dl=" + encodeURIComponent(title) +
-    "&year=" + encodeURIComponent(currentYear || "") +
-    "&quality=720p";
+    "?dlall=" + encodeURIComponent(title) +
+    "&year=" + encodeURIComponent(currentYear || "");
   let d = null;
   try {
     const r = await fetch(MOVIE_RESOLVER_FALLBACK + dlQuery);
@@ -520,7 +521,7 @@ async function downloadTitle() {
   } catch {
     // Fall through to Azure below.
   }
-  if (!d || d.noSource || !d.downloadUrl) {
+  if (!d || d.noSource || !(d.qualities || []).length) {
     try {
       d = await getJSON(MOVIE_RESOLVER + dlQuery);
     } catch {
@@ -528,23 +529,26 @@ async function downloadTitle() {
     }
   }
   try {
-    if (!d || d.noSource || !d.downloadUrl) {
+    const quals = (d && d.qualities) || [];
+    if (!d || d.noSource || !quals.length) {
       note.textContent = "No download found for this title yet. Try another one.";
       note.classList.add("show");
       return;
     }
-    const label = [d.filename || title, d.size ? "(" + d.size + ")" : "", d.quality ? d.quality : ""].filter(Boolean).join(" ");
     note.innerHTML = "";
-    note.appendChild(document.createTextNode("Download ready: " + label + " — "));
-    const a = document.createElement("a");
-    a.href = d.downloadUrl;
-    a.target = "_blank";
-    a.rel = "noopener";
-    a.textContent = "Tap here to download";
-    note.appendChild(a);
+    note.appendChild(document.createTextNode("Download — pick a quality: "));
+    quals.forEach((q, i) => {
+      const a = document.createElement("a");
+      a.href = q.downloadUrl;
+      a.target = "_blank";
+      a.rel = "noopener";
+      a.textContent =
+        (q.quality || "file") + (q.size ? " (" + q.size + ")" : "");
+      a.title = q.filename || title;
+      note.appendChild(a);
+      if (i < quals.length - 1) note.appendChild(document.createTextNode(" · "));
+    });
     note.classList.add("show");
-    // No window.open here: the link above is the single tap target.
-    // (Auto-opening AND showing the link opened the file page twice.)
   } catch {
     note.textContent = "Could not fetch the download link — please try again.";
     note.classList.add("show");
