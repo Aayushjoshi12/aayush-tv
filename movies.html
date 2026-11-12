@@ -94,6 +94,8 @@ const $ = (id) => document.getElementById(id);
 
 let currentTitle = "";
 let currentYear = "";
+let currentSite = "";
+let currentSlug = "";
 
 function el(tag, cls, text) {
   const n = document.createElement(tag);
@@ -128,10 +130,25 @@ async function getJSON(url) {
 function makeCard(item, onTap) {
   const card = el("div", "card");
   const poster = el("div", "poster");
-  poster.appendChild(el("div", "noimg", "🎬"));
+  // MoviesMod / modlist results carry a real poster URL from the
+  // site's sitemap; show it, falling back to the 🎬 tile.
+  if (item.poster) {
+    const img = document.createElement("img");
+    img.src = item.poster;
+    img.alt = item.title || "";
+    img.loading = "lazy";
+    img.onerror = () => {
+      img.remove();
+      poster.appendChild(el("div", "noimg", "🎬"));
+    };
+    poster.appendChild(img);
+  } else {
+    poster.appendChild(el("div", "noimg", "🎬"));
+  }
   card.appendChild(poster);
   card.appendChild(el("div", "name", item.title || "…"));
   if (item.year) card.appendChild(el("div", "year", item.year));
+  if (item.siteName) card.appendChild(el("div", "year", item.siteName));
   card.addEventListener("click", () => onTap(item, card));
   return card;
 }
@@ -191,13 +208,15 @@ async function runSearch(q) {
 function openMoviesMod(item) {
   currentTitle = item.title || "";
   currentYear = item.year || "";
+  currentSite = item.site || "";
+  currentSlug = item.slug || "";
   const wrap = $("detail-wrap");
   const panel = $("detail-panel");
   wrap.classList.add("open");
   panel.innerHTML = "";
   panel.appendChild(el("h2", "", currentTitle));
   panel.appendChild(
-    el("div", "meta", [currentYear, "MoviesMod"].filter(Boolean).join(" · "))
+    el("div", "meta", [currentYear, item.siteName || "MoviesMod"].filter(Boolean).join(" · "))
   );
   panel.appendChild(
     el("div", "desc", "Tap Download below to get the file — one tap, no waiting rooms.")
@@ -232,7 +251,9 @@ async function downloadTitle() {
   // (480p/720p/1080p/2160p), so the user picks — not just 720p.
   const dlQuery =
     "?dlall=" + encodeURIComponent(title) +
-    "&year=" + encodeURIComponent(currentYear || "");
+    "&year=" + encodeURIComponent(currentYear || "") +
+    (currentSite ? "&site=" + encodeURIComponent(currentSite) : "") +
+    (currentSlug ? "&slug=" + encodeURIComponent(currentSlug) : "");
   let d = null;
   try {
     const r = await fetch(MOVIE_RESOLVER + dlQuery);
