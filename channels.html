@@ -430,7 +430,29 @@ function renderCats() {
 $("premium-top").addEventListener("click", () => {
   activeCat = activeCat === PREMIUM_CAT ? CATS[0] : PREMIUM_CAT;
   renderCats(); renderGrid();
+  // Opening Premium warms the 10 most-tapped channels, staggered
+  // so they don't all hit the resolver at once. resolvePremium
+  // caches the answer for 12h, so a tap on one of these later
+  // plays at once instead of waiting on the resolver round trip.
+  // (The per-tile hover/touch prefetch in renderGrid still covers
+  // the other 150+ channels.)
+  if (activeCat === PREMIUM_CAT) warmPremiumTop();
 });
+
+// The 10 Premium channels people tap most. Warming all 163 at once
+// would swamp the resolver; these 10 cover the bulk of taps.
+const PREMIUM_TOP = [
+  "premium-dazn-laliga", "premium-espn", "premium-bein-mena-1",
+  "premium-sky-sports-football", "premium-sky-pl",
+  "premium-bein-sports-mena-4", "premium-movistar-laliga",
+  "premium-sky-main-event", "premium-espn-2-latin-america",
+  "premium-dazn-1-es",
+];
+function warmPremiumTop() {
+  PREMIUM_TOP.forEach((id, i) => {
+    setTimeout(() => prefetchStream(id), i * 250);
+  });
+}
 
 function renderGrid() {
   const q = $("search").value.toLowerCase().trim();
