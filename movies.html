@@ -73,7 +73,7 @@
   <h1><span>▶</span> Aayush TV <span style="color:#e8eaf0">· 🎬 Movies</span></h1>
   <a href="channels.html">📺 Channels</a>
   <a href="index.html">🏏 NPL Live</a>
-  <input id="search" type="text" placeholder="Search 31,000+ movies &amp; series..." autocomplete="off">
+  <input id="search" type="text" placeholder="Search 31,000+ movies &amp; series... or paste an IMDb code like tt1160419" autocomplete="off">
 </header>
 
 <div id="detail-wrap">
@@ -161,11 +161,16 @@ async function getJSON(url) {
   }
 }
 
-// A result is a TV series when its slug names a season
-// ("...-season-1-...", "...-s01-...") — movies have no season.
+// A result is a TV series when the search says so (the resolver
+// guesses from the slug: a season marker, or no year at all —
+// movies almost always carry a year). Fall back to the slug
+// check for results that predate the flag.
 function isSeries(item) {
+  if (item && typeof item.series === "boolean") return item.series;
   const s = String((item && item.slug) || "").toLowerCase();
-  return /season/.test(s) || /s\d{1,2}(e\d{1,3})?/.test(s);
+  if (/season/.test(s) || /\bs\d{1,2}\b/.test(s)) return true;
+  if (/\b(19|20)\d{2}\b/.test(s)) return false;
+  return true;
 }
 
 /* ---------- cards ---------- */
@@ -226,9 +231,15 @@ async function runSearch(q) {
   try {
     const d = await getJSON(MOVIE_RESOLVER + "?dq=" + encodeURIComponent(q));
     const items = d.items || [];
+    // An IMDb code resolves to a title — show what it meant.
+    const shown = d.resolvedTitle
+      ? d.resolvedTitle + (d.resolvedYear ? " (" + d.resolvedYear + ")" : "")
+      : q;
     status.textContent = items.length
-      ? items.length + " result" + (items.length === 1 ? "" : "s") + ' for "' + q + '"'
-      : 'No results for "' + q + '"';
+      ? items.length + " result" + (items.length === 1 ? "" : "s") + ' for "' + shown + '"'
+      : d.error
+        ? d.error
+        : 'No results for "' + shown + '"';
     let resEl = $("search-results");
     if (!resEl) {
       resEl = el("div", "");
@@ -315,9 +326,12 @@ function qualityLink(q, title) {
   return a;
 }
 
-// Resolves a download link for the current title. Movies use
-// ?dlall= (every quality); series use ?series= (whole-season
-// packs + an episode list; one episode resolves on demand).
+// Resolves a download link for the current title. The page does
+// NOT guess series vs movie from the slug — it asks the resolver
+// for the series view first (?series=), which fast-fails when the
+// page has no episode archives, and falls back to the movie view
+// (?dlall=). That way a series whose slug hides it (e.g.
+// "stranger-things-hindi-...") still opens as a series.
 async function downloadTitle() {
   const btn = $("dl-btn");
   const note = $("dl-note");
@@ -327,24 +341,45 @@ async function downloadTitle() {
   btn.textContent = "Finding downloads…";
   note.classList.remove("show");
   note.innerHTML = "";
-  const series = currentSlug && isSeries({ slug: currentSlug });
-  const base =
-    (series ? "?series=" : "?dlall=") + encodeURIComponent(title) +
+  const common =
     "&year=" + encodeURIComponent(currentYear || "") +
     (currentSite ? "&site=" + encodeURIComponent(currentSite) : "") +
     (currentSlug ? "&slug=" + encodeURIComponent(currentSlug) : "");
+  // Try the series view first.
   let d = null;
+  let series = false;
+  const seriesBase = "?series=" + encodeURIComponent(title) + common;
   try {
-    const r = await fetch(MOVIE_RESOLVER + base);
+    const r = await fetch(MOVIE_RESOLVER + seriesBase);
     if (r.ok) d = await r.json();
   } catch {
     // Fall through to Azure below.
   }
-  if (!d || d.noSource || (!series && !(d.qualities || []).length) || (series && !(d.seasons || []).length)) {
+  if (!d || d.noSource || !(d.seasons || []).length) {
     try {
-      d = await getJSON(MOVIE_RESOLVER_FALLBACK + base);
+      d = await getJSON(MOVIE_RESOLVER_FALLBACK + seriesBase);
     } catch {
       d = null;
+    }
+  }
+  if (d && !d.noSource && (d.seasons || []).length) {
+    series = true;
+  } else {
+    // Not a series page — try the movie view.
+    d = null;
+    const movieBase = "?dlall=" + encodeURIComponent(title) + common;
+    try {
+      const r = await fetch(MOVIE_RESOLVER + movieBase);
+      if (r.ok) d = await r.json();
+    } catch {
+      // Fall through to Azure below.
+    }
+    if (!d || d.noSource || !(d.qualities || []).length) {
+      try {
+        d = await getJSON(MOVIE_RESOLVER_FALLBACK + movieBase);
+      } catch {
+        d = null;
+      }
     }
   }
   try {
@@ -465,7 +500,7 @@ async function loadSeasonEpisodes(seasonNum, btn, title) {
   btn.style.display = "none";
   d.episodes.forEach((ep) => {
     const row = el("div", "");
-    const tag = el("span", "", "Ep " + ep.ep + "  ");
+    const tag = el("span", "", (ep.label || ("Ep " + ep.ep)) + "  ");
     tag.style.fontWeight = "700";
     tag.style.color = "#f2f4fa";
     tag.style.marginRight = "4px";
