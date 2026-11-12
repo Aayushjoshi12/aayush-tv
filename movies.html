@@ -89,7 +89,7 @@
       <p>Search 31,000+ titles from MoviesMod, MoviesLeech, UHDMovies and AnimeFlix — movies and full TV series. Tap a result, then Download and pick a quality. For a series, grab the whole season in one zip, or a single episode.</p>
     </div>
     <div class="chips" id="popular-chips"></div>
-    <div id="new-row-wrap"></div>
+    <div id="new-row-wrap"><div class="row-title" id="new-loading">🆕 New on the sites — loading…</div></div>
   </div>
 </main>
 <div id="status"></div>
@@ -541,6 +541,7 @@ async function loadNewRow() {
   if (!wrap) return;
   try {
     const items = await getJSON(NEW_FEED_URL);
+    wrap.innerHTML = "";
     if (!Array.isArray(items) || !items.length) return;
     wrap.appendChild(el("div", "row-title", "🆕 New on the sites"));
     const row = el("div", "row");
@@ -550,6 +551,8 @@ async function loadNewRow() {
     wrap.appendChild(row);
   } catch {
     // New row is a bonus — a failed feed must not break the page.
+    // Drop the loading line so the home page looks clean.
+    wrap.innerHTML = "";
   }
 }
 loadNewRow();
