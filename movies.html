@@ -423,6 +423,9 @@ function openMoviesMod(item) {
   // waiting ~4-8s (or ~10-14s for a movie, which used to run a
   // series check first).
   prefetchDownload();
+  // Same for Watch: resolve the TMDB id NOW, so the first source
+  // (VidRift) loads the moment Watch is tapped, with no lookup wait.
+  prefetchWatch();
   const wrap = $("detail-wrap");
   const panel = $("detail-panel");
   wrap.classList.add("open");
@@ -578,6 +581,23 @@ function watchCacheSet(key, tmdb) {
   try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), tmdb })); } catch { /* ignore */ }
 }
 
+let watchPrefetch = null; // {key, promise}
+// Start the TMDB lookup as soon as a title is tapped (see
+// openMoviesMod): Watch then opens on the first source at once
+// instead of waiting ~1-2s for the Cinemeta round-trips.
+function prefetchWatch() {
+  const key = watchCacheKey(currentTitle, currentYear);
+  const cached = watchCacheGet(key);
+  if (cached) {
+    watchPrefetch = { key, promise: Promise.resolve(cached) };
+    return;
+  }
+  watchPrefetch = {
+    key,
+    promise: resolveTmdbId(currentTitle, currentYear).catch(() => null),
+  };
+}
+
 async function resolveTmdbId(title, year) {
   const key = watchCacheKey(title, year);
   const hit = watchCacheGet(key);
@@ -606,7 +626,14 @@ async function watchTitle() {
   wrap.classList.remove("show");
   wrap.innerHTML = "";
   let tmdb = null;
-  try { tmdb = await resolveTmdbId(title, currentYear); } catch { tmdb = null; }
+  try {
+    const key = watchCacheKey(title, currentYear);
+    if (watchPrefetch && watchPrefetch.key === key) {
+      tmdb = await watchPrefetch.promise;
+    } else {
+      tmdb = await resolveTmdbId(title, currentYear);
+    }
+  } catch { tmdb = null; }
   if (!tmdb) {
     wrap.innerHTML = "";
     wrap.appendChild(el("div", "watch-note", "No stream found for this title yet. Try another one."));
