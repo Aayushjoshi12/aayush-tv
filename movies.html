@@ -590,21 +590,26 @@ async function downloadTitle() {
 // start at S1E1; the players have their own episode lists
 // for switching seasons/episodes.
 const WATCH_SOURCES = [
-  // Direct (native <video> + hls.js): the VidRift Orion copy, fetched
-  // via the resolver (?watch=) — no embed, no ad script, seeking
-  // works. Falls back to the embeds by itself when the title has no
-  // Orion copy or Direct fails to load. EmbedWave second (no ads in
-  // testing), VidRift last (its seek opens a pop-up ad tab and kills
-  // playback — reproduced 14 Nov 2026).
-  { id: "direct", label: "Direct", native: true },
+  // EmbedWave first: it plays (H.264) with no ads in testing, and
+  // its Cinesrc server is the one that works. Direct second: the
+  // VidRift Orion copy is HEVC-only, and this Chrome on Windows
+  // cannot decode HEVC (verified 14 Nov 2026: HEVC:false, H264:true),
+  // so Direct stays as a button for browsers that support HEVC.
+  // VidRift last (its seek opens a pop-up ad tab and kills playback
+  // — reproduced 14 Nov 2026).
   // EmbedWave is pinned to its Cinesrc server: tested 14 Nov 2026 —
   // Multi HD ("Unable to play media") and Videasy (player.videasy.to
   // does not load at all) both fail; only Cinesrc plays.
   { id: "embedwave", label: "EmbedWave", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc" },
+  // Direct (native <video> + hls.js): the VidRift Orion copy, fetched
+  // via the resolver (?watch=) — no embed, no ad script, seeking
+  // works where the browser supports HEVC. Falls back to the embeds
+  // by itself when the title has no Orion copy or Direct fails.
+  { id: "direct", label: "Direct", native: true },
   { id: "vidrift", label: "VidRift", base: "https://embed.vidrift.net/embed" },
 ];
 let currentWatchTmdb = null;
-let currentWatchSource = "direct";
+let currentWatchSource = "embedwave";
 const CINEMETA = "https://v3-cinemeta.strem.io";
 
 function watchCacheKey(title, year) { return "watch-tmdb|" + title + "|" + year; }
@@ -741,7 +746,7 @@ async function watchTitle() {
     return;
   }
   currentWatchTmdb = tmdb;
-  currentWatchSource = "direct";
+  currentWatchSource = "embedwave";
   watchFallbackTried = false; // a new Watch open gets one fresh auto-fallback
   renderWatchPlayer();
   btn.disabled = false;
@@ -798,7 +803,7 @@ function renderWatchPlayer() {
     f.title = "Watch " + currentTitle;
     wrap.appendChild(f);
   }
-  wrap.appendChild(el("div", "watch-note", "Direct plays in this page with no ads. If it doesn't load, the next source opens by itself — or tap Download for the file instead."));
+  wrap.appendChild(el("div", "watch-note", "EmbedWave plays first with no ads. Direct is the ad-free native player (needs a browser that supports HEVC). If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
   wrap.classList.add("show");
 }
 
