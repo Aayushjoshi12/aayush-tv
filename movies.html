@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>🎬 Movies — Aayush TV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.16), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.10), transparent 70%), radial-gradient(600px 260px at 8% 100%, rgba(255,59,59,.06), transparent 70%); background-attachment: fixed; }
@@ -42,6 +43,7 @@
   #watch-wrap { display: none; margin-top: 14px; }
   #watch-wrap.show { display: block; }
   #watch-wrap iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
+  #watch-wrap video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
   #watch-wrap .watch-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; }
   #watch-wrap .watch-srcs { display: flex; gap: 8px; margin-bottom: 10px; }
   #watch-wrap .wsrc { padding: 7px 14px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; }
@@ -588,14 +590,21 @@ async function downloadTitle() {
 // start at S1E1; the players have their own episode lists
 // for switching seasons/episodes.
 const WATCH_SOURCES = [
-  { id: "vidrift", label: "VidRift", base: "https://embed.vidrift.net/embed" },
+  // Direct (native <video> + hls.js): the VidRift Orion copy, fetched
+  // via the resolver (?watch=) — no embed, no ad script, seeking
+  // works. Falls back to the embeds by itself when the title has no
+  // Orion copy or Direct fails to load. EmbedWave second (no ads in
+  // testing), VidRift last (its seek opens a pop-up ad tab and kills
+  // playback — reproduced 14 Nov 2026).
+  { id: "direct", label: "Direct", native: true },
   // EmbedWave is pinned to its Cinesrc server: tested 14 Nov 2026 —
   // Multi HD ("Unable to play media") and Videasy (player.videasy.to
   // does not load at all) both fail; only Cinesrc plays.
   { id: "embedwave", label: "EmbedWave", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc" },
+  { id: "vidrift", label: "VidRift", base: "https://embed.vidrift.net/embed" },
 ];
 let currentWatchTmdb = null;
-let currentWatchSource = "vidrift";
+let currentWatchSource = "direct";
 const CINEMETA = "https://v3-cinemeta.strem.io";
 
 function watchCacheKey(title, year) { return "watch-tmdb|" + title + "|" + year; }
@@ -732,7 +741,7 @@ async function watchTitle() {
     return;
   }
   currentWatchTmdb = tmdb;
-  currentWatchSource = "vidrift";
+  currentWatchSource = "direct";
   renderWatchPlayer();
   btn.disabled = false;
   btn.textContent = "▶ Watch";
@@ -747,12 +756,21 @@ function watchSourceUrl(sourceId, tmdb) {
   return path + (s.suffix || "");
 }
 
-// Builds the player with a source switcher (VidRift / EmbedWave).
-// Switching sources re-renders the iframe with the same TMDB id.
+// Builds the player with a source switcher (Direct / EmbedWave /
+// VidRift). Direct is a native <video> fed by hls.js from the
+// resolver (?watch=); the other two are iframes. If Direct has no
+// copy or fails to load, the player moves to the next source by
+// itself so the user never sees a dead player.
+let watchHls = null;
+let watchBlobUrl = null;
+let watchFallbackTried = false;
 function renderWatchPlayer() {
   const wrap = $("watch-wrap");
   const tmdb = currentWatchTmdb;
   if (!tmdb) return;
+  // Stop any previous native player before re-rendering.
+  if (watchHls) { watchHls.destroy(); watchHls = null; }
+  if (watchBlobUrl) { URL.revokeObjectURL(watchBlobUrl); watchBlobUrl = null; }
   wrap.innerHTML = "";
   const row = el("div", "watch-srcs");
   WATCH_SOURCES.forEach((s) => {
@@ -760,19 +778,81 @@ function renderWatchPlayer() {
     b.type = "button";
     b.addEventListener("click", () => {
       currentWatchSource = s.id;
+      watchFallbackTried = false;
       renderWatchPlayer();
     });
     row.appendChild(b);
   });
   wrap.appendChild(row);
-  const f = document.createElement("iframe");
-  f.src = watchSourceUrl(currentWatchSource, tmdb);
-  f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
-  f.allowFullscreen = true;
-  f.title = "Watch " + currentTitle;
-  wrap.appendChild(f);
-  wrap.appendChild(el("div", "watch-note", "If one source doesn't load, try the other — or tap Download for the file instead."));
+  const src = WATCH_SOURCES.find((x) => x.id === currentWatchSource) || WATCH_SOURCES[0];
+  if (src.native) {
+    renderDirectPlayer(wrap, tmdb);
+  } else {
+    const f = document.createElement("iframe");
+    f.src = watchSourceUrl(currentWatchSource, tmdb);
+    f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    f.allowFullscreen = true;
+    f.title = "Watch " + currentTitle;
+    wrap.appendChild(f);
+  }
+  wrap.appendChild(el("div", "watch-note", "Direct plays in this page with no ads. If it doesn't load, the next source opens by itself — or tap Download for the file instead."));
   wrap.classList.add("show");
+}
+
+// Move to the next source once (Direct -> EmbedWave -> VidRift).
+// Called when Direct has no copy or its player errors fatally.
+function watchFallback() {
+  if (watchFallbackTried) return;
+  watchFallbackTried = true;
+  const idx = WATCH_SOURCES.findIndex((x) => x.id === currentWatchSource);
+  const next = WATCH_SOURCES[(idx + 1) % WATCH_SOURCES.length];
+  if (!next || next.id === currentWatchSource) return;
+  currentWatchSource = next.id;
+  renderWatchPlayer();
+}
+
+// Direct player: fetch the rewritten manifest from the resolver
+// (?watch= answers { noSource: true } as JSON when the title has
+// no Orion copy, and a plain #EXTM3U manifest otherwise), then
+// play it in a native <video> via hls.js. The manifest is loaded
+// from a blob URL so the resolver is only hit once; the variant
+// playlists inside it are absolute resolver URLs and the segments
+// are absolute CDN links, so the blob base does not matter.
+async function renderDirectPlayer(wrap, tmdb) {
+  const type = currentIsSeries ? "tv" : "movie";
+  const url = MOVIE_RESOLVER + "?watch=" + tmdb + "&type=" + type + "&se=1&ep=1";
+  let text = "";
+  try {
+    const r = await fetch(url);
+    text = await r.text();
+  } catch { text = ""; }
+  if (!text.startsWith("#EXTM3U")) { watchFallback(); return; }
+  const video = document.createElement("video");
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+  video.muted = true; // muted autoplay is allowed; tap the speaker for sound
+  video.title = "Watch " + currentTitle;
+  wrap.appendChild(video);
+  watchBlobUrl = URL.createObjectURL(
+    new Blob([text], { type: "application/vnd.apple.mpegurl" })
+  );
+  if (window.Hls && Hls.isSupported()) {
+    watchHls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
+    watchHls.loadSource(watchBlobUrl);
+    watchHls.attachMedia(video);
+    watchHls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+    watchHls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) return;
+      watchFallback();
+    });
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = watchBlobUrl;
+    video.addEventListener("error", () => watchFallback(), { once: true });
+    video.play().catch(() => {});
+  } else {
+    watchFallback();
+  }
 }
 
 // Series download view: pick a SEASON first (S1, S2, S3…), then
