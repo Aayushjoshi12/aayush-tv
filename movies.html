@@ -43,6 +43,9 @@
   #watch-wrap.show { display: block; }
   #watch-wrap iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
   #watch-wrap .watch-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; }
+  #watch-wrap .watch-srcs { display: flex; gap: 8px; margin-bottom: 10px; }
+  #watch-wrap .wsrc { padding: 7px 14px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; }
+  #watch-wrap .wsrc.active { border-color: #22c55e; background: #16a34a; color: #fff; }
   #dl-note { display: none; margin-top: 12px; font-size: 13px; color: #9aa1b2; line-height: 1.7; }
   #dl-note.show { display: block; }
   #dl-note a { color: #4ade80; font-weight: 700; }
@@ -544,16 +547,23 @@ async function downloadTitle() {
 }
 
 /* ---------- watch (stream) ---------- */
-// VidRift embed — verified PLAYING in a real browser 13 Nov 2026
-// (Inception: auto-played, timecode advancing, no popups).
-// EmbedWave was tested too but its player reported "Unable to play
-// media" on the default server, so it is not used.
+// Two stream sources, switchable in the player (VidRift first —
+// verified PLAYING in a real browser 13 Nov 2026, Inception:
+// auto-played, timecode advancing, no popups; EmbedWave second —
+// its player loads but the default server reported "Unable to
+// play media" in the same test, so it is the backup and its own
+// in-player server switcher is the fallback inside it).
 // The TMDB id comes from Cinemeta (free, no key, CORS *):
 // search the title -> imdb_id -> full meta -> moviedb_id.
 // Cached 24h in localStorage, like the download links. Series
-// start at S1E1; the VidRift player has its own episode list
+// start at S1E1; the players have their own episode lists
 // for switching seasons/episodes.
-const WATCH_EMBED = "https://embed.vidrift.net/embed";
+const WATCH_SOURCES = [
+  { id: "vidrift", label: "VidRift", base: "https://embed.vidrift.net/embed" },
+  { id: "embedwave", label: "EmbedWave", base: "https://embedwave.cc/embed" },
+];
+let currentWatchTmdb = null;
+let currentWatchSource = "vidrift";
 const CINEMETA = "https://v3-cinemeta.strem.io";
 
 function watchCacheKey(title, year) { return "watch-tmdb|" + title + "|" + year; }
@@ -605,21 +615,47 @@ async function watchTitle() {
     btn.textContent = "▶ Watch";
     return;
   }
-  const url = currentIsSeries
-    ? WATCH_EMBED + "/tv/" + tmdb + "/1/1"
-    : WATCH_EMBED + "/movie/" + tmdb;
-  const f = document.createElement("iframe");
-  f.src = url;
-  f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
-  f.allowFullscreen = true;
-  f.title = "Watch " + title;
-  wrap.innerHTML = "";
-  wrap.appendChild(f);
-  wrap.appendChild(el("div", "watch-note", "Stream via VidRift — if it doesn't load, tap Download for the file instead."));
-  wrap.classList.add("show");
+  currentWatchTmdb = tmdb;
+  currentWatchSource = "vidrift";
+  renderWatchPlayer();
   btn.disabled = false;
   btn.textContent = "▶ Watch";
   wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function watchSourceUrl(sourceId, tmdb) {
+  const s = WATCH_SOURCES.find((x) => x.id === sourceId) || WATCH_SOURCES[0];
+  return currentIsSeries
+    ? s.base + "/tv/" + tmdb + "/1/1"
+    : s.base + "/movie/" + tmdb;
+}
+
+// Builds the player with a source switcher (VidRift / EmbedWave).
+// Switching sources re-renders the iframe with the same TMDB id.
+function renderWatchPlayer() {
+  const wrap = $("watch-wrap");
+  const tmdb = currentWatchTmdb;
+  if (!tmdb) return;
+  wrap.innerHTML = "";
+  const row = el("div", "watch-srcs");
+  WATCH_SOURCES.forEach((s) => {
+    const b = el("button", "wsrc" + (s.id === currentWatchSource ? " active" : ""), s.label);
+    b.type = "button";
+    b.addEventListener("click", () => {
+      currentWatchSource = s.id;
+      renderWatchPlayer();
+    });
+    row.appendChild(b);
+  });
+  wrap.appendChild(row);
+  const f = document.createElement("iframe");
+  f.src = watchSourceUrl(currentWatchSource, tmdb);
+  f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+  f.allowFullscreen = true;
+  f.title = "Watch " + currentTitle;
+  wrap.appendChild(f);
+  wrap.appendChild(el("div", "watch-note", "If one source doesn't load, try the other — or tap Download for the file instead."));
+  wrap.classList.add("show");
 }
 
 // Series download view: pick a SEASON first (S1, S2, S3…), then
