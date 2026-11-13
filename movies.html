@@ -828,7 +828,13 @@ function watchFallback() {
 // are absolute CDN links, so the blob base does not matter.
 async function renderDirectPlayer(wrap, tmdb) {
   const type = currentIsSeries ? "tv" : "movie";
-  const url = MOVIE_RESOLVER + "?watch=" + tmdb + "&type=" + type + "&se=1&ep=1";
+  // Tell the resolver whether this browser can decode HEVC: if not,
+  // it serves the H.264 (Titan) copy instead of the HEVC (Orion) one.
+  const hevcOk = !!(
+    window.MediaSource &&
+    MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L120.90"')
+  );
+  const url = MOVIE_RESOLVER + "?watch=" + tmdb + "&type=" + type + "&se=1&ep=1&hevc=" + (hevcOk ? "1" : "0");
   let text = "";
   try {
     const r = await fetch(url);
