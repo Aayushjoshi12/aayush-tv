@@ -236,22 +236,34 @@ function isSeries(item) {
 function makeCard(item, onTap) {
   const card = el("div", "card");
   const poster = el("div", "poster");
-  // Modlist results carry a real poster URL from the site's
-  // sitemap; show it, falling back to the 🎬 tile.
+  // Modlist results carry a poster URL from the site's sitemap —
+  // but that host can be blocked or the file gone (MoviesMod's
+  // images 403 since Nov 2026), so a broken or missing site
+  // poster falls back to Cinemeta's poster, not the 🎬 tile.
+  const series = isSeries(item);
+  const showNoImg = () => poster.appendChild(el("div", "noimg", "🎬"));
   if (item.poster) {
     const img = document.createElement("img");
     img.src = item.poster;
     img.alt = item.title || "";
     img.loading = "lazy";
-    img.onerror = () => {
-      img.remove();
-      poster.appendChild(el("div", "noimg", "🎬"));
-    };
+    img.onerror = () => applyPosterFallback(img, item.title, item.year, series, () => { img.remove(); showNoImg(); });
     poster.appendChild(img);
   } else {
-    poster.appendChild(el("div", "noimg", "🎬"));
+    // No site poster at all — try Cinemeta straight away.
+    const img = document.createElement("img");
+    img.alt = item.title || "";
+    img.loading = "lazy";
+    fetchPosterUrl(item.title, item.year, series).then((url) => {
+      if (url) {
+        img.onerror = () => { img.remove(); showNoImg(); };
+        img.src = url;
+        poster.appendChild(img);
+      } else {
+        showNoImg();
+      }
+    });
   }
-  const series = isSeries(item);
   poster.appendChild(el("div", "badge" + (series ? "" : " movie"), series ? "📺 SERIES" : "🎬 MOVIE"));
   card.appendChild(poster);
   card.appendChild(el("div", "name", item.title || "…"));
@@ -432,18 +444,32 @@ function openMoviesMod(item) {
   panel.innerHTML = "";
   const top = el("div", "d-top");
   const poster = el("div", "d-poster");
-  if (item.poster) {
-    const img = document.createElement("img");
-    img.src = item.poster;
-    img.alt = currentTitle;
-    img.onerror = () => { poster.textContent = "🎬"; poster.style.fontSize = "32px"; poster.style.display = "flex"; poster.style.alignItems = "center"; poster.style.justifyContent = "center"; };
-    poster.appendChild(img);
-  } else {
+  const showPosterFallback = () => {
     poster.textContent = "🎬";
     poster.style.fontSize = "32px";
     poster.style.display = "flex";
     poster.style.alignItems = "center";
     poster.style.justifyContent = "center";
+  };
+  if (item.poster) {
+    const img = document.createElement("img");
+    img.src = item.poster;
+    img.alt = currentTitle;
+    img.onerror = () => applyPosterFallback(img, currentTitle, currentYear, series, showPosterFallback);
+    poster.appendChild(img);
+  } else {
+    // No site poster — try Cinemeta's before the 🎬 tile.
+    const img = document.createElement("img");
+    img.alt = currentTitle;
+    fetchPosterUrl(currentTitle, currentYear, series).then((url) => {
+      if (url) {
+        img.onerror = showPosterFallback;
+        img.src = url;
+        poster.appendChild(img);
+      } else {
+        showPosterFallback();
+      }
+    });
   }
   top.appendChild(poster);
   const info = el("div", "");
@@ -521,7 +547,7 @@ async function downloadTitle() {
   }
   try {
     if (!res || !d || d.noSource) {
-      note.textContent = "No download found for this title yet. Try another one.";
+      note.textContent = "No download found for this title yet. Try Watch above to stream it instead.";
       note.classList.add("show");
       return;
     }
@@ -532,7 +558,7 @@ async function downloadTitle() {
     } else {
       const quals = d.qualities || [];
       if (!quals.length) {
-        note.textContent = "No download found for this title yet. Try another one.";
+        note.textContent = "No download found for this title yet. Try Watch above to stream it instead.";
         note.classList.add("show");
         return;
       }
@@ -605,7 +631,19 @@ async function resolveTmdbId(title, year) {
   const key = watchCacheKey(title, year);
   const hit = watchCacheGet(key);
   if (hit) return hit;
-  const types = currentIsSeries ? ["series", "movie"] : ["movie", "series"];
+  const meta = await cinemetaMeta(title, year, currentIsSeries);
+  const tmdb = meta && meta.moviedb_id;
+  if (tmdb) watchCacheSet(key, tmdb);
+  return tmdb || null;
+}
+
+// Cinemeta meta for a title (free, no key, CORS *): search the
+// catalog by title, then fetch the full meta. The meta carries
+// both moviedb_id (for Watch) and poster (for the poster
+// fallback). Type-first: series catalog first for series, movie
+// first otherwise; the other catalog is tried as a fallback.
+async function cinemetaMeta(title, year, isSeries) {
+  const types = isSeries ? ["series", "movie"] : ["movie", "series"];
   for (const type of types) {
     const s = await getJSON(CINEMETA + "/catalog/" + type + "/top/search=" + encodeURIComponent(title) + ".json").catch(() => null);
     const metas = (s && s.metas) || [];
@@ -613,10 +651,58 @@ async function resolveTmdbId(title, year) {
     const m = metas.find((x) => (x.name || "").toLowerCase() === title.toLowerCase() && (!year || String(x.releaseInfo || "").slice(0, 4) === String(year))) || metas[0];
     if (!m || !m.imdb_id) continue;
     const meta = await getJSON(CINEMETA + "/meta/" + type + "/" + m.imdb_id + ".json").catch(() => null);
-    const tmdb = meta && meta.meta && meta.meta.moviedb_id;
-    if (tmdb) { watchCacheSet(key, tmdb); return tmdb; }
+    if (meta && meta.meta) return meta.meta;
   }
   return null;
+}
+
+// Poster fallback: the modlist sites host their own cover images,
+// and those hosts can be blocked or the file gone (MoviesMod's
+// images 403 since Nov 2026) — so a missing or broken site poster
+// falls back to Cinemeta's poster instead of the 🎬 tile. Cached
+// 7 days in localStorage, like the download links.
+const POSTER_CACHE_KEY = "aayush-poster-cache-v1";
+const POSTER_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+function posterCacheGet(key) {
+  try {
+    const all = JSON.parse(localStorage.getItem(POSTER_CACHE_KEY) || "{}");
+    const hit = all[key];
+    if (hit && Date.now() - hit.at < POSTER_CACHE_TTL_MS) return hit.url;
+  } catch {}
+  return null;
+}
+function posterCacheSet(key, url) {
+  try {
+    const all = JSON.parse(localStorage.getItem(POSTER_CACHE_KEY) || "{}");
+    all[key] = { at: Date.now(), url };
+    for (const k of Object.keys(all)) {
+      if (Date.now() - all[k].at > POSTER_CACHE_TTL_MS) delete all[k];
+    }
+    localStorage.setItem(POSTER_CACHE_KEY, JSON.stringify(all));
+  } catch {}
+}
+async function fetchPosterUrl(title, year, isSeries) {
+  const key = [title, year || ""].join("|").toLowerCase();
+  const hit = posterCacheGet(key);
+  if (hit) return hit;
+  const meta = await cinemetaMeta(title, year, isSeries).catch(() => null);
+  const url = meta && meta.poster;
+  if (url) posterCacheSet(key, url);
+  return url || null;
+}
+
+// When a site poster fails (or is missing), try Cinemeta's poster
+// once, then give up to the caller's placeholder.
+async function applyPosterFallback(img, title, year, isSeries, onFail) {
+  if (img.dataset.posterTried) { onFail(); return; }
+  img.dataset.posterTried = "1";
+  const url = await fetchPosterUrl(title, year, isSeries);
+  if (url && url !== img.src) {
+    img.onerror = onFail;
+    img.src = url;
+  } else {
+    onFail();
+  }
 }
 
 async function watchTitle() {
