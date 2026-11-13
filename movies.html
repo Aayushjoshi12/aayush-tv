@@ -35,6 +35,14 @@
   #dl-btn.show { display: inline-block; }
   #dl-btn:disabled { opacity: .6; cursor: wait; }
   #dl-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  #watch-btn { display: none; margin-top: 14px; margin-left: 8px; padding: 11px 20px; border-radius: 12px; border: 1px solid #22c55e; background: linear-gradient(135deg, #16a34a, #22c55e); color: #fff; cursor: pointer; font-size: 14px; font-weight: 700; box-shadow: 0 6px 18px rgba(34,197,94,.35); }
+  #watch-btn.show { display: inline-block; }
+  #watch-btn:disabled { opacity: .6; cursor: wait; }
+  #watch-btn:hover:not(:disabled) { filter: brightness(1.08); }
+  #watch-wrap { display: none; margin-top: 14px; }
+  #watch-wrap.show { display: block; }
+  #watch-wrap iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
+  #watch-wrap .watch-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; }
   #dl-note { display: none; margin-top: 12px; font-size: 13px; color: #9aa1b2; line-height: 1.7; }
   #dl-note.show { display: block; }
   #dl-note a { color: #4ade80; font-weight: 700; }
@@ -110,7 +118,9 @@
 <div id="detail-wrap">
   <div id="detail-panel"></div>
   <button id="dl-btn" type="button">⬇ Download</button>
+  <button id="watch-btn" type="button">▶ Watch</button>
   <div id="dl-note"></div>
+  <div id="watch-wrap"></div>
 </div>
 
 <main id="main">
@@ -138,10 +148,13 @@
 
 <script>
 /* ------------------------------------------------------------------
-   Movies page — DOWNLOAD ONLY (separate from channels.html).
+   Movies page — downloads + streaming (separate from channels.html).
    NetMirror streaming was removed 12 Nov 2026 (the user asked:
    "remove the netmirror it not working only keep dowllad site").
-   There is no video player here anymore: this page searches the
+   Streaming came back 13 Nov 2026 as a Watch button using the
+   VidRift embed (verified playing in a real browser) — the TMDB
+   id is resolved client-side via Cinemeta, so no resolver change
+   was needed. Downloads are untouched: this page searches the
    modlist catalogue and resolves one-click download links.
 
    Resolver: GET https://aayush-tv-minter.vercel.app/api/resolve-movie
@@ -444,6 +457,13 @@ function openMoviesMod(item) {
   dlBtn.classList.add("show");
   dlBtn.textContent = series ? "⬇ Get season / episodes" : "⬇ Download";
   dlBtn.onclick = downloadTitle;
+  const watchBtn = $("watch-btn");
+  watchBtn.classList.add("show");
+  watchBtn.disabled = false;
+  watchBtn.textContent = "▶ Watch";
+  watchBtn.onclick = watchTitle;
+  $("watch-wrap").classList.remove("show");
+  $("watch-wrap").innerHTML = "";
   $("dl-note").classList.remove("show");
   $("dl-note").innerHTML = "";
   wrap.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -521,6 +541,85 @@ async function downloadTitle() {
     btn.disabled = false;
     btn.textContent = series ? "⬇ Get season / episodes" : "⬇ Download";
   }
+}
+
+/* ---------- watch (stream) ---------- */
+// VidRift embed — verified PLAYING in a real browser 13 Nov 2026
+// (Inception: auto-played, timecode advancing, no popups).
+// EmbedWave was tested too but its player reported "Unable to play
+// media" on the default server, so it is not used.
+// The TMDB id comes from Cinemeta (free, no key, CORS *):
+// search the title -> imdb_id -> full meta -> moviedb_id.
+// Cached 24h in localStorage, like the download links. Series
+// start at S1E1; the VidRift player has its own episode list
+// for switching seasons/episodes.
+const WATCH_EMBED = "https://embed.vidrift.net/embed";
+const CINEMETA = "https://v3-cinemeta.strem.io";
+
+function watchCacheKey(title, year) { return "watch-tmdb|" + title + "|" + year; }
+function watchCacheGet(key) {
+  try {
+    const r = JSON.parse(localStorage.getItem(key) || "null");
+    if (r && Date.now() - r.t < 864e5) return r.tmdb;
+  } catch { /* ignore */ }
+  return null;
+}
+function watchCacheSet(key, tmdb) {
+  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), tmdb })); } catch { /* ignore */ }
+}
+
+async function resolveTmdbId(title, year) {
+  const key = watchCacheKey(title, year);
+  const hit = watchCacheGet(key);
+  if (hit) return hit;
+  const types = currentIsSeries ? ["series", "movie"] : ["movie", "series"];
+  for (const type of types) {
+    const s = await getJSON(CINEMETA + "/catalog/" + type + "/top/search=" + encodeURIComponent(title) + ".json").catch(() => null);
+    const metas = (s && s.metas) || [];
+    if (!metas.length) continue;
+    const m = metas.find((x) => (x.name || "").toLowerCase() === title.toLowerCase() && (!year || String(x.releaseInfo || "").slice(0, 4) === String(year))) || metas[0];
+    if (!m || !m.imdb_id) continue;
+    const meta = await getJSON(CINEMETA + "/meta/" + type + "/" + m.imdb_id + ".json").catch(() => null);
+    const tmdb = meta && meta.meta && meta.meta.moviedb_id;
+    if (tmdb) { watchCacheSet(key, tmdb); return tmdb; }
+  }
+  return null;
+}
+
+async function watchTitle() {
+  const btn = $("watch-btn");
+  const wrap = $("watch-wrap");
+  const title = currentTitle;
+  if (!title) return;
+  btn.disabled = true;
+  btn.textContent = "Finding stream…";
+  wrap.classList.remove("show");
+  wrap.innerHTML = "";
+  let tmdb = null;
+  try { tmdb = await resolveTmdbId(title, currentYear); } catch { tmdb = null; }
+  if (!tmdb) {
+    wrap.innerHTML = "";
+    wrap.appendChild(el("div", "watch-note", "No stream found for this title yet. Try another one."));
+    wrap.classList.add("show");
+    btn.disabled = false;
+    btn.textContent = "▶ Watch";
+    return;
+  }
+  const url = currentIsSeries
+    ? WATCH_EMBED + "/tv/" + tmdb + "/1/1"
+    : WATCH_EMBED + "/movie/" + tmdb;
+  const f = document.createElement("iframe");
+  f.src = url;
+  f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+  f.allowFullscreen = true;
+  f.title = "Watch " + title;
+  wrap.innerHTML = "";
+  wrap.appendChild(f);
+  wrap.appendChild(el("div", "watch-note", "Stream via VidRift — if it doesn't load, tap Download for the file instead."));
+  wrap.classList.add("show");
+  btn.disabled = false;
+  btn.textContent = "▶ Watch";
+  wrap.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // Series download view: pick a SEASON first (S1, S2, S3…), then
