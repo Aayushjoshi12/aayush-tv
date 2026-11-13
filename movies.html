@@ -742,6 +742,7 @@ async function watchTitle() {
   }
   currentWatchTmdb = tmdb;
   currentWatchSource = "direct";
+  watchFallbackTried = false; // a new Watch open gets one fresh auto-fallback
   renderWatchPlayer();
   btn.disabled = false;
   btn.textContent = "▶ Watch";
@@ -764,6 +765,7 @@ function watchSourceUrl(sourceId, tmdb) {
 let watchHls = null;
 let watchBlobUrl = null;
 let watchFallbackTried = false;
+let watchWatchdog = null;
 function renderWatchPlayer() {
   const wrap = $("watch-wrap");
   const tmdb = currentWatchTmdb;
@@ -771,6 +773,7 @@ function renderWatchPlayer() {
   // Stop any previous native player before re-rendering.
   if (watchHls) { watchHls.destroy(); watchHls = null; }
   if (watchBlobUrl) { URL.revokeObjectURL(watchBlobUrl); watchBlobUrl = null; }
+  if (watchWatchdog) { clearTimeout(watchWatchdog); watchWatchdog = null; }
   wrap.innerHTML = "";
   const row = el("div", "watch-srcs");
   WATCH_SOURCES.forEach((s) => {
@@ -837,6 +840,15 @@ async function renderDirectPlayer(wrap, tmdb) {
   watchBlobUrl = URL.createObjectURL(
     new Blob([text], { type: "application/vnd.apple.mpegurl" })
   );
+  // Watchdog: if the video has not started playing within 20s (a
+  // hung variant fetch or an unplayable codec can stall hls.js
+  // without a fatal error), fall back to the next source instead
+  // of buffering forever. Cleared on first 'playing' and whenever
+  // the player is re-rendered.
+  watchWatchdog = setTimeout(() => { watchFallback(); }, 20000);
+  video.addEventListener("playing", () => {
+    if (watchWatchdog) { clearTimeout(watchWatchdog); watchWatchdog = null; }
+  }, { once: true });
   if (window.Hls && Hls.isSupported()) {
     watchHls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
     watchHls.loadSource(watchBlobUrl);
