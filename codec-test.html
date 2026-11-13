@@ -1,0 +1,7 @@
+<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Codec test</title></head>
+<body><div id="r">checking…</div><script>
+document.getElementById("r").textContent =
+  "HEVC:" + MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L120.90"') +
+  " H264:" + MediaSource.isTypeSupported('video/mp4; codecs="avc1.640028"') +
+  " MSE:" + !!window.MediaSource;
+</script></body></html>
