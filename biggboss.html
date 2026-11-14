@@ -107,7 +107,7 @@
   <div class="row-title">🆕 Latest — Bigg Boss Hindi</div>
   <div class="grid-row" id="ep-grid"></div>
 
-  <p class="hint">Every feed here plays right inside this site now — the five language feeds and the Hindi feed play with the site's own player, and Colors TV and Kick play here too. New episode every day at 9:15 PM. If a feed ever does not play, its Source site button is the backup.</p>
+  <p class="hint">Colors TV and Kick play right here, inside this site. The five language feeds come from a source that locks its video to the address that asks for it, so those open on the source site in a new tab — they play there. Bigg Boss Hindi airs on Colors TV at 9 PM.</p>
 </main>
 
 <footer>
@@ -128,18 +128,18 @@
      Each card is a short link that lands on a partner article
      (kollypress / sportspib / techqub) with the live player at the
      top. The player itself is stream2.zoloj.com/player?lang=<lang>
-     (Plyr + HLS). The direct .m3u8 cannot be played from this
-     site on its own: hls.js hangs on buffering (no CORS *), an
-     iframe shows "forbidden" (the source blocks cross-site
-     embeds), and the short link sends X-Frame-Options:
-     SAMEORIGIN (black blank). So the feeds play through the
-     site's own resolver (aayush-tv-minter, api/zoloj.js), which
-     fetches the live playlist with a fresh session and serves it
-     back with CORS * — the same manifest-rewriter pattern the
-     Movies section uses. LIVE 14 Nov: the resolver returns the
-     playlist (200, CORS *); the video pieces come from zoloj's
-     own segment proxy. "Source site" is the backup if the
-     resolver feed does not play.
+     (Plyr + HLS). The feeds cannot play in-site: the direct
+     .m3u8 has no CORS * (hls.js hangs on buffering), an iframe
+     shows "forbidden" (the source blocks cross-site embeds), and
+     the short link sends X-Frame-Options: SAMEORIGIN (black
+     blank). A resolver (aayush-tv-minter, api/zoloj.js) was built
+     and tap-tested twice 14 Nov: it hands the live playlist to
+     the site's player fine, but the video pieces are locked to
+     the address that asks for them — zoloj's proxy and the
+     broadcaster (Hotstar, India-only) both reject any other
+     address, so the pieces never reach this site's player.
+     So these tiles open the source in a new tab — the same link
+     plays fine there (confirmed in the tap test).
    - Kick (mogambo) is the clean native one: the public Kick API
      (kick.com/api/v2/channels/mogambo, CORS allows this site)
      gives a fresh playback_url (Amazon IVS .m3u8, CORS *) when
@@ -155,27 +155,21 @@
 var KICK_API = "https://kick.com/api/v2/channels/mogambo";
 var KICK_EMBED = "https://player.kick.com/mogambo";
 var KICK_SITE = "https://kick.com/mogambo";
-/* The 24/7 feeds come from zoloj through the site's own resolver
-   (aayush-tv-minter, api/zoloj.js): the resolver fetches the live
-   playlist with a fresh session and serves it back with CORS *.
-   The returned playlist points at zoloj's segment proxy, and the
-   browser then fetches the video pieces from there directly. */
-var ZOLOJ = "https://aayush-tv-minter.vercel.app/api/zoloj?lang=";
 
 var FEEDS = [
   { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick" },
   { key: "colorstv",  name: "Colors TV — Hindi",     sub: "Bigg Boss airs here at 9 PM • live",  cls: "",          kind: "direct", m3u8: "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:colorsme.smil/playlist.m3u8" },
-  { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "zoloj", m3u8: ZOLOJ + "tamil",     short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq" },
-  { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "zoloj", m3u8: ZOLOJ + "telugu",    short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk" },
-  { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "zoloj", m3u8: ZOLOJ + "malayalam", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX" },
-  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "zoloj", m3u8: ZOLOJ + "kannada",   short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S" }
+  { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq" },
+  { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk" },
+  { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "lang", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX" },
+  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "lang", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S" }
 ];
 
 /* Latest — Bigg Boss Hindi is featured here. Its daily episode is not
    posted as a separate video on the source site (the site only posts
    Tamil, Telugu, Malayalam and Kannada episodes), so the live Hindi
    house feed is the latest Hindi Bigg Boss content that plays. */
-var HINDI = { key: "hindi", name: "Bigg Boss Hindi", sub: "Season 20 • Colors TV", kind: "zoloj", m3u8: ZOLOJ + "hindi", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP" };
+var HINDI = { key: "hindi", name: "Bigg Boss Hindi", sub: "Season 20 • Colors TV", kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP" };
 
 var hls = null;         // active hls.js instance (Kick native)
 var currentKey = null;  // which feed is open
@@ -261,7 +255,6 @@ function openFeed(key) {
   currentKey = key;
   if (f.kind === "kick") return playKick(f);
   if (f.kind === "direct") return playDirect(f);
-  if (f.kind === "zoloj") return playZoloj(f);
   return playLang(f);
 }
 /* ---- Direct native stream (Colors TV — plays inside the site,
@@ -274,23 +267,6 @@ function playDirect(f) {
 }
 function playDirectNow(f) {
   playNative(f.m3u8, 'Live channel, playing directly here. Bigg Boss Hindi airs on Colors TV at <b>9 PM</b> (new episode 9:15 PM).');
-}
-/* ---- 24/7 feeds via the site's resolver (zoloj) ----
-   The resolver hands the live playlist to the site's own player
-   (hls.js), so the feed plays inside this page. "Source site"
-   is the backup: it opens the feed on the source site, where it
-   plays. */
-function playZoloj(f) {
-  showPlayer(f.name);
-  var srcs = [
-    { label: "Live", run: function () { playZolojNow(f); } },
-    { label: "Source site", run: function () { playLang(f); } }
-  ];
-  setSrcs(srcs, 0);
-  playZolojNow(f);
-}
-function playZolojNow(f) {
-  playNative(f.m3u8, 'Live 24/7 house feed, playing directly here. New episode every day at <b>9:15 PM</b>. If it does not play, try the Source site above.');
 }
 function playKick(f) {
   showPlayer(f.name);
@@ -332,10 +308,19 @@ function playKickNative(f) {
     });
 }
 
-/* ---- Language feeds — source site (fallback) ----
-   Used only as the "Source site" backup for the 24/7 feeds
-   (playZoloj): it opens the feed on the source site, where it
-   plays. The feeds now play in-site through the resolver first. */
+/* ---- Language feeds — source site ----
+   The feeds cannot play in-site and this is why: the direct link
+   has no CORS * (hls.js hangs on buffering), an iframe shows
+   "forbidden" (the source blocks cross-site embeds), and the
+   short link sends X-Frame-Options: SAMEORIGIN (black blank).
+   A resolver (aayush-tv-minter, api/zoloj.js) WAS built and
+   tap-tested twice 14 Nov: it hands the live playlist to the
+   site's player fine, but the video pieces are locked to the
+   address that asks for them — zoloj's proxy and the broadcaster
+   (Hotstar, India-only) both reject any other address. So the
+   pieces cannot reach this site's player at all. This function
+   is the way the feeds play: it opens the feed on the source
+   site, where it plays. */
 function playLang(f) {
   showPlayer(f.name);
   setSrcs([], 0);
@@ -349,7 +334,7 @@ function playLang(f) {
 /* ---- Latest — Bigg Boss Hindi ---- */
 function openHindi() {
   currentKey = "hindi";
-  playZoloj(HINDI);
+  playLang(HINDI);
 }
 
 renderTiles();
