@@ -107,7 +107,7 @@
   <div class="row-title">🆕 Latest — Bigg Boss Hindi</div>
   <div class="grid-row" id="ep-grid"></div>
 
-  <p class="hint">Every feed here plays right inside this site now — the five language feeds and the Hindi feed play with the browser's own player, and Colors TV and Kick play here too. New episode every day at 9:15 PM. If a feed ever does not play, its Source site button is the backup.</p>
+  <p class="hint">Colors TV and Kick play right here, inside this site. The five language feeds come from a source that blocks this site from showing its video inside it, so those open on the source site in a new tab — they play there. Bigg Boss Hindi airs on Colors TV at 9 PM.</p>
 </main>
 
 <footer>
@@ -156,17 +156,17 @@ var KICK_SITE = "https://kick.com/mogambo";
 var FEEDS = [
   { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick" },
   { key: "colorstv",  name: "Colors TV — Hindi",     sub: "Bigg Boss airs here at 9 PM • live",  cls: "",          kind: "direct", m3u8: "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:colorsme.smil/playlist.m3u8" },
-  { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "iframe", m3u8: "https://stream2.zoloj.com/stream/tamil.m3u8", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq" },
-  { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "iframe", m3u8: "https://stream2.zoloj.com/stream/telugu.m3u8", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk" },
-  { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "iframe", m3u8: "https://stream2.zoloj.com/stream/malayalam.m3u8", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX" },
-  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "iframe", m3u8: "https://stream2.zoloj.com/stream/kannada.m3u8", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S" }
+  { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq", zoloj: "https://stream2.zoloj.com/player?lang=tamil" },
+  { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk", zoloj: "https://stream2.zoloj.com/player?lang=telugu" },
+  { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "lang", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX", zoloj: "https://stream2.zoloj.com/player?lang=malayalam" },
+  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "lang", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S", zoloj: "https://stream2.zoloj.com/player?lang=kannada" }
 ];
 
 /* Latest — Bigg Boss Hindi is featured here. Its daily episode is not
    posted as a separate video on the source site (the site only posts
    Tamil, Telugu, Malayalam and Kannada episodes), so the live Hindi
    house feed is the latest Hindi Bigg Boss content that plays. */
-var HINDI = { key: "hindi", name: "Bigg Boss Hindi", sub: "Season 20 • Colors TV", kind: "iframe", m3u8: "https://stream2.zoloj.com/stream/hindi.m3u8", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP" };
+var HINDI = { key: "hindi", name: "Bigg Boss Hindi", sub: "Season 20 • Colors TV", kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP", zoloj: "https://stream2.zoloj.com/player?lang=hindi" };
 
 var hls = null;         // active hls.js instance (Kick native)
 var currentKey = null;  // which feed is open
@@ -252,7 +252,6 @@ function openFeed(key) {
   currentKey = key;
   if (f.kind === "kick") return playKick(f);
   if (f.kind === "direct") return playDirect(f);
-  if (f.kind === "iframe") return playIframe(f);
   return playLang(f);
 }
 /* ---- Direct native stream (Colors TV — plays inside the site,
@@ -265,26 +264,6 @@ function playDirect(f) {
 }
 function playDirectNow(f) {
   playNative(f.m3u8, 'Live channel, playing directly here. Bigg Boss Hindi airs on Colors TV at <b>9 PM</b> (new episode 9:15 PM).');
-}
-/* ---- Direct .m3u8 in an iframe — the browser's own media player.
-   The no-sid direct link plays in a browser tab on its own, so an
-   iframe pointing at it lets the browser's built-in player run it
-   inside this page — no hls.js, no cross-origin fetch, so no CORS
-   block. Referrer is suppressed so the source sees the same plain
-   request as opening the link in a tab. */
-function playIframe(f) {
-  showPlayer(f.name);
-  var srcs = [
-    { label: "Direct", run: function () { playIframeNow(f); } },
-    { label: "Source site", run: function () { playLang(f); } }
-  ];
-  setSrcs(srcs, 0);
-  playIframeNow(f);
-}
-function playIframeNow(f) {
-  destroyHls();
-  $("bb-screen").innerHTML = '<iframe src="' + f.m3u8 + '" allowfullscreen allow="autoplay; fullscreen; picture-in-picture" referrerpolicy="no-referrer"></iframe>';
-  $("bb-note").innerHTML = 'Live 24/7 house feed, playing directly here with the browser\u2019s own player. New episode every day at <b>9:15 PM</b>. If it does not play, try the Source site above.';
 }
 function playKick(f) {
   showPlayer(f.name);
@@ -329,10 +308,13 @@ function playKickNative(f) {
 /* ---- Language feeds — source site (fallback) ----
    The direct link does not play in-site through the site's own
    player (hls.js): the tap test showed it hanging on buffering
-   forever (no CORS * from the source). The feeds now play in-site
-   through the browser's own player in an iframe instead (playIframe).
-   This function is only the "Source site" backup when the iframe
-   does not play: it opens the feed on the source site, where it plays. */
+   forever (no CORS * from the source). An iframe pointing at the
+   direct link was also tried and tap-tested: it shows the word
+   "forbidden" (the source blocks any cross-site embed). The signed
+   article URL also cannot be used (it redirects to the homepage
+   when fetched by a server and expires in ~5 min). So this function
+   is the way the feeds play: it opens the feed on the source site,
+   where it plays. */
 function playLang(f) {
   showPlayer(f.name);
   setSrcs([], 0);
@@ -346,7 +328,7 @@ function playLang(f) {
 /* ---- Latest — Bigg Boss Hindi ---- */
 function openHindi() {
   currentKey = "hindi";
-  playIframe(HINDI);
+  playLang(HINDI);
 }
 
 renderTiles();
