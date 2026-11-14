@@ -611,42 +611,37 @@ async function downloadTitle() {
 }
 
 /* ---------- watch (stream) ---------- */
-// NetMirror first: the site's own mirror (net52.cc/pv). The
-// resolver (?q= then ?play=) returns either an HLS manifest
-// (net52, when its CDN is not throttling) or direct MP4 files
-// (the LokLok/Astro fallback) with subtitles — all played
-// natively, no embed, no ads. Verified 14 Nov 2026: net52's
-// CDN is throttling right now (its variant is the 10-minute
-// "Too Many Requests" slate, not the film), so ?play= answers
-// with the MP4 fallback for Inception (1080p) and Dune. When
-// net52 stops throttling the same call returns HLS instead,
-// and the player below takes whichever kind comes back.
-// EmbedWave second: it plays (H.264) with no ads in testing,
-// and its Cinesrc server is the one that works. Direct third:
-// the VidRift Orion copy is HEVC-only, and this Chrome on
-// Windows cannot decode HEVC (verified 14 Nov 2026:
-// HEVC:false, H264:true), so Direct stays as a button for
-// browsers that support HEVC. VidRift last (its seek opens a
-// pop-up ad tab and kills playback — reproduced 14 Nov 2026).
-// EmbedWave is pinned to its Cinesrc server: tested 14 Nov
-// 2026 — Multi HD ("Unable to play media") and Videasy
-// (player.videasy.to does not load at all) both fail; only
-// Cinesrc plays.
+// Direct first: the VidRift Titan copy is H.264, plays natively
+// in this page with no ads, and seeking works (verified 14 Nov
+// 2026: Inception played and seeked 0:23 -> 28:55 -> 29:13).
+// It is a single 720p stream (the Titan manifest has no other
+// variant), and it is also the copy ?watch= serves when this
+// browser cannot decode HEVC. NetMirror second: native and
+// no ads, but its own sources are throttling/rate-limited
+// right now (net52 slate + MP4 429, verified 14 Nov 2026), so
+// it falls back by itself; when its CDN recovers it plays.
+// EmbedWave third: it plays (H.264) with no ads in testing,
+// and its Cinesrc server is the one that works. VidRift last
+// (its seek opens a pop-up ad tab and kills playback —
+// reproduced 14 Nov 2026). EmbedWave is pinned to its Cinesrc
+// server: tested 14 Nov 2026 — Multi HD ("Unable to play
+// media") and Videasy (player.videasy.to does not load at all)
+// both fail; only Cinesrc plays.
 const WATCH_SOURCES = [
+  // Direct (native <video> + hls.js): the VidRift Titan copy,
+  // fetched via the resolver (?watch=) — no embed, no ad
+  // script, seeking works. Falls back to the next source by
+  // itself when the title has no copy or Direct fails.
+  { id: "direct", label: "Direct", native: true },
   // NetMirror (native <video>): HLS via hls.js when net52
   // answers, otherwise the direct MP4 fallback. Falls back to
   // the next source by itself when the title has no copy.
   { id: "netmirror", label: "NetMirror", native: true, nm: true },
   { id: "embedwave", label: "EmbedWave", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc" },
-  // Direct (native <video> + hls.js): the VidRift Orion copy, fetched
-  // via the resolver (?watch=) — no embed, no ad script, seeking
-  // works where the browser supports HEVC. Falls back to the embeds
-  // by itself when the title has no Orion copy or Direct fails.
-  { id: "direct", label: "Direct", native: true },
   { id: "vidrift", label: "VidRift", base: "https://embed.vidrift.net/embed" },
 ];
 let currentWatchTmdb = null;
-let currentWatchSource = "netmirror";
+let currentWatchSource = "direct";
 const CINEMETA = "https://v3-cinemeta.strem.io";
 
 function watchCacheKey(title, year) { return "watch-tmdb|" + title + "|" + year; }
@@ -830,7 +825,7 @@ async function watchTitle() {
     return;
   }
   currentWatchTmdb = tmdb;
-  currentWatchSource = "netmirror";
+  currentWatchSource = "direct";
   watchFallbackTried = false; // a new Watch open gets one fresh auto-fallback
   renderWatchPlayer();
   btn.disabled = false;
@@ -889,7 +884,7 @@ function renderWatchPlayer() {
     f.title = "Watch " + currentTitle;
     wrap.appendChild(f);
   }
-  wrap.appendChild(el("div", "watch-note", "NetMirror plays first, in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
+  wrap.appendChild(el("div", "watch-note", "Direct plays first, in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
   wrap.classList.add("show");
 }
 
@@ -914,6 +909,10 @@ function watchFallback() {
 // are absolute CDN links, so the blob base does not matter.
 async function renderDirectPlayer(wrap, tmdb) {
   const type = currentIsSeries ? "tv" : "movie";
+  // Show that Direct is being looked up, so the player area
+  // is never a blank black box while ?watch= resolves.
+  const loading = el("div", "watch-note", "Loading Direct…");
+  wrap.appendChild(loading);
   // Tell the resolver whether this browser can decode HEVC: if not,
   // it serves the H.264 (Titan) copy instead of the HEVC (Orion) one.
   const hevcOk = !!(
@@ -927,6 +926,7 @@ async function renderDirectPlayer(wrap, tmdb) {
     text = await r.text();
   } catch { text = ""; }
   if (!text.startsWith("#EXTM3U")) { watchFallback(); return; }
+  if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
   const video = document.createElement("video");
   video.controls = true;
   video.playsInline = true;
