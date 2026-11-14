@@ -1025,6 +1025,11 @@ async function resolveNetMirrorId(title, year, isSeries) {
 async function renderNetMirrorPlayer(wrap) {
   const title = currentTitle;
   const year = currentYear;
+  // Show that NetMirror is being looked up, so the player area
+  // is never a blank black box while the resolver works through
+  // its chain (net52 -> LokLok -> Astro can take seconds).
+  const loading = el("div", "watch-note", "Loading NetMirror…");
+  wrap.appendChild(loading);
   let id = null;
   try {
     const nmKey = nmCacheKey(baseTitle(title), year, currentIsSeries);
@@ -1042,6 +1047,7 @@ async function renderNetMirrorPlayer(wrap) {
       "&year=" + encodeURIComponent(year || ""));
   } catch { d = null; }
   if (!d || d.noSource || d.error) { watchFallback(); return; }
+  if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
   const video = document.createElement("video");
   video.controls = true;
   video.playsInline = true;
@@ -1101,6 +1107,17 @@ async function renderNetMirrorPlayer(wrap) {
     addTracks(d.captions);
     const best = d.streams.slice().sort((a, b) => (b.resolution || 0) - (a.resolution || 0))[0];
     if (!best || !best.url) { watchFallback(); return; }
+    // The MP4 host rate-limits (HTTP 429) when it is busy — a
+    // <video> fed a 429 page just sits black until the watchdog.
+    // A cheap 1-byte Range fetch tells us first: if the file
+    // will not serve, fall back at once instead of hanging.
+    // (The host sends CORS *, so this fetch is allowed.)
+    let ok = false;
+    try {
+      const pr = await fetch(best.url, { headers: { Range: "bytes=0-0" } });
+      ok = pr.ok || pr.status === 206;
+    } catch { ok = false; }
+    if (!ok) { watchFallback(); return; }
     video.src = best.url;
     video.play().catch(() => {});
     return;
