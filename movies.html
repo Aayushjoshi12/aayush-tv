@@ -113,6 +113,7 @@
       <a href="index.html">🏏 NPL Live</a>
       <a href="channels.html">📺 Channels</a>
       <a href="movies.html" class="active">🎬 Movies</a>
+      <a href="biggboss.html">🏠 Bigg Boss</a>
     </nav>
   </div>
   <div class="search-row">
@@ -145,7 +146,7 @@
 <footer>
   <div class="foot-inner">
     <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
-    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a></nav>
+    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="biggboss.html">Bigg Boss</a></nav>
     <div class="made-by"><div class="mini-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div><span>Made by <b>Aayush Joshi</b></span></div>
     <div>© 2026 Aayush TV</div>
   </div>
@@ -246,11 +247,25 @@ function makeCard(item, onTap) {
   const showNoImg = () => poster.appendChild(el("div", "noimg", "🎬"));
   if (item.poster) {
     const img = document.createElement("img");
-    img.src = item.poster;
     img.alt = item.title || "";
     img.loading = "lazy";
-    img.onerror = () => applyPosterFallback(img, item.title, item.year, series, () => { img.remove(); showNoImg(); });
+    // Handlers before src (a fast-failing host can error before a
+    // later-attached handler runs), plus a 4s load timeout: a
+    // hanging poster host (MoviesMod drops the connection) never
+    // fires onerror, so without this the card stays dark forever.
+    let posterSettled = false;
+    const onPosterFail = () => {
+      if (posterSettled) return;
+      posterSettled = true;
+      applyPosterFallback(img, item.title, item.year, series, () => { img.remove(); showNoImg(); });
+    };
+    img.onload = () => { posterSettled = true; };
+    img.onerror = onPosterFail;
+    img.src = item.poster;
     poster.appendChild(img);
+    setTimeout(() => {
+      if (!posterSettled && img.naturalWidth === 0) onPosterFail();
+    }, 4000);
   } else {
     // No site poster at all — try Cinemeta straight away.
     const img = document.createElement("img");
@@ -455,10 +470,21 @@ function openMoviesMod(item) {
   };
   if (item.poster) {
     const img = document.createElement("img");
-    img.src = item.poster;
     img.alt = currentTitle;
-    img.onerror = () => applyPosterFallback(img, currentTitle, currentYear, series, showPosterFallback);
+    // Handlers before src, plus a 4s load timeout (same as the
+    // card grid — a hanging poster host never fires onerror).
+    let posterSettled = false;
+    img.onload = () => { posterSettled = true; };
+    img.onerror = () => {
+      if (posterSettled) return;
+      posterSettled = true;
+      applyPosterFallback(img, currentTitle, currentYear, series, showPosterFallback);
+    };
+    img.src = item.poster;
     poster.appendChild(img);
+    setTimeout(() => {
+      if (!posterSettled && img.naturalWidth === 0) img.onerror();
+    }, 4000);
   } else {
     // No site poster — try Cinemeta's before the 🎬 tile.
     const img = document.createElement("img");
@@ -695,11 +721,45 @@ function posterCacheSet(key, url) {
     localStorage.setItem(POSTER_CACHE_KEY, JSON.stringify(all));
   } catch {}
 }
+// Base title for poster lookups: modlist titles carry a
+// " — Season N" suffix (e.g. "Study Group — Season 1"); Cinemeta
+// wants the bare show name. Searching the suffixed title returns
+// the wrong show (or nothing) — "Lupin — Season 1-3" matched a
+// Naked Gun film, "The Body — Season 1" matched a different show.
+function baseTitle(title) {
+  return String(title || "").split(" — ")[0].split(" - ")[0].trim();
+}
+
+// Poster lookup (strict): same catalog search as cinemetaMeta but
+// by the BASE title, and only a result whose name matches that
+// base title counts — never the first search result. This is for
+// posters only; Watch keeps using cinemetaMeta (its looser match
+// is what finds a TMDB id for series).
+async function cinemetaPosterMeta(title, year, isSeries) {
+  const base = baseTitle(title);
+  if (!base) return null;
+  const bl = base.toLowerCase();
+  const types = isSeries ? ["series", "movie"] : ["movie", "series"];
+  for (const type of types) {
+    const s = await getJSON(CINEMETA + "/catalog/" + type + "/top/search=" + encodeURIComponent(base) + ".json").catch(() => null);
+    const metas = (s && s.metas) || [];
+    if (!metas.length) continue;
+    const m = metas.find((x) => {
+      const n = (x.name || "").toLowerCase();
+      return n === bl || n.startsWith(bl + " ") || n.startsWith(bl + ":") || n.startsWith(bl + " -");
+    });
+    if (!m || !m.imdb_id) continue;
+    if (year && m.releaseInfo && String(m.releaseInfo).slice(0, 4) !== String(year)) continue;
+    const meta = await getJSON(CINEMETA + "/meta/" + type + "/" + m.imdb_id + ".json").catch(() => null);
+    if (meta && meta.meta && meta.meta.poster) return meta.meta;
+  }
+  return null;
+}
 async function fetchPosterUrl(title, year, isSeries) {
   const key = [title, year || ""].join("|").toLowerCase();
   const hit = posterCacheGet(key);
   if (hit) return hit;
-  const meta = await cinemetaMeta(title, year, isSeries).catch(() => null);
+  const meta = await cinemetaPosterMeta(title, year, isSeries).catch(() => null);
   const url = meta && meta.poster;
   if (url) posterCacheSet(key, url);
   return url || null;

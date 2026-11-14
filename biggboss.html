@@ -1,0 +1,318 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bigg Boss — Aayush TV</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.16), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.10), transparent 70%), radial-gradient(600px 260px at 8% 100%, rgba(255,59,59,.06), transparent 70%); background-attachment: fixed; margin: 0; }
+
+  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 0; border-bottom: 1px solid #232838; }
+  .head-inner { max-width: 1440px; margin: 0 auto; padding: 14px 20px 10px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  .brand { font-size: 24px; font-weight: 800; letter-spacing: .2px; text-decoration: none; color: #fff; flex-shrink: 0; }
+  .brand span { color: #ff3b3b; }
+  nav.main-nav { display: flex; gap: 4px; flex-wrap: wrap; }
+  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; transition: background .15s, color .15s; }
+  nav.main-nav a:hover { background: #1a2033; color: #fff; }
+  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; }
+
+  main { max-width: 1440px; margin: 0 auto; padding: 18px 20px 36px; }
+  .hero { padding: 26px 4px 6px; }
+  .hero h2 { font-size: 30px; font-weight: 800; line-height: 1.2; letter-spacing: -.3px; margin: 0; }
+  .hero h2 em { font-style: normal; color: #ff3b3b; }
+  .hero p { color: #9aa1b2; font-size: 15px; line-height: 1.6; margin-top: 8px; max-width: 640px; }
+  .hero p b { color: #f2f4fa; }
+  .ep-time { display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 999px; background: rgba(255,59,59,.12); border: 1px solid rgba(255,59,59,.45); color: #ffb3b3; font-size: 13px; font-weight: 700; }
+
+  .row-title { font-size: 18px; font-weight: 800; margin: 22px 0 12px; }
+  .grid-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+
+  .bb-card { cursor: pointer; }
+  .bb-card .poster { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: linear-gradient(135deg, #1b2340, #3a1020); border: 1px solid #262d42; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; display: flex; align-items: center; justify-content: center; }
+  .bb-card:hover .poster { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 1px rgba(255,59,59,.35); }
+  .bb-card .poster .big { font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.6); text-align: center; padding: 0 10px; line-height: 1.15; }
+  .bb-card.kick .poster { background: linear-gradient(135deg, #0f2a1a, #14532d); }
+  .bb-card .live-dot { position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 800; letter-spacing: .4px; padding: 3px 7px; border-radius: 999px; background: rgba(11,14,20,.82); color: #4ade80; border: 1px solid rgba(74,222,128,.5); backdrop-filter: blur(4px); }
+  .bb-card .live-dot::before { content: "● "; }
+  .bb-card .name { font-size: 14px; font-weight: 700; line-height: 1.35; margin-top: 8px; color: #f2f4fa; }
+  .bb-card .sub { font-size: 12px; color: #9aa1b2; margin-top: 2px; }
+
+  /* ---- player ---- */
+  #bb-player { display: none; margin: 18px 0 6px; }
+  #bb-player.show { display: block; }
+  #bb-player .p-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+  #bb-player .p-title { font-size: 16px; font-weight: 800; }
+  #bb-player .p-close { margin-left: auto; padding: 7px 14px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; }
+  #bb-player .p-close:hover { border-color: #ff3b3b; color: #fff; }
+  #bb-player .p-srcs { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  #bb-player .psrc { padding: 7px 14px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; }
+  #bb-player .psrc.active { border-color: #22c55e; background: #16a34a; color: #fff; }
+  #bb-screen iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; display: block; }
+  #bb-screen iframe.tall { aspect-ratio: 16 / 10; }
+  #bb-screen video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; display: block; }
+  #bb-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; line-height: 1.6; }
+  #bb-note a { color: #7dd3fc; }
+  .offline-box { background: #151a26; border: 1px solid #262d42; border-radius: 12px; padding: 26px 20px; text-align: center; }
+  .offline-box .big { font-size: 18px; font-weight: 800; }
+  .offline-box p { color: #9aa1b2; font-size: 14px; margin: 8px 0 0; line-height: 1.6; }
+  .offline-box a { color: #7dd3fc; font-weight: 700; }
+
+  .hint { color: #9aa1b2; font-size: 14px; line-height: 1.6; margin-top: 18px; }
+
+  footer { border-top: 1px solid #232838; margin-top: 8px; }
+  .foot-inner { max-width: 1440px; margin: 0 auto; padding: 22px 20px 28px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; color: #9aa1b2; font-size: 13px; }
+  .foot-inner b { color: #f2f4fa; }
+  .foot-inner nav a { color: #cfd3dd; text-decoration: none; margin-right: 16px; }
+  .foot-inner nav a:hover { color: #fff; }
+  .made-by { display: flex; align-items: center; gap: 8px; }
+  .made-by .mini-photo { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #ff3b3b; flex: 0 0 auto; }
+  .made-by b { color: #f2f4fa; }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-inner">
+    <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
+    <nav class="main-nav">
+      <a href="index.html">🏏 NPL Live</a>
+      <a href="channels.html">📺 Channels</a>
+      <a href="movies.html">🎬 Movies</a>
+      <a href="biggboss.html" class="active">🏠 Bigg Boss</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div id="bb-player">
+    <div class="p-head">
+      <div class="p-title" id="bb-title"></div>
+      <button class="p-close" type="button" onclick="stopPlayer()">✕ Close</button>
+    </div>
+    <div class="p-srcs" id="bb-srcs"></div>
+    <div id="bb-screen"></div>
+    <div id="bb-note"></div>
+  </div>
+
+  <div class="hero">
+    <h2>Bigg Boss — <em>Live 24/7</em></h2>
+    <p>Every Bigg Boss live feed in one place — Tamil, Telugu, Malayalam, Kannada and Hindi — plus the Kick stream. Tap a card and it plays here.</p>
+    <div class="ep-time">🕘 New episode every day at 9:15 PM</div>
+  </div>
+
+  <div class="row-title">🔴 Live 24/7</div>
+  <div class="grid-row" id="live-grid"></div>
+
+  <div class="row-title">🆕 Latest episode</div>
+  <div class="grid-row" id="ep-grid"></div>
+
+  <p class="hint">The five language feeds play through the source site's own player (it sits at the top of the page that opens). The Kick stream plays directly here when it is live — check around 9:15 PM for the new episode.</p>
+</main>
+
+<footer>
+  <div class="foot-inner">
+    <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
+    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="biggboss.html">Bigg Boss</a></nav>
+    <div class="made-by"><div class="mini-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div><span>Made by <b>Aayush Joshi</b></span></div>
+    <div>© 2026 Aayush TV</div>
+  </div>
+</footer>
+
+<script>
+/* ------------------------------------------------------------------
+   Bigg Boss page — live 24/7 feeds + Kick + latest episode.
+   Sources, verified 14 Nov 2026 (all free, all playing in a real
+   browser):
+   - The five language feeds are the tamiltvserial.com 24/7 cards.
+     Each card is a short link that lands on a partner article
+     (kollypress / sportspib / techqub) with the live player at the
+     top. The player itself is stream2.zoloj.com/player?lang=<lang>
+     (Plyr + HLS), but that page only serves when the request comes
+     from one of the article sites — aayushlife.live gets 403, and
+     its .m3u8 is session-locked (a fetched sid is "session
+     invalid"). So there is no clean direct embed or native .m3u8
+     for these five; the working path is the article embed (the
+     short link), which carries the right referrer and plays. The
+     article has no X-Frame-Options, so it can be framed here.
+   - Kick (mogambo) is the clean native one: the public Kick API
+     (kick.com/api/v2/channels/mogambo, CORS allows this site)
+     gives a fresh playback_url (Amazon IVS .m3u8, CORS *) when
+     the channel is live. Native <video> + hls.js first, Kick
+     embed (player.kick.com/mogambo) as fallback.
+   - Latest episode: Tamil S10 Day 68 Ep 69 (13 Nov 2026) is a
+     Vimeo embed (clip 1246672426, 720p, 1:09:24), verified playing.
+------------------------------------------------------------------ */
+
+var KICK_API = "https://kick.com/api/v2/channels/mogambo";
+var KICK_EMBED = "https://player.kick.com/mogambo";
+var KICK_SITE = "https://kick.com/mogambo";
+
+var FEEDS = [
+  { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick" },
+  { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq", zoloj: "https://stream2.zoloj.com/player?lang=tamil" },
+  { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk", zoloj: "https://stream2.zoloj.com/player?lang=telugu" },
+  { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "lang", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX", zoloj: "https://stream2.zoloj.com/player?lang=malayalam" },
+  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "lang", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S", zoloj: "https://stream2.zoloj.com/player?lang=kannada" },
+  { key: "hindi",     name: "Bigg Boss Hindi",       sub: "Season 20 • Colors TV",              cls: "",          kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP", zoloj: "https://stream2.zoloj.com/player?lang=hindi" }
+];
+
+var EPISODE = { name: "Bigg Boss Tamil — S10 Day 68, Ep 69", sub: "13 Nov 2026 • 1:09:24 • Vimeo", vimeo: "https://player.vimeo.com/video/1246672426" };
+
+var hls = null;         // active hls.js instance (Kick native)
+var currentKey = null;  // which feed is open
+
+function $(id) { return document.getElementById(id); }
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
+
+/* ---- tiles ---- */
+function renderTiles() {
+  var g = $("live-grid");
+  g.innerHTML = FEEDS.map(function (f) {
+    var big = f.kind === "kick" ? "MOGAMBO" : f.name.replace("Bigg Boss ", "").toUpperCase();
+    return '<div class="bb-card ' + f.cls + '" data-key="' + f.key + '">' +
+      '<div class="poster"><span class="live-dot">LIVE 24/7</span><span class="big">' + esc(big) + '</span></div>' +
+      '<div class="name">' + esc(f.name) + '</div><div class="sub">' + esc(f.sub) + '</div></div>';
+  }).join("");
+  g.querySelectorAll(".bb-card").forEach(function (el) {
+    el.addEventListener("click", function () { openFeed(el.getAttribute("data-key")); });
+  });
+  var e = $("ep-grid");
+  e.innerHTML = '<div class="bb-card" id="ep-card">' +
+    '<div class="poster"><span class="live-dot" style="color:#ff8a8a;border-color:rgba(255,59,59,.5)">EPISODE</span><span class="big">TAMIL<br>S10 • EP 69</span></div>' +
+    '<div class="name">' + esc(EPISODE.name) + '</div><div class="sub">' + esc(EPISODE.sub) + '</div></div>';
+  $("ep-card").addEventListener("click", openEpisode);
+}
+
+/* ---- player plumbing ---- */
+function showPlayer(title) {
+  $("bb-title").textContent = title;
+  $("bb-player").classList.add("show");
+  $("bb-player").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function setSrcs(list, active) {
+  $("bb-srcs").innerHTML = list.map(function (s, i) {
+    return '<button type="button" class="psrc' + (i === active ? " active" : "") + '" data-i="' + i + '">' + esc(s.label) + '</button>';
+  }).join("");
+  $("bb-srcs").querySelectorAll(".psrc").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var i = +b.getAttribute("data-i");
+      setSrcs(list, i);
+      list[i].run();
+    });
+  });
+}
+function destroyHls() {
+  if (hls) { try { hls.destroy(); } catch (e) {} hls = null; }
+  var v = $("bb-screen").querySelector("video");
+  if (v) { try { v.pause(); } catch (e) {} }
+}
+function stopPlayer() {
+  destroyHls();
+  $("bb-screen").innerHTML = "";
+  $("bb-srcs").innerHTML = "";
+  $("bb-note").innerHTML = "";
+  $("bb-player").classList.remove("show");
+  currentKey = null;
+}
+function iframeHtml(src, tall) {
+  return '<iframe src="' + src + '" class="' + (tall ? "tall" : "") + '" allowfullscreen allow="autoplay; fullscreen; picture-in-picture" referrerpolicy="no-referrer-when-downgrade"></iframe>';
+}
+function playNative(m3u8, noteHtml) {
+  destroyHls();
+  $("bb-screen").innerHTML = '<video id="bb-video" controls playsinline autoplay></video>';
+  var v = $("bb-video");
+  if (window.Hls && Hls.isSupported()) {
+    hls = new Hls({ liveSyncDurationCount: 3, maxBufferLength: 30 });
+    hls.loadSource(m3u8);
+    hls.attachMedia(v);
+    hls.on(Hls.Events.ERROR, function (ev, d) {
+      if (d && d.fatal) { hls.startLoad(); }
+    });
+  } else if (v.canPlayType("application/vnd.apple.mpegurl")) {
+    v.src = m3u8;
+  }
+  v.play().catch(function () {});
+  $("bb-note").innerHTML = noteHtml || "";
+}
+
+/* ---- Kick (native first, embed fallback) ---- */
+function openFeed(key) {
+  var f = FEEDS.filter(function (x) { return x.key === key; })[0];
+  if (!f) return;
+  currentKey = key;
+  if (f.kind === "kick") return playKick(f);
+  return playLang(f);
+}
+function playKick(f) {
+  showPlayer(f.name);
+  $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Checking if Mogambo is live…</div></div>';
+  $("bb-note").innerHTML = "";
+  var srcs = [
+    { label: "Native", run: function () { playKickNative(f); } },
+    { label: "Kick embed", run: function () {
+        destroyHls();
+        $("bb-screen").innerHTML = iframeHtml(KICK_EMBED, false);
+        $("bb-note").innerHTML = 'Kick\u2019s own player. If it shows offline, the new episode starts at <b>9:15 PM</b> — <a href="' + KICK_SITE + '" target="_blank" rel="noopener">open on Kick</a>.';
+      } }
+  ];
+  setSrcs(srcs, 0);
+  playKickNative(f);
+}
+function playKickNative(f) {
+  fetch(KICK_API, { cache: "no-store" })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      var ls = d && d.livestream;
+      var url = ls && ls.playback_url;
+      if (url) {
+        playNative(url, 'Live now — <b>' + esc(ls.session_title || "Mogambo") + '</b>' +
+          (ls.viewer_count ? ' • ' + ls.viewer_count + ' watching' : '') +
+          '. Playing directly here. <a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.');
+      } else {
+        destroyHls();
+        $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Mogambo is offline right now</div>' +
+          '<p>The stream starts again with the new episode at <b>9:15 PM</b>.<br>Try the Kick embed above, or <a href="' + KICK_SITE + '" target="_blank" rel="noopener">open on Kick</a>.</p></div>';
+        $("bb-note").innerHTML = "";
+      }
+    })
+    .catch(function () {
+      // API unreachable — the Kick embed still plays when live.
+      destroyHls();
+      $("bb-screen").innerHTML = iframeHtml(KICK_EMBED, false);
+      $("bb-note").innerHTML = 'Could not check the live status, so here is Kick\u2019s own player. <a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.';
+    });
+}
+
+/* ---- Language feeds (article embed — the only working path) ---- */
+function playLang(f) {
+  showPlayer(f.name);
+  setSrcs([{ label: "Live player", run: function () { playLangEmbed(f); } }], 0);
+  playLangEmbed(f);
+}
+function playLangEmbed(f) {
+  destroyHls();
+  $("bb-screen").innerHTML = iframeHtml(f.short, true);
+  $("bb-note").innerHTML = 'This feed plays through the source site\u2019s own player — it sits at the top of the page that opens above. ' +
+    'New episode every day at <b>9:15 PM</b>. If the page asks you anything, just close it. ' +
+    '<a href="' + f.short + '" target="_blank" rel="noopener">Open the source page</a>.';
+}
+
+/* ---- Latest episode (Vimeo) ---- */
+function openEpisode() {
+  currentKey = "episode";
+  showPlayer(EPISODE.name);
+  setSrcs([{ label: "Vimeo", run: function () {
+    destroyHls();
+    $("bb-screen").innerHTML = iframeHtml(EPISODE.vimeo, false);
+    $("bb-note").innerHTML = 'Full episode, 1:09:24. ' + esc(EPISODE.sub) + '.';
+  } }], 0);
+  destroyHls();
+  $("bb-screen").innerHTML = iframeHtml(EPISODE.vimeo, false);
+  $("bb-note").innerHTML = 'Full episode, 1:09:24. ' + esc(EPISODE.sub) + '.';
+}
+
+renderTiles();
+</script>
+</body>
+</html>
