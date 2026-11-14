@@ -376,28 +376,13 @@ function playKickNative(f) {
 
 /* ---- Language feeds — India server (BB_PROXY) ----
    The feeds play in-site through the server in Pune (see the
-   BB_PROXY note above). "Source site" opens the feed where it
-   plays, as a fallback if the server is down. */
+   BB_PROXY note above). Only "Live" — no source-site option. */
 function playProxy(f) {
   showPlayer(f.name);
   var m3u8 = BB_PROXY + f.key;
   var note = 'Live 24/7 — playing here, through the India server. New episode every day at <b>9:15 PM</b>.';
-  var srcs = [
-    { label: "Live", run: function () { playNative(m3u8, note); } },
-    { label: "Source site", run: function () { playLang(f); } }
-  ];
-  setSrcs(srcs, 0);
+  setSrcs([{ label: "Live", run: function () { playNative(m3u8, note); } }], 0);
   playNative(m3u8, note);
-}
-
-function playLang(f) {
-  showPlayer(f.name);
-  setSrcs([], 0);
-  destroyHls();
-  $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Opening ' + esc(f.name) + ' on the source site…</div>' +
-    '<p>The live feed plays there. The source does not allow it to be shown inside this page, so it opens in a new tab.<br><a href="' + f.short + '" target="_blank" rel="noopener">Open ' + esc(f.name) + ' now</a></p></div>';
-  $("bb-note").innerHTML = 'New episode every day at <b>9:15 PM</b>. If the source page asks you anything, just close it.';
-  window.open(f.short, "_blank", "noopener");
 }
 
 /* ---- Latest — Bigg Boss Hindi ---- */
