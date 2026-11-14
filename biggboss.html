@@ -107,7 +107,7 @@
   <div class="row-title">🆕 Latest — Bigg Boss Hindi</div>
   <div class="grid-row" id="ep-grid"></div>
 
-  <p class="hint">Bigg Boss Hindi is featured above — the live Hindi house feed is the latest Hindi Bigg Boss that plays. The five language feeds open on the source site (they play there; the source does not allow them inside this page). The Kick stream plays directly here when it is live — check around 9:15 PM for the new episode.</p>
+  <p class="hint">Colors TV and Kick play right here, inside this site. The five language feeds come from a source that blocks this site from showing its video inside it, so those open on the source site in a new tab — they play there. Bigg Boss Hindi airs on Colors TV at 9 PM.</p>
 </main>
 
 <footer>
@@ -155,6 +155,7 @@ var KICK_SITE = "https://kick.com/mogambo";
 
 var FEEDS = [
   { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick" },
+  { key: "colorstv",  name: "Colors TV — Hindi",     sub: "Bigg Boss airs here at 9 PM • live",  cls: "",          kind: "direct", m3u8: "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:colorsme.smil/playlist.m3u8" },
   { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq", zoloj: "https://stream2.zoloj.com/player?lang=tamil" },
   { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk", zoloj: "https://stream2.zoloj.com/player?lang=telugu" },
   { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "lang", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX", zoloj: "https://stream2.zoloj.com/player?lang=malayalam" },
@@ -250,7 +251,19 @@ function openFeed(key) {
   if (!f) return;
   currentKey = key;
   if (f.kind === "kick") return playKick(f);
+  if (f.kind === "direct") return playDirect(f);
   return playLang(f);
+}
+/* ---- Direct native stream (Colors TV — plays inside the site,
+   like the other channels: a free direct .m3u8, CORS *, verified
+   master + 720p variant + segment 200 on 14 Nov 2026). ---- */
+function playDirect(f) {
+  showPlayer(f.name);
+  setSrcs([{ label: "Live", run: function () { playDirectNow(f); } }], 0);
+  playDirectNow(f);
+}
+function playDirectNow(f) {
+  playNative(f.m3u8, 'Live channel, playing directly here. Bigg Boss Hindi airs on Colors TV at <b>9 PM</b> (new episode 9:15 PM).');
 }
 function playKick(f) {
   showPlayer(f.name);
