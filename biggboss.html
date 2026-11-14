@@ -273,15 +273,19 @@ function playKick(f) {
   $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Checking if Mogambo is live…</div></div>';
   $("bb-note").innerHTML = "";
   var srcs = [
-    { label: "Native", run: function () { playKickNative(f); } },
     { label: "Kick embed", run: function () {
         destroyHls();
         $("bb-screen").innerHTML = iframeHtml(KICK_EMBED, false);
-        $("bb-note").innerHTML = 'Kick\u2019s own player. If it shows offline, the new episode starts at <b>9:15 PM</b> — <a href="' + KICK_SITE + '" target="_blank" rel="noopener">open on Kick</a>.';
-      } }
+        $("bb-note").innerHTML = 'Kick\u2019s own player, playing here. New episode every day at <b>9:15 PM</b> — <a href="' + KICK_SITE + '" target="_blank" rel="noopener">open on Kick</a>.';
+      } },
+    { label: "Native", run: function () { playKickNative(f); } }
   ];
+  /* Default to the Kick embed: it plays. The Native player is the
+     backup — Kick's own video address does not let this site read
+     it, so the native player hangs on buffering (tap-tested
+     14 Nov 21:03 NPT). The embed is Kick's own player, in-site. */
   setSrcs(srcs, 0);
-  playKickNative(f);
+  srcs[0].run();
 }
 function playKickNative(f) {
   fetch(KICK_API, { cache: "no-store" })
