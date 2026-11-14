@@ -153,7 +153,6 @@
 ------------------------------------------------------------------ */
 
 var KICK_API = "https://kick.com/api/v2/channels/mogambo";
-var KICK_EMBED = "https://player.kick.com/mogambo";
 var KICK_SITE = "https://kick.com/mogambo";
 /* The Native player goes through the site's own resolver
    (aayush-tv-minter, api/kick.js): Kick's IVS master playlist
@@ -279,20 +278,8 @@ function playKick(f) {
   showPlayer(f.name);
   $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Checking if Mogambo is live…</div></div>';
   $("bb-note").innerHTML = "";
-  var srcs = [
-    { label: "Kick embed", run: function () {
-        destroyHls();
-        $("bb-screen").innerHTML = iframeHtml(KICK_EMBED, false);
-        $("bb-note").innerHTML = 'Kick\u2019s own player, playing here. New episode every day at <b>9:15 PM</b> — <a href="' + KICK_SITE + '" target="_blank" rel="noopener">open on Kick</a>.';
-      } },
-    { label: "Native", run: function () { playKickNative(f); } }
-  ];
-  /* Default to the Kick embed: it plays. The Native player is the
-     backup — Kick's own video address does not let this site read
-     it, so the native player hangs on buffering (tap-tested
-     14 Nov 21:03 NPT). The embed is Kick's own player, in-site. */
-  setSrcs(srcs, 0);
-  srcs[0].run();
+  setSrcs([{ label: "Native", run: function () { playKickNative(f); } }], 0);
+  playKickNative(f);
 }
 function playKickNative(f) {
   fetch(KICK_API, { cache: "no-store" })
@@ -324,15 +311,15 @@ function playKickNative(f) {
       } else {
         destroyHls();
         $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Mogambo is offline right now</div>' +
-          '<p>The stream starts again with the new episode at <b>9:15 PM</b>.<br>Try the Kick embed above, or <a href="' + KICK_SITE + '" target="_blank" rel="noopener">open on Kick</a>.</p></div>';
+          '<p>The stream starts again with the new episode at <b>9:15 PM</b>.<br><a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.</p></div>';
         $("bb-note").innerHTML = "";
       }
     })
     .catch(function () {
-      // API unreachable — the Kick embed still plays when live.
       destroyHls();
-      $("bb-screen").innerHTML = iframeHtml(KICK_EMBED, false);
-      $("bb-note").innerHTML = 'Could not check the live status, so here is Kick\u2019s own player. <a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.';
+      $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Could not check if Mogambo is live</div>' +
+        '<p>Try again, or <a href="' + KICK_SITE + '" target="_blank" rel="noopener">open on Kick</a>.</p></div>';
+      $("bb-note").innerHTML = "";
     });
 }
 
