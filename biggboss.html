@@ -104,10 +104,10 @@
   <div class="row-title">🔴 Live 24/7</div>
   <div class="grid-row" id="live-grid"></div>
 
-  <div class="row-title">🆕 Latest episode</div>
+  <div class="row-title">🆕 Latest — Bigg Boss Hindi</div>
   <div class="grid-row" id="ep-grid"></div>
 
-  <p class="hint">The five language feeds play through the source site's own player (it sits at the top of the page that opens). The Kick stream plays directly here when it is live — check around 9:15 PM for the new episode.</p>
+  <p class="hint">Bigg Boss Hindi is featured above — the live Hindi house feed is the latest Hindi Bigg Boss that plays. The five language feeds open on the source site (they play there; the source does not allow them inside this page). The Kick stream plays directly here when it is live — check around 9:15 PM for the new episode.</p>
 </main>
 
 <footer>
@@ -131,17 +131,22 @@
      (Plyr + HLS), but that page only serves when the request comes
      from one of the article sites — aayushlife.live gets 403, and
      its .m3u8 is session-locked (a fetched sid is "session
-     invalid"). So there is no clean direct embed or native .m3u8
-     for these five; the working path is the article embed (the
-     short link), which carries the right referrer and plays. The
-     article has no X-Frame-Options, so it can be framed here.
+     invalid"). There is no clean direct embed or native .m3u8
+     for these five. Embedding the short link was tried and
+     TAP-TESTED 14 Nov: it renders as a solid black blank, because
+     the short link sends X-Frame-Options: SAMEORIGIN. So these
+     tiles open the source in a new tab instead — the same link
+     plays fine there (confirmed in the tap test).
    - Kick (mogambo) is the clean native one: the public Kick API
      (kick.com/api/v2/channels/mogambo, CORS allows this site)
      gives a fresh playback_url (Amazon IVS .m3u8, CORS *) when
      the channel is live. Native <video> + hls.js first, Kick
      embed (player.kick.com/mogambo) as fallback.
-   - Latest episode: Tamil S10 Day 68 Ep 69 (13 Nov 2026) is a
-     Vimeo embed (clip 1246672426, 720p, 1:09:24), verified playing.
+   - Latest is Bigg Boss Hindi (Season 20, Colors TV), not Tamil:
+     the source site posts daily episodes only for Tamil, Telugu,
+     Malayalam and Kannada — it has no Hindi category or Hindi
+     episode posts at all. So the latest Hindi content that plays
+     is the live Hindi house feed (the Hindi card above).
 ------------------------------------------------------------------ */
 
 var KICK_API = "https://kick.com/api/v2/channels/mogambo";
@@ -153,11 +158,14 @@ var FEEDS = [
   { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq", zoloj: "https://stream2.zoloj.com/player?lang=tamil" },
   { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk", zoloj: "https://stream2.zoloj.com/player?lang=telugu" },
   { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "lang", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX", zoloj: "https://stream2.zoloj.com/player?lang=malayalam" },
-  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "lang", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S", zoloj: "https://stream2.zoloj.com/player?lang=kannada" },
-  { key: "hindi",     name: "Bigg Boss Hindi",       sub: "Season 20 • Colors TV",              cls: "",          kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP", zoloj: "https://stream2.zoloj.com/player?lang=hindi" }
+  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "lang", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S", zoloj: "https://stream2.zoloj.com/player?lang=kannada" }
 ];
 
-var EPISODE = { name: "Bigg Boss Tamil — S10 Day 68, Ep 69", sub: "13 Nov 2026 • 1:09:24 • Vimeo", vimeo: "https://player.vimeo.com/video/1246672426" };
+/* Latest — Bigg Boss Hindi is featured here. Its daily episode is not
+   posted as a separate video on the source site (the site only posts
+   Tamil, Telugu, Malayalam and Kannada episodes), so the live Hindi
+   house feed is the latest Hindi Bigg Boss content that plays. */
+var HINDI = { key: "hindi", name: "Bigg Boss Hindi", sub: "Season 20 • Colors TV", kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP", zoloj: "https://stream2.zoloj.com/player?lang=hindi" };
 
 var hls = null;         // active hls.js instance (Kick native)
 var currentKey = null;  // which feed is open
@@ -179,9 +187,9 @@ function renderTiles() {
   });
   var e = $("ep-grid");
   e.innerHTML = '<div class="bb-card" id="ep-card">' +
-    '<div class="poster"><span class="live-dot" style="color:#ff8a8a;border-color:rgba(255,59,59,.5)">EPISODE</span><span class="big">TAMIL<br>S10 • EP 69</span></div>' +
-    '<div class="name">' + esc(EPISODE.name) + '</div><div class="sub">' + esc(EPISODE.sub) + '</div></div>';
-  $("ep-card").addEventListener("click", openEpisode);
+    '<div class="poster"><span class="live-dot">LIVE 24/7</span><span class="big">HINDI</span></div>' +
+    '<div class="name">' + esc(HINDI.name) + '</div><div class="sub">' + esc(HINDI.sub) + ' • live now</div></div>';
+  $("ep-card").addEventListener("click", openHindi);
 }
 
 /* ---- player plumbing ---- */
@@ -284,32 +292,26 @@ function playKickNative(f) {
     });
 }
 
-/* ---- Language feeds (article embed — the only working path) ---- */
+/* ---- Language feeds (open on the source site) ----
+   The source short link sends X-Frame-Options: SAMEORIGIN, so it
+   renders as a black blank inside this page's iframe (tap-tested
+   14 Nov). It plays fine when opened on the source site itself
+   (same link, new tab — the player there plays). So these tiles
+   open the source in a new tab instead of embedding it. */
 function playLang(f) {
   showPlayer(f.name);
-  setSrcs([{ label: "Live player", run: function () { playLangEmbed(f); } }], 0);
-  playLangEmbed(f);
-}
-function playLangEmbed(f) {
+  setSrcs([], 0);
   destroyHls();
-  $("bb-screen").innerHTML = iframeHtml(f.short, true);
-  $("bb-note").innerHTML = 'This feed plays through the source site\u2019s own player — it sits at the top of the page that opens above. ' +
-    'New episode every day at <b>9:15 PM</b>. If the page asks you anything, just close it. ' +
-    '<a href="' + f.short + '" target="_blank" rel="noopener">Open the source page</a>.';
+  $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Opening ' + esc(f.name) + ' on the source site…</div>' +
+    '<p>The live feed plays there. The source does not allow it to be shown inside this page, so it opens in a new tab.<br><a href="' + f.short + '" target="_blank" rel="noopener">Open ' + esc(f.name) + ' now</a></p></div>';
+  $("bb-note").innerHTML = 'New episode every day at <b>9:15 PM</b>. If the source page asks you anything, just close it.';
+  window.open(f.short, "_blank", "noopener");
 }
 
-/* ---- Latest episode (Vimeo) ---- */
-function openEpisode() {
-  currentKey = "episode";
-  showPlayer(EPISODE.name);
-  setSrcs([{ label: "Vimeo", run: function () {
-    destroyHls();
-    $("bb-screen").innerHTML = iframeHtml(EPISODE.vimeo, false);
-    $("bb-note").innerHTML = 'Full episode, 1:09:24. ' + esc(EPISODE.sub) + '.';
-  } }], 0);
-  destroyHls();
-  $("bb-screen").innerHTML = iframeHtml(EPISODE.vimeo, false);
-  $("bb-note").innerHTML = 'Full episode, 1:09:24. ' + esc(EPISODE.sub) + '.';
+/* ---- Latest — Bigg Boss Hindi ---- */
+function openHindi() {
+  currentKey = "hindi";
+  playLang(HINDI);
 }
 
 renderTiles();
