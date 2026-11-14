@@ -155,6 +155,13 @@
 var KICK_API = "https://kick.com/api/v2/channels/mogambo";
 var KICK_EMBED = "https://player.kick.com/mogambo";
 var KICK_SITE = "https://kick.com/mogambo";
+/* The Native player goes through the site's own resolver
+   (aayush-tv-minter, api/kick.js): Kick's IVS master playlist
+   sends no CORS (this site cannot read it), but the variant
+   playlists inside it do. The resolver fetches the master and
+   hands back the best variant address, which the site's own
+   player (hls.js) can load directly. */
+var KICK_RESOLVER = "https://aayush-tv-minter.vercel.app/api/kick?url=";
 
 var FEEDS = [
   { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick" },
@@ -300,9 +307,20 @@ function playKickNative(f) {
       var live = ls && ls.is_live;
       var url = live ? ((d && d.playback_url) || (ls && ls.playback_url)) : null;
       if (url) {
-        playNative(url, 'Live now — <b>' + esc(ls.session_title || "Mogambo") + '</b>' +
+        var note = 'Live now — <b>' + esc(ls.session_title || "Mogambo") + '</b>' +
           (ls.viewer_count ? ' • ' + ls.viewer_count + ' watching' : '') +
-          '. Playing directly here. <a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.');
+          '. Playing directly here. <a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.';
+        /* Ask the resolver for the variant address (the master
+           itself has no CORS, so the player cannot read it).
+           If the resolver fails, try the master anyway. */
+        fetch(KICK_RESOLVER + encodeURIComponent(url), { cache: "no-store" })
+          .then(function (r) { return r.json(); })
+          .then(function (k) {
+            playNative((k && k.variant) || url, note);
+          })
+          .catch(function () {
+            playNative(url, note);
+          });
       } else {
         destroyHls();
         $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Mogambo is offline right now</div>' +
