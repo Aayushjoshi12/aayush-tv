@@ -128,18 +128,18 @@
      Each card is a short link that lands on a partner article
      (kollypress / sportspib / techqub) with the live player at the
      top. The player itself is stream2.zoloj.com/player?lang=<lang>
-     (Plyr + HLS). The feeds cannot play in-site: the direct
-     .m3u8 has no CORS * (hls.js hangs on buffering), an iframe
-     shows "forbidden" (the source blocks cross-site embeds), and
-     the short link sends X-Frame-Options: SAMEORIGIN (black
-     blank). A resolver (aayush-tv-minter, api/zoloj.js) was built
-     and tap-tested twice 14 Nov: it hands the live playlist to
-     the site's player fine, but the video pieces are locked to
-     the address that asks for them — zoloj's proxy and the
-     broadcaster (Hotstar, India-only) both reject any other
-     address, so the pieces never reach this site's player.
-     So these tiles open the source in a new tab — the same link
-     plays fine there (confirmed in the tap test).
+     (Plyr + HLS). The feeds cannot play in-site on their own: the
+     direct .m3u8 has no CORS * (hls.js hangs on buffering), an
+     iframe shows "forbidden" (the source blocks cross-site
+     embeds), and the short link sends X-Frame-Options: SAMEORIGIN
+     (black blank). A Vercel resolver (api/zoloj.js) hands the live
+     playlist to the site's player fine, but the video pieces are
+     locked to the address that asks for them — zoloj's proxy and
+     the broadcaster (Hotstar, India-only) both reject any other
+     address. So the feeds play through a small server in India
+     (BB_PROXY above): it asks for the feed from inside India and
+     serves the video to this site. The "Source site" button opens
+     the source in a new tab if the server is down.
    - Kick (mogambo) is the clean native one: the public Kick API
      (kick.com/api/v2/channels/mogambo, CORS allows this site)
      gives a fresh playback_url (Amazon IVS .m3u8, CORS *) when
@@ -161,6 +161,13 @@ var KICK_SITE = "https://kick.com/mogambo";
    hands back the best variant address, which the site's own
    player (hls.js) can load directly. */
 var KICK_RESOLVER = "https://aayush-tv-minter.vercel.app/api/kick?url=";
+/* The five language feeds + Hindi Latest play in-site through a
+   small server in India (Azure App Service, Pune): it fetches the
+   feed from inside India, where the broadcaster allows it, and
+   serves the video to this site with CORS *. Verified working
+   14 Nov 21:10 NPT — the playlist returns 200 with CORS *, and
+   a video piece returns 200 (real MPEG video) with CORS *. */
+var BB_PROXY = "https://aayush-bb-proxy.azurewebsites.net/bb?lang=";
 
 var FEEDS = [
   { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick" },
@@ -261,7 +268,7 @@ function openFeed(key) {
   currentKey = key;
   if (f.kind === "kick") return playKick(f);
   if (f.kind === "direct") return playDirect(f);
-  return playLang(f);
+  return playProxy(f);
 }
 /* ---- Direct native stream (Colors TV — plays inside the site,
    like the other channels: a free direct .m3u8, CORS *, verified
@@ -323,19 +330,22 @@ function playKickNative(f) {
     });
 }
 
-/* ---- Language feeds — source site ----
-   The feeds cannot play in-site and this is why: the direct link
-   has no CORS * (hls.js hangs on buffering), an iframe shows
-   "forbidden" (the source blocks cross-site embeds), and the
-   short link sends X-Frame-Options: SAMEORIGIN (black blank).
-   A resolver (aayush-tv-minter, api/zoloj.js) WAS built and
-   tap-tested twice 14 Nov: it hands the live playlist to the
-   site's player fine, but the video pieces are locked to the
-   address that asks for them — zoloj's proxy and the broadcaster
-   (Hotstar, India-only) both reject any other address. So the
-   pieces cannot reach this site's player at all. This function
-   is the way the feeds play: it opens the feed on the source
-   site, where it plays. */
+/* ---- Language feeds — India server (BB_PROXY) ----
+   The feeds play in-site through the server in Pune (see the
+   BB_PROXY note above). "Source site" opens the feed where it
+   plays, as a fallback if the server is down. */
+function playProxy(f) {
+  showPlayer(f.name);
+  var m3u8 = BB_PROXY + f.key;
+  var note = 'Live 24/7 — playing here, through the India server. New episode every day at <b>9:15 PM</b>.';
+  var srcs = [
+    { label: "Live", run: function () { playNative(m3u8, note); } },
+    { label: "Source site", run: function () { playLang(f); } }
+  ];
+  setSrcs(srcs, 0);
+  playNative(m3u8, note);
+}
+
 function playLang(f) {
   showPlayer(f.name);
   setSrcs([], 0);
@@ -349,7 +359,7 @@ function playLang(f) {
 /* ---- Latest — Bigg Boss Hindi ---- */
 function openHindi() {
   currentKey = "hindi";
-  playLang(HINDI);
+  playProxy(HINDI);
 }
 
 renderTiles();
