@@ -160,8 +160,15 @@
    Streaming came back 13 Nov 2026 as a Watch button using the
    VidRift embed (verified playing in a real browser) — the TMDB
    id is resolved client-side via Cinemeta, so no resolver change
-   was needed. Downloads are untouched: this page searches the
-   modlist catalogue and resolves one-click download links.
+   was needed. NetMirror came BACK 14 Nov 2026 as the FIRST Watch
+   source (native, no embed): the resolver's ?q= + ?play= chain
+   (reverse-engineered from net52.cc/pv) returns an HLS manifest
+   when net52's CDN is healthy, or direct MP4 files via the
+   LokLok/Astro fallback when net52 is throttling (its variant
+   is then the 10-minute "Too Many Requests" slate — rejected
+   by the resolver's slate check). Downloads are untouched: this
+   page searches the modlist catalogue and resolves one-click
+   download links.
 
    Resolver: GET https://aayush-tv-minter.vercel.app/api/resolve-movie
    (Vercel is PRIMARY for downloads — Azure Korea's IPs are
@@ -604,28 +611,32 @@ async function downloadTitle() {
 }
 
 /* ---------- watch (stream) ---------- */
-// Two stream sources, switchable in the player (VidRift first —
-// verified PLAYING in a real browser 13 Nov 2026, Inception:
-// auto-played, timecode advancing, no popups; EmbedWave second —
-// its player loads but the default server reported "Unable to
-// play media" in the same test, so it is the backup and its own
-// in-player server switcher is the fallback inside it).
-// The TMDB id comes from Cinemeta (free, no key, CORS *):
-// search the title -> imdb_id -> full meta -> moviedb_id.
-// Cached 24h in localStorage, like the download links. Series
-// start at S1E1; the players have their own episode lists
-// for switching seasons/episodes.
+// NetMirror first: the site's own mirror (net52.cc/pv). The
+// resolver (?q= then ?play=) returns either an HLS manifest
+// (net52, when its CDN is not throttling) or direct MP4 files
+// (the LokLok/Astro fallback) with subtitles — all played
+// natively, no embed, no ads. Verified 14 Nov 2026: net52's
+// CDN is throttling right now (its variant is the 10-minute
+// "Too Many Requests" slate, not the film), so ?play= answers
+// with the MP4 fallback for Inception (1080p) and Dune. When
+// net52 stops throttling the same call returns HLS instead,
+// and the player below takes whichever kind comes back.
+// EmbedWave second: it plays (H.264) with no ads in testing,
+// and its Cinesrc server is the one that works. Direct third:
+// the VidRift Orion copy is HEVC-only, and this Chrome on
+// Windows cannot decode HEVC (verified 14 Nov 2026:
+// HEVC:false, H264:true), so Direct stays as a button for
+// browsers that support HEVC. VidRift last (its seek opens a
+// pop-up ad tab and kills playback — reproduced 14 Nov 2026).
+// EmbedWave is pinned to its Cinesrc server: tested 14 Nov
+// 2026 — Multi HD ("Unable to play media") and Videasy
+// (player.videasy.to does not load at all) both fail; only
+// Cinesrc plays.
 const WATCH_SOURCES = [
-  // EmbedWave first: it plays (H.264) with no ads in testing, and
-  // its Cinesrc server is the one that works. Direct second: the
-  // VidRift Orion copy is HEVC-only, and this Chrome on Windows
-  // cannot decode HEVC (verified 14 Nov 2026: HEVC:false, H264:true),
-  // so Direct stays as a button for browsers that support HEVC.
-  // VidRift last (its seek opens a pop-up ad tab and kills playback
-  // — reproduced 14 Nov 2026).
-  // EmbedWave is pinned to its Cinesrc server: tested 14 Nov 2026 —
-  // Multi HD ("Unable to play media") and Videasy (player.videasy.to
-  // does not load at all) both fail; only Cinesrc plays.
+  // NetMirror (native <video>): HLS via hls.js when net52
+  // answers, otherwise the direct MP4 fallback. Falls back to
+  // the next source by itself when the title has no copy.
+  { id: "netmirror", label: "NetMirror", native: true, nm: true },
   { id: "embedwave", label: "EmbedWave", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc" },
   // Direct (native <video> + hls.js): the VidRift Orion copy, fetched
   // via the resolver (?watch=) — no embed, no ad script, seeking
@@ -635,7 +646,7 @@ const WATCH_SOURCES = [
   { id: "vidrift", label: "VidRift", base: "https://embed.vidrift.net/embed" },
 ];
 let currentWatchTmdb = null;
-let currentWatchSource = "embedwave";
+let currentWatchSource = "netmirror";
 const CINEMETA = "https://v3-cinemeta.strem.io";
 
 function watchCacheKey(title, year) { return "watch-tmdb|" + title + "|" + year; }
@@ -651,20 +662,33 @@ function watchCacheSet(key, tmdb) {
 }
 
 let watchPrefetch = null; // {key, promise}
+let watchNmPrefetch = null; // {key, promise} — NetMirror id lookup
 // Start the TMDB lookup as soon as a title is tapped (see
 // openMoviesMod): Watch then opens on the first source at once
-// instead of waiting ~1-2s for the Cinemeta round-trips.
+// instead of waiting ~1-2s for the Cinemeta round-trips. The
+// NetMirror id lookup starts at the same time, for the same
+// reason — NetMirror is the first source now.
 function prefetchWatch() {
   const key = watchCacheKey(currentTitle, currentYear);
   const cached = watchCacheGet(key);
   if (cached) {
     watchPrefetch = { key, promise: Promise.resolve(cached) };
-    return;
+  } else {
+    watchPrefetch = {
+      key,
+      promise: resolveTmdbId(currentTitle, currentYear).catch(() => null),
+    };
   }
-  watchPrefetch = {
-    key,
-    promise: resolveTmdbId(currentTitle, currentYear).catch(() => null),
-  };
+  const nmKey = nmCacheKey(baseTitle(currentTitle), currentYear, currentIsSeries);
+  const nmCached = nmCacheGet(nmKey);
+  if (nmCached) {
+    watchNmPrefetch = { key: nmKey, promise: Promise.resolve(nmCached) };
+  } else {
+    watchNmPrefetch = {
+      key: nmKey,
+      promise: resolveNetMirrorId(currentTitle, currentYear, currentIsSeries).catch(() => null),
+    };
+  }
 }
 
 async function resolveTmdbId(title, year) {
@@ -806,7 +830,7 @@ async function watchTitle() {
     return;
   }
   currentWatchTmdb = tmdb;
-  currentWatchSource = "embedwave";
+  currentWatchSource = "netmirror";
   watchFallbackTried = false; // a new Watch open gets one fresh auto-fallback
   renderWatchPlayer();
   btn.disabled = false;
@@ -853,7 +877,9 @@ function renderWatchPlayer() {
   });
   wrap.appendChild(row);
   const src = WATCH_SOURCES.find((x) => x.id === currentWatchSource) || WATCH_SOURCES[0];
-  if (src.native) {
+  if (src.nm) {
+    renderNetMirrorPlayer(wrap);
+  } else if (src.native) {
     renderDirectPlayer(wrap, tmdb);
   } else {
     const f = document.createElement("iframe");
@@ -863,7 +889,7 @@ function renderWatchPlayer() {
     f.title = "Watch " + currentTitle;
     wrap.appendChild(f);
   }
-  wrap.appendChild(el("div", "watch-note", "EmbedWave plays first with no ads. Direct is the ad-free native player (needs a browser that supports HEVC). If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
+  wrap.appendChild(el("div", "watch-note", "NetMirror plays first, in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
   wrap.classList.add("show");
 }
 
@@ -936,6 +962,150 @@ async function renderDirectPlayer(wrap, tmdb) {
   } else {
     watchFallback();
   }
+}
+
+// ---------- NetMirror (native, no embed) ----------
+// The NetMirror content id is stable per title, so it is cached
+// 24h in localStorage like the TMDB id; the play answer itself
+// is NOT cached — its MP4 links are signed and expire.
+// Movies: search (?q=) -> match title+year -> ?play=<id>.
+// Series: search -> series id -> ?detail= -> the S1E1 episode id
+// (season/episode come back as "S4"/"E1", so the letters are
+// stripped before comparing). If S1E1 is not listed, NetMirror
+// reports no source and the player falls back instead of
+// playing the wrong episode.
+function nmCacheKey(title, year, isSeries) { return "watch-nm|" + (isSeries ? "tv|" : "movie|") + title + "|" + year; }
+function nmCacheGet(key) {
+  try {
+    const r = JSON.parse(localStorage.getItem(key) || "null");
+    if (r && Date.now() - r.t < 864e5) return r.id;
+  } catch { /* ignore */ }
+  return null;
+}
+function nmCacheSet(key, id) {
+  try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), id })); } catch { /* ignore */ }
+}
+async function resolveNetMirrorId(title, year, isSeries) {
+  const base = baseTitle(title);
+  const key = nmCacheKey(base, year, isSeries);
+  const hit = nmCacheGet(key);
+  if (hit) return hit;
+  const d = await getJSON(MOVIE_RESOLVER + "?q=" + encodeURIComponent(base)).catch(() => null);
+  const items = (d && d.items) || [];
+  if (!items.length) return null;
+  const tl = base.toLowerCase();
+  let m = items.find((x) => (x.title || "").toLowerCase() === tl && (!year || String(x.year) === String(year)));
+  if (!m) m = items.find((x) => (x.title || "").toLowerCase() === tl);
+  if (!m) m = items[0];
+  if (!m || !m.id) return null;
+  if (!isSeries) {
+    nmCacheSet(key, m.id);
+    return m.id;
+  }
+  // Series: find the S1E1 episode id.
+  const det = await getJSON(MOVIE_RESOLVER + "?detail=" + encodeURIComponent(m.id)).catch(() => null);
+  const eps = (det && det.episodes) || [];
+  const num = (v) => { const n = parseInt(String(v || "").replace(/\D/g, ""), 10); return isNaN(n) ? 0 : n; };
+  const s1e1 = eps.find((e) => num(e.season) === 1 && num(e.episode) === 1);
+  if (!s1e1 || !s1e1.id) return null;
+  nmCacheSet(key, s1e1.id);
+  return s1e1.id;
+}
+
+// NetMirror player: ask the resolver for the play answer
+// (?play=), then play whichever kind comes back.
+// - kind "hls" (net52): fetch the manifest (a resolver
+//   ?manifest= URL, CORS *) and play it via hls.js, as Direct
+//   does. Subtitles come back as tracks.
+// - kind "mp4" (LokLok/Astro fallback): play the best (highest
+//   resolution) direct MP4 in a plain <video> — no hls.js, and
+//   no CORS needed for plain video playback. Subtitles come
+//   back as captions and are added as <track>s.
+// Anything missing or fatal falls back to the next source.
+async function renderNetMirrorPlayer(wrap) {
+  const title = currentTitle;
+  const year = currentYear;
+  let id = null;
+  try {
+    const nmKey = nmCacheKey(baseTitle(title), year, currentIsSeries);
+    if (watchNmPrefetch && watchNmPrefetch.key === nmKey) {
+      id = await watchNmPrefetch.promise;
+    } else {
+      id = await resolveNetMirrorId(title, year, currentIsSeries);
+    }
+  } catch { id = null; }
+  if (!id) { watchFallback(); return; }
+  let d = null;
+  try {
+    d = await getJSON(MOVIE_RESOLVER + "?play=" + encodeURIComponent(id) +
+      "&title=" + encodeURIComponent(baseTitle(title)) +
+      "&year=" + encodeURIComponent(year || ""));
+  } catch { d = null; }
+  if (!d || d.noSource || d.error) { watchFallback(); return; }
+  const video = document.createElement("video");
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+  video.muted = true; // muted autoplay is allowed; tap the speaker for sound
+  video.title = "Watch " + title;
+  wrap.appendChild(video);
+  // Watchdog: if the video has not started playing within 20s,
+  // fall back to the next source instead of buffering forever.
+  // Cleared on first 'playing' and whenever the player is
+  // re-rendered.
+  watchWatchdog = setTimeout(() => { watchFallback(); }, 20000);
+  video.addEventListener("playing", () => {
+    if (watchWatchdog) { clearTimeout(watchWatchdog); watchWatchdog = null; }
+  }, { once: true });
+  video.addEventListener("error", () => { watchFallback(); }, { once: true });
+  const addTracks = (list) => {
+    (list || []).forEach((t) => {
+      if (!t || !t.url) return;
+      const tr = document.createElement("track");
+      tr.kind = "subtitles";
+      tr.label = t.name || t.label || t.lang || "Subtitles";
+      tr.srclang = (t.lang || "").slice(0, 2).toLowerCase() || "en";
+      tr.src = t.url;
+      video.appendChild(tr);
+    });
+  };
+  if (d.kind === "hls" && d.manifestUrl) {
+    addTracks(d.tracks);
+    let text = "";
+    try {
+      const r = await fetch(d.manifestUrl);
+      text = await r.text();
+    } catch { text = ""; }
+    if (!text.startsWith("#EXTM3U")) { watchFallback(); return; }
+    watchBlobUrl = URL.createObjectURL(
+      new Blob([text], { type: "application/vnd.apple.mpegurl" })
+    );
+    if (window.Hls && Hls.isSupported()) {
+      watchHls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
+      watchHls.loadSource(watchBlobUrl);
+      watchHls.attachMedia(video);
+      watchHls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+      watchHls.on(Hls.Events.ERROR, (_, data) => {
+        if (!data.fatal) return;
+        watchFallback();
+      });
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = watchBlobUrl;
+      video.play().catch(() => {});
+    } else {
+      watchFallback();
+    }
+    return;
+  }
+  if (d.kind === "mp4" && Array.isArray(d.streams) && d.streams.length) {
+    addTracks(d.captions);
+    const best = d.streams.slice().sort((a, b) => (b.resolution || 0) - (a.resolution || 0))[0];
+    if (!best || !best.url) { watchFallback(); return; }
+    video.src = best.url;
+    video.play().catch(() => {});
+    return;
+  }
+  watchFallback();
 }
 
 // Series download view: pick a SEASON first (S1, S2, S3…), then
