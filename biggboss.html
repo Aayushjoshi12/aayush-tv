@@ -54,6 +54,7 @@
   #bb-screen video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; display: block; }
   #bb-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; line-height: 1.6; }
   #bb-note a { color: #7dd3fc; }
+  .q-label { font-size: 12px; color: #9aa1b2; margin-right: 6px; }
   .offline-box { background: #151a26; border: 1px solid #262d42; border-radius: 12px; padding: 26px 20px; text-align: center; }
   .offline-box .big { font-size: 18px; font-weight: 800; }
   .offline-box p { color: #9aa1b2; font-size: 14px; margin: 8px 0 0; line-height: 1.6; }
@@ -93,6 +94,7 @@
     <div class="p-srcs" id="bb-srcs"></div>
     <div id="bb-screen"></div>
     <div id="bb-note"></div>
+    <div class="p-srcs" id="bb-qual"></div>
   </div>
 
   <div class="hero">
@@ -213,7 +215,37 @@ function renderTiles() {
 function showPlayer(title) {
   $("bb-title").textContent = title;
   $("bb-player").classList.add("show");
+  $("bb-qual").innerHTML = "";
+  kickQual = null;
   $("bb-player").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ---- Quality menu (Mogambo) ----
+   The resolver returns every quality (1080p/720p/480p/360p…).
+   The player starts on the best (1080p); tapping a quality
+   switches the video to that version. */
+var kickQual = null; // { list: [{label,url}], note }
+function qualLabel(res, bw) {
+  if (res) { var h = res.split("x")[1]; if (h) return h + "p"; }
+  if (bw >= 4000000) return "1080p";
+  if (bw >= 2500000) return "720p";
+  if (bw >= 1000000) return "480p";
+  if (bw >= 400000) return "360p";
+  return "270p";
+}
+function setQual(list, active) {
+  var el = $("bb-qual");
+  if (!list || list.length < 2) { el.innerHTML = ""; return; }
+  el.innerHTML = '<span class="q-label">Quality:</span>' + list.map(function (q, i) {
+    return '<button type="button" class="psrc' + (i === active ? " active" : "") + '" data-i="' + i + '">' + esc(q.label) + '</button>';
+  }).join("");
+  el.querySelectorAll(".psrc").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var i = +b.getAttribute("data-i");
+      setQual(list, i);
+      if (kickQual) playNative(list[i].url, kickQual.note);
+    });
+  });
 }
 function setSrcs(list, active) {
   $("bb-srcs").innerHTML = list.map(function (s, i) {
@@ -237,6 +269,8 @@ function stopPlayer() {
   $("bb-screen").innerHTML = "";
   $("bb-srcs").innerHTML = "";
   $("bb-note").innerHTML = "";
+  $("bb-qual").innerHTML = "";
+  kickQual = null;
   $("bb-player").classList.remove("show");
   currentKey = null;
 }
@@ -304,15 +338,25 @@ function playKickNative(f) {
         var note = 'Live now — <b>' + esc(ls.session_title || "Mogambo") + '</b>' +
           (ls.viewer_count ? ' • ' + ls.viewer_count + ' watching' : '') +
           '. Playing directly here. <a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.';
-        /* Ask the resolver for the variant address (the master
+        /* Ask the resolver for the variant addresses (the master
            itself has no CORS, so the player cannot read it).
-           If the resolver fails, try the master anyway. */
+           The resolver returns every quality; the player starts
+           on the best (1080p) and the quality menu below lets
+           you switch. If the resolver fails, try the master. */
         fetch(KICK_RESOLVER + encodeURIComponent(url), { cache: "no-store" })
           .then(function (r) { return r.json(); })
           .then(function (k) {
+            var list = (k && k.variants) || [];
+            var quals = list.map(function (v) {
+              return { label: qualLabel(v.resolution, v.bandwidth), url: v.url };
+            });
+            kickQual = { list: quals, note: note };
             playNative((k && k.variant) || url, note);
+            setQual(quals, 0);
           })
           .catch(function () {
+            kickQual = null;
+            setQual(null, 0);
             playNative(url, note);
           });
       } else {
