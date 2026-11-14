@@ -288,7 +288,13 @@ function playKickNative(f) {
     .then(function (r) { return r.json(); })
     .then(function (d) {
       var ls = d && d.livestream;
-      var url = ls && ls.playback_url;
+      /* The channel is live when livestream exists and is_live is
+         true. The video address is at the TOP level of the API
+         reply (d.playback_url, an Amazon IVS .m3u8) — NOT inside
+         livestream (that field is absent, which is why a live
+         channel wrongly showed as offline). */
+      var live = ls && ls.is_live;
+      var url = live ? ((d && d.playback_url) || (ls && ls.playback_url)) : null;
       if (url) {
         playNative(url, 'Live now — <b>' + esc(ls.session_title || "Mogambo") + '</b>' +
           (ls.viewer_count ? ' • ' + ls.viewer_count + ' watching' : '') +
