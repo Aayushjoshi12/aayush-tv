@@ -83,9 +83,9 @@
   </div>
 
   <div class="box" id="scoreboard" style="margin-top:16px">
-    <h2>🔴 Live scores <span class="dim">· featured on 1xBet</span> <span class="dim" id="sb-updated"></span></h2>
+    <h2>🏏 NPL live scores <span class="dim">· via 1xBet</span> <span class="dim" id="sb-updated"></span></h2>
     <div id="sb-list"><p class="dim">Loading live scores…</p></div>
-    <p class="dim" style="margin-top:8px">Only the games 1xBet is featuring right now — not every match, and no NPL.</p>
+    <p class="dim" style="margin-top:8px">Nepal Premier League — live scores from 1xBet. Kickoff times are Nepal time.</p>
   </div>
 
   <div id="player-wrap">
@@ -267,8 +267,19 @@ $("player-poster").addEventListener("keydown", (e) => { if (e.key === "Enter" ||
 // (no CORS), so the proxy fetches it server-side. Refreshes every
 // 45s; a failed refresh shows a quiet note, never an error popup.
 const SB_REFRESH_MS = 45000;
+function sbKickoff(ts) {
+  if (!ts) return "Upcoming";
+  const d = new Date(ts * 1000);
+  const timeFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kathmandu", hour: "numeric", minute: "2-digit", hour12: true });
+  const dayFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kathmandu", year: "numeric", month: "2-digit", day: "2-digit" });
+  const time = timeFmt.format(d);
+  const gameDay = dayFmt.format(d);
+  if (gameDay === dayFmt.format(new Date())) return "Today, " + time;
+  if (gameDay === dayFmt.format(new Date(Date.now() + 86400000))) return "Tomorrow, " + time;
+  return gameDay + ", " + time;
+}
 function sbClock(g) {
-  if (g.status === "HT") return "HT";
+  if (g.status === "upcoming") return (g.format ? g.format + " · " : "") + sbKickoff(g.startTs);
   if (g.status === "FT") return "FT";
   if (g.minute !== null && g.minute !== undefined) return g.minute + "'";
   if (g.status === "1H" || g.status === "2H") return g.status;
@@ -280,7 +291,7 @@ function sbEsc(s) {
 function sbRender(games) {
   const list = $("sb-list");
   if (!games || !games.length) {
-    list.innerHTML = '<p class="dim">No live games featured right now — check back later.</p>';
+    list.innerHTML = '<p class="dim">No NPL matches listed right now — check back later.</p>';
     return;
   }
   list.innerHTML = games.map((g) => {
