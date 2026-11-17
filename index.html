@@ -83,9 +83,9 @@
   </div>
 
   <div class="box" id="scoreboard" style="margin-top:16px">
-    <h2>🏏 NPL live scores <span class="dim">· via 1xBet</span> <span class="dim" id="sb-updated"></span></h2>
+    <h2>🏏 NPL live scores <span class="dim">· via 1xBet &amp; NPL</span> <span class="dim" id="sb-updated"></span></h2>
     <div id="sb-list"><p class="dim">Loading live scores…</p></div>
-    <p class="dim" style="margin-top:8px">Nepal Premier League — live scores from 1xBet. Kickoff times are Nepal time.</p>
+    <p class="dim" style="margin-top:8px">Nepal Premier League — live scores from the NPL official site, fixtures from 1xBet. Kickoff times are Nepal time.</p>
   </div>
 
   <div id="player-wrap">
@@ -295,8 +295,12 @@ function sbRender(games) {
     return;
   }
   list.innerHTML = games.map((g) => {
-    const score = (g.homeScore !== null && g.awayScore !== null)
-      ? "<b>" + g.homeScore + " – " + g.awayScore + "</b> " : "";
+    // Cricket: one side may not have batted yet (null), so show the
+    // score when either side has one, with – for the missing side.
+    const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
+    const side = (v) => (v !== null && v !== undefined ? v : "–");
+    const score = hasScore
+      ? "<b>" + sbEsc(side(g.homeScore)) + " – " + sbEsc(side(g.awayScore)) + "</b> " : "";
     return '<div class="match"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + '<span class="dim">' + sbEsc(sbClock(g)) + '</span></span></div>';
   }).join("");
 }
