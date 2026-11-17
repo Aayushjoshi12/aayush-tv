@@ -935,6 +935,28 @@ async function renderDirectPlayer(wrap, tmdb) {
     const r = await fetch(url);
     text = await r.text();
   } catch { text = ""; }
+  if (!text.startsWith("#EXTM3U")) {
+    // The resolver could not fetch Titan itself (VidRift now
+    // bot-checks servers) and handed back the Titan link for
+    // this browser to try directly. A real browser passes the
+    // check; if the answer is readable from this page, play
+    // it natively. Anything failing here falls back to the
+    // next source, exactly as a missing Direct copy would.
+    try {
+      const d = JSON.parse(text);
+      const turl = d && d.titanUrl;
+      if (turl) {
+        const tj = await (await fetch(turl)).json();
+        const ss = (tj && tj.streams) || [];
+        const surl = (ss[0] && ss[0].url) || "";
+        if (surl) {
+          const mr = await fetch(surl);
+          const mt = await mr.text();
+          if (mt.startsWith("#EXTM3U")) text = mt;
+        }
+      }
+    } catch { /* fall through to the fallback below */ }
+  }
   if (!text.startsWith("#EXTM3U")) { watchFallback(); return; }
   if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
   const video = document.createElement("video");
