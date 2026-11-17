@@ -99,14 +99,14 @@
 
   <div class="hero">
     <h2>Bigg Boss — <em>Live 24/7</em></h2>
-    <p>Every Bigg Boss live feed in one place — Tamil, Telugu, Malayalam, Kannada and Hindi — plus the Kick streams (Mogambo and Neyoo Gaming). Tap a card and it plays here.</p>
+    <p>Every Bigg Boss live feed in one place — Tamil, Telugu, Malayalam, Kannada and Hindi — plus the live watchparty streams (Mogambo and Neyoo Gaming). Tap a card and it plays here.</p>
     <div class="ep-time">🕘 New episode every day at 9:15 PM</div>
   </div>
 
   <div class="row-title">🔴 Live 24/7</div>
   <div class="grid-row" id="live-grid"></div>
 
-  <p class="hint">Kick plays right here, inside this site. The five language feeds play here too, through the India server. Bigg Boss Hindi airs on Colors TV at 9 PM.</p>
+  <p class="hint">The watchparty streams play right here, inside this site. The five language feeds play here too, through the India server. Bigg Boss Hindi airs at 9 PM.</p>
 </main>
 
 <footer>
@@ -169,13 +169,13 @@ var KICK_RESOLVER = "https://aayush-tv-minter.vercel.app/api/kick?url=";
 var BB_PROXY = "https://aayush-bb-proxy.azurewebsites.net/bb?lang=";
 
 var FEEDS = [
-  { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick", big: "MOGAMBO", channel: "mogambo" },
-  { key: "kick-neyoo", name: "Neyoo Gaming — Kick",   sub: "Kick • Bigg Boss watchparty",         cls: "kick",      kind: "kick", big: "NEYOO",   channel: "neyoo_gaming" },
-  { key: "hindi",     name: "Bigg Boss Hindi",       sub: "Season 20 • Colors TV",                cls: "",          kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP" },
-  { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq" },
-  { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk" },
-  { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "lang", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX" },
-  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "lang", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S" }
+  { key: "kick",      name: "Mogambo",               sub: "Server 1 • live when the episode is on", cls: "kick",      kind: "kick", big: "MOGAMBO", channel: "mogambo" },
+  { key: "kick-neyoo", name: "Neyoo Gaming",          sub: "Server 2 • Bigg Boss watchparty",         cls: "kick",      kind: "kick", big: "NEYOO",   channel: "neyoo_gaming" },
+  { key: "hindi",     name: "Bigg Boss Hindi",       sub: "Season 20",                cls: "",          kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP" },
+  { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq" },
+  { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk" },
+  { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8",                 cls: "",          kind: "lang", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX" },
+  { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13",         cls: "",          kind: "lang", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S" }
 ];
 
 /* Bigg Boss Hindi (Season 20, Colors TV) sits in the Live grid now,
@@ -306,7 +306,7 @@ function playDirect(f) {
   playDirectNow(f);
 }
 function playDirectNow(f) {
-  playNative(f.m3u8, 'Live channel, playing directly here. Bigg Boss Hindi airs on Colors TV at <b>9 PM</b> (new episode 9:15 PM).');
+  playNative(f.m3u8, 'Live channel, playing directly here. Bigg Boss Hindi airs at <b>9 PM</b> (new episode 9:15 PM).');
 }
 function playKick(f) {
   showPlayer(f.name);
@@ -333,9 +333,7 @@ function playKickNative(f) {
       var live = ls && ls.is_live;
       var url = live ? ((d && d.playback_url) || (ls && ls.playback_url)) : null;
       if (url) {
-        var note = 'Live now — <b>' + esc(ls.session_title || label) + '</b>' +
-          (ls.viewer_count ? ' • ' + ls.viewer_count + ' watching' : '') +
-          '. Playing directly here. <a href="' + site + '" target="_blank" rel="noopener">Open on Kick</a>.';
+        var note = ""; // No note under the player: no other site's name, title or link.
         /* Ask the resolver for the variant addresses (the master
            itself has no CORS, so the player cannot read it).
            The resolver returns every quality; the player starts
@@ -360,14 +358,14 @@ function playKickNative(f) {
       } else {
         destroyHls();
         $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">' + esc(label) + ' is offline right now</div>' +
-          '<p>The stream starts again with the new episode at <b>9:15 PM</b>.<br><a href="' + site + '" target="_blank" rel="noopener">Open on Kick</a>.</p></div>';
+          '<p>The stream starts again with the new episode at <b>9:15 PM</b>.</p></div>';
         $("bb-note").innerHTML = "";
       }
     })
     .catch(function () {
       destroyHls();
       $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Could not check if ' + esc(label) + ' is live</div>' +
-        '<p>Try again, or <a href="' + site + '" target="_blank" rel="noopener">open on Kick</a>.</p></div>';
+        '<p>Try again.</p></div>';
       $("bb-note").innerHTML = "";
     });
 }

@@ -136,7 +136,7 @@
     <div class="hero">
       <div class="hero-text">
         <h2>Movies &amp; series, <em>one tap</em> to download.</h2>
-        <p>Search 31,000+ titles from MoviesMod, MoviesLeech, UHDMovies and AnimeFlix — movies and full TV series. Tap a result, then Download and pick a quality. For a series, grab the whole season in one zip, or a single episode.</p>
+        <p>Search 31,000+ titles — movies and full TV series. Tap a result, then Download and pick a quality. For a series, grab the whole season in one zip, or a single episode.</p>
       </div>
       <div class="hero-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div>
     </div>
@@ -517,7 +517,7 @@ function openMoviesMod(item) {
   info.appendChild(el("div", "tag" + (series ? " series" : ""), series ? "📺 TV SERIES" : "🎬 MOVIE"));
   info.appendChild(el("h2", "", currentTitle));
   info.appendChild(
-    el("div", "meta", [currentYear, item.siteName || "MoviesMod"].filter(Boolean).join(" · "))
+    el("div", "meta", currentYear || "")
   );
   info.appendChild(
     el("div", "desc", series
@@ -638,19 +638,19 @@ const WATCH_SOURCES = [
   // fetched via the resolver (?watch=) — no embed, no ad
   // script, seeking works. Falls back to the next source by
   // itself when the title has no copy or Direct fails.
-  { id: "direct", label: "Direct", native: true },
+  { id: "direct", label: "Server 1", native: true },
   // NetMirror (native <video>): HLS via hls.js when net52
   // answers, otherwise the direct MP4 fallback. Falls back to
   // the next source by itself when the title has no copy.
-  { id: "netmirror", label: "NetMirror", native: true, nm: true },
+  { id: "netmirror", label: "Server 2", native: true, nm: true },
   // EmbedWave: ?nobrand=1 hides its "▶ EmbedWave" badge button
   // (the embed page only renders the badge when nobrand is not
   // "1" — 17 Nov 2026). The player's own control bar (progress,
   // time, server name, control icons) is the video player's and
   // cannot be removed from outside; it hides itself when the
   // mouse is still.
-  { id: "embedwave", label: "EmbedWave", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc&nobrand=1" },
-  { id: "vidrift", label: "VidRift", base: "https://embed.vidrift.net/embed" },
+  { id: "embedwave", label: "Server 3", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc&nobrand=1" },
+  { id: "vidrift", label: "Server 4", base: "https://embed.vidrift.net/embed" },
 ];
 let currentWatchTmdb = null;
 let currentWatchSource = "direct";
@@ -965,7 +965,7 @@ function renderWatchPlayer() {
     f.title = "Watch " + currentTitle;
     wrap.appendChild(f);
   }
-  wrap.appendChild(el("div", "watch-note", "Direct plays first, in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
+  wrap.appendChild(el("div", "watch-note", "Server 1 plays first, in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
   wrap.classList.add("show");
 }
 
@@ -1143,7 +1143,7 @@ async function renderNetMirrorPlayer(wrap) {
   // Show that NetMirror is being looked up, so the player area
   // is never a blank black box while the resolver works through
   // its chain (net52 -> LokLok -> Astro can take seconds).
-  const loading = el("div", "watch-note", "Loading NetMirror…");
+  const loading = el("div", "watch-note", "Loading Server 2…");
   wrap.appendChild(loading);
   let id = null;
   try {
