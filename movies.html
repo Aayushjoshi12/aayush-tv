@@ -826,7 +826,7 @@ async function watchTitle() {
   }
   currentWatchTmdb = tmdb;
   currentWatchSource = "direct";
-  watchFallbackTried = false; // a new Watch open gets one fresh auto-fallback
+  watchTriedSources = new Set(); // a new Watch open retries every source
   renderWatchPlayer();
   btn.disabled = false;
   btn.textContent = "▶ Watch";
@@ -848,7 +848,7 @@ function watchSourceUrl(sourceId, tmdb) {
 // itself so the user never sees a dead player.
 let watchHls = null;
 let watchBlobUrl = null;
-let watchFallbackTried = false;
+let watchTriedSources = new Set(); // sources auto-fallback already tried in this Watch open
 let watchWatchdog = null;
 function renderWatchPlayer() {
   const wrap = $("watch-wrap");
@@ -865,7 +865,7 @@ function renderWatchPlayer() {
     b.type = "button";
     b.addEventListener("click", () => {
       currentWatchSource = s.id;
-      watchFallbackTried = false;
+      watchTriedSources = new Set();
       renderWatchPlayer();
     });
     row.appendChild(b);
@@ -888,16 +888,26 @@ function renderWatchPlayer() {
   wrap.classList.add("show");
 }
 
-// Move to the next source once (Direct -> EmbedWave -> VidRift).
-// Called when Direct has no copy or its player errors fatally.
+// Move to the next source not yet tried (Direct -> NetMirror ->
+// EmbedWave -> VidRift). Called whenever a source has no copy or
+// its player errors fatally. Stops once every source has been
+// tried, so a dead title ends on the last source instead of
+// looping forever. (Before this fix it advanced only ONCE per
+// Watch open, so Direct failing + NetMirror 429 left the player
+// stuck on NetMirror — 17 Nov 2026.)
 function watchFallback() {
-  if (watchFallbackTried) return;
-  watchFallbackTried = true;
+  watchTriedSources.add(currentWatchSource);
   const idx = WATCH_SOURCES.findIndex((x) => x.id === currentWatchSource);
-  const next = WATCH_SOURCES[(idx + 1) % WATCH_SOURCES.length];
-  if (!next || next.id === currentWatchSource) return;
-  currentWatchSource = next.id;
-  renderWatchPlayer();
+  for (let i = 1; i <= WATCH_SOURCES.length; i++) {
+    const next = WATCH_SOURCES[(idx + i) % WATCH_SOURCES.length];
+    if (next && !watchTriedSources.has(next.id)) {
+      currentWatchSource = next.id;
+      renderWatchPlayer();
+      return;
+    }
+  }
+  // Every source tried: stay on the last one. The note under the
+  // player already points the user to Download instead.
 }
 
 // Direct player: fetch the rewritten manifest from the resolver
