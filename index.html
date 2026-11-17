@@ -20,7 +20,15 @@
   nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; }
   /* ---- page ---- */
   main { max-width: 1200px; margin: 0 auto; padding: 20px 20px 40px; }
-  .hero { padding: 10px 0 18px; }
+  .hero { padding: 10px 0 18px; display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; }
+  .hero .hero-text { flex:1 1 300px; min-width:260px; }
+  .find-card { flex:1 1 320px; max-width:440px; background:#141926; border:1px solid #232a3a; border-radius:16px; padding:16px; }
+  .find-row { display:flex; gap:8px; margin-top:10px; }
+  .find-row input { flex:1; min-width:0; padding:10px 12px; border-radius:999px; border:1px solid #2a3040; background:#0d1117; color:#e8eaf0; font-size:14px; outline:none; }
+  .find-row button { padding:10px 16px; border:0; border-radius:999px; background:#ff3b3b; color:#fff; font-weight:700; cursor:pointer; }
+  .find-item { display:flex; justify-content:space-between; gap:10px; padding:9px 2px; border-bottom:1px solid #1d2333; cursor:pointer; }
+  .find-item:last-child { border-bottom:0; }
+  @media (max-width: 760px) { .find-card { max-width:none; } }
   .hero h2 { font-size: 34px; font-weight: 800; letter-spacing: -.4px; line-height: 1.15; }
   .hero h2 em { font-style: normal; color: #ff3b3b; }
   .hero p { color: #9aa1b2; font-size: 15px; line-height: 1.6; margin-top: 8px; max-width: 640px; }
@@ -77,9 +85,20 @@
 
 <main>
   <div class="hero">
-    <span class="live-badge">● LIVE · SEASON 3</span>
-    <h2>Nepal Premier League, <em>live.</em></h2>
-    <p>Watch NPL Season 3 from TU Ground, Kirtipur — 26 Oct to 21 Nov 2026. Press play and the live feed starts here.</p>
+    <div class="hero-text">
+      <span class="live-badge">● LIVE · SEASON 3</span>
+      <h2>Nepal Premier League, <em>live.</em></h2>
+      <p>Watch NPL Season 3 from TU Ground, Kirtipur — 26 Oct to 21 Nov 2026. Press play and the live feed starts here.</p>
+    </div>
+    <div class="find-card" id="find-card">
+      <h3 style="margin:0;font-size:16px">🔍 Find a game</h3>
+      <p class="dim" style="margin:6px 0 0;font-size:13px">Search a team, a league or a game ID — get the full detail.</p>
+      <form id="find-form" class="find-row">
+        <input id="find-q" type="text" placeholder="e.g. Greece, Kathmandu, or 771750037" autocomplete="off">
+        <button type="submit">Search</button>
+      </form>
+      <div id="find-body"><p class="dim" style="font-size:13px">Loading top games…</p></div>
+    </div>
   </div>
 
   <div class="box" id="scoreboard" style="margin-top:16px">
@@ -451,6 +470,93 @@ function sbPlayHere() {
   document.getElementById("player-wrap").scrollIntoView({ behavior: "smooth", block: "center" });
   playNPL();
 }
+// ---- Find a game (search panel in the hero) ----
+// Default view: Top games (1xBet featured list). Search by team,
+// league or game ID — a tap on any row opens the full detail:
+// league, sport, score, ticking clock, venue, weather, format,
+// kickoff and game ID. Betting odds are not shown: no endpoint
+// used here returns them.
+const FIND_URL = MINTER_URL + "/api/onexbet";
+let findMode = "top"; // "top" | "results" | "detail"
+function findRowHtml(g) {
+  const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
+  const side = (v) => (v !== null && v !== undefined ? v : "–");
+  const score = hasScore ? "<b>" + sbEsc(side(g.homeScore)) + " – " + sbEsc(side(g.awayScore)) + "</b> " : "";
+  return '<div class="find-item" onclick="findDetail(\'' + sbEsc(g.id) + '\')"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + sbClockHtml(g) + '</span></div>';
+}
+async function findTop() {
+  findMode = "top";
+  const body = $("find-body");
+  try {
+    const r = await fetch(FIND_URL + "?mode=featured", { signal: AbortSignal.timeout(10000) });
+    const d = await r.json();
+    if (!r.ok || !Array.isArray(d.games)) throw new Error("bad top");
+    const games = d.games.slice(0, 8);
+    games.forEach(sbSyncTimer);
+    body.innerHTML = '<p style="margin:12px 0 2px"><b>Top games</b></p>' +
+      (games.length ? games.map(findRowHtml).join("") : '<p class="dim">No top games right now.</p>');
+  } catch (e) {
+    body.innerHTML = '<p class="dim">Top games unavailable right now — try a search.</p>';
+  }
+}
+function findShowDetail(g) {
+  findMode = "detail";
+  sbSyncTimer(g);
+  const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
+  const side = (v) => (v !== null && v !== undefined ? v : "–");
+  const score = hasScore
+    ? '<div style="font-size:28px;font-weight:800;margin:8px 0">' + sbEsc(side(g.homeScore)) + ' – ' + sbEsc(side(g.awayScore)) + '</div>'
+    : "";
+  const rows = [];
+  if (g.sport) rows.push(["Sport", g.sport]);
+  if (g.venue) rows.push(["Venue", g.venue]);
+  if (g.format) rows.push(["Format", g.format]);
+  if (g.weather) rows.push(["Weather", g.weather]);
+  if (g.startTs) rows.push(["Kickoff", sbKickoff(g.startTs)]);
+  rows.push(["Game ID", g.id + (g.constId ? " · " + g.constId : "")]);
+  if (g.video) rows.push(["Video", "Live stream available"]);
+  if (g.hasLineups) rows.push(["Line-ups", "Available"]);
+  $("find-body").innerHTML =
+    '<p style="margin:12px 0 2px"><a href="#" onclick="findTop();return false;" style="color:#9aa1b2">← Top games</a></p>' +
+    '<p class="dim" style="margin:4px 0">' + sbEsc(g.league) + '</p>' +
+    '<b>' + sbEsc(g.home) + '</b> vs <b>' + sbEsc(g.away) + '</b>' +
+    score +
+    '<p style="margin:4px 0">' + sbClockHtml(g) + '</p>' +
+    rows.map((r) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span class="dim">' + r[0] + '</span><span style="text-align:right">' + sbEsc(r[1]) + '</span></div>').join("");
+}
+async function findSearch(q) {
+  const body = $("find-body");
+  body.innerHTML = '<p class="dim">Searching…</p>';
+  try {
+    const r = await fetch(FIND_URL + "?mode=search&q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(15000) });
+    const d = await r.json();
+    if (!r.ok) throw new Error("bad search");
+    if (d.detail) { findShowDetail(d.detail); return; }
+    const games = d.games || [];
+    games.forEach(sbSyncTimer);
+    findMode = "results";
+    body.innerHTML = '<p style="margin:12px 0 2px"><b>' + games.length + ' result' + (games.length === 1 ? "" : "s") + ' for “' + sbEsc(q) + '”</b> <a href="#" onclick="findTop();return false;" style="color:#9aa1b2">← Top games</a></p>' +
+      (games.length ? games.map(findRowHtml).join("") : '<p class="dim">Nothing found. Try a team name, a league, or the game ID from the match page.</p>');
+  } catch (e) {
+    body.innerHTML = '<p class="dim">Search failed — try again.</p>';
+  }
+}
+async function findDetail(id) {
+  const body = $("find-body");
+  body.innerHTML = '<p class="dim">Loading game detail…</p>';
+  try {
+    const r = await fetch(FIND_URL + "?mode=search&q=" + encodeURIComponent(id), { signal: AbortSignal.timeout(15000) });
+    const d = await r.json();
+    if (!r.ok || !d.detail) throw new Error("no detail");
+    findShowDetail(d.detail);
+  } catch (e) {
+    body.innerHTML = '<p class="dim">Could not load that game.</p>';
+  }
+}
+$("find-form").addEventListener("submit", (e) => { e.preventDefault(); const q = $("find-q").value.trim(); if (q) findSearch(q); });
+findTop();
+setInterval(() => { if (findMode === "top") findTop(); }, 15000);
+
 sbLoad();
 setInterval(sbLoad, SB_REFRESH_MS);
 </script>
