@@ -106,10 +106,7 @@
   <div class="row-title">🔴 Live 24/7</div>
   <div class="grid-row" id="live-grid"></div>
 
-  <div class="row-title">🆕 Latest — Bigg Boss Hindi</div>
-  <div class="grid-row" id="ep-grid"></div>
-
-  <p class="hint">Colors TV and Kick play right here, inside this site. The five language feeds come from a source that locks its video to the address that asks for it, so those open on the source site in a new tab — they play there. Bigg Boss Hindi airs on Colors TV at 9 PM.</p>
+  <p class="hint">Kick plays right here, inside this site. The five language feeds play here too, through the India server. Bigg Boss Hindi airs on Colors TV at 9 PM.</p>
 </main>
 
 <footer>
@@ -151,7 +148,7 @@
      the source site posts daily episodes only for Tamil, Telugu,
      Malayalam and Kannada — it has no Hindi category or Hindi
      episode posts at all. So the latest Hindi content that plays
-     is the live Hindi house feed (the Hindi card above).
+     is the live Hindi house feed (the Hindi card in the Live grid).
 ------------------------------------------------------------------ */
 
 var KICK_API = "https://kick.com/api/v2/channels/mogambo";
@@ -173,18 +170,18 @@ var BB_PROXY = "https://aayush-bb-proxy.azurewebsites.net/bb?lang=";
 
 var FEEDS = [
   { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick" },
-  { key: "colorstv",  name: "Colors TV — Hindi",     sub: "Bigg Boss airs here at 9 PM • live",  cls: "",          kind: "direct", m3u8: "https://da86m1sqpm3o0.cloudfront.net/28072023/smil:colorsme.smil/playlist.m3u8" },
+  { key: "hindi",     name: "Bigg Boss Hindi",       sub: "Season 20 • Colors TV",                cls: "",          kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP" },
   { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq" },
   { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk" },
   { key: "malayalam", name: "Bigg Boss Malayalam",   sub: "Season 8 • Asianet",                 cls: "",          kind: "lang", short: "https://maskr.blog/AUPMfoXAbYeRBr0sKFtX" },
   { key: "kannada",   name: "Bigg Boss Kannada",     sub: "Season 13 • Colors Kannada",         cls: "",          kind: "lang", short: "https://maskr.blog/OVxQxTdI9nxYdJVewO9S" }
 ];
 
-/* Latest — Bigg Boss Hindi is featured here. Its daily episode is not
-   posted as a separate video on the source site (the site only posts
-   Tamil, Telugu, Malayalam and Kannada episodes), so the live Hindi
-   house feed is the latest Hindi Bigg Boss content that plays. */
-var HINDI = { key: "hindi", name: "Bigg Boss Hindi", sub: "Season 20 • Colors TV", kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP" };
+/* Bigg Boss Hindi (Season 20, Colors TV) sits in the Live grid now,
+   in the old Colors TV tile's place. Its daily episode is not posted
+   as a separate video on the source site (the site only posts Tamil,
+   Telugu, Malayalam and Kannada episodes), so the live Hindi house
+   feed is the latest Hindi Bigg Boss content that plays. */
 
 var hls = null;         // active hls.js instance (Kick native)
 var currentKey = null;  // which feed is open
@@ -204,11 +201,6 @@ function renderTiles() {
   g.querySelectorAll(".bb-card").forEach(function (el) {
     el.addEventListener("click", function () { openFeed(el.getAttribute("data-key")); });
   });
-  var e = $("ep-grid");
-  e.innerHTML = '<div class="bb-card" id="ep-card">' +
-    '<div class="poster"><span class="live-dot">LIVE 24/7</span><span class="big">HINDI</span></div>' +
-    '<div class="name">' + esc(HINDI.name) + '</div><div class="sub">' + esc(HINDI.sub) + ' • live now</div></div>';
-  $("ep-card").addEventListener("click", openHindi);
 }
 
 /* ---- player plumbing ---- */
@@ -383,12 +375,6 @@ function playProxy(f) {
   var note = 'Live 24/7 — playing here, through the India server. New episode every day at <b>9:15 PM</b>.';
   setSrcs([{ label: "Live", run: function () { playNative(m3u8, note); } }], 0);
   playNative(m3u8, note);
-}
-
-/* ---- Latest — Bigg Boss Hindi ---- */
-function openHindi() {
-  currentKey = "hindi";
-  playProxy(HINDI);
 }
 
 renderTiles();
