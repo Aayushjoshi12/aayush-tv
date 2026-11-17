@@ -86,6 +86,7 @@
     <h2>🏏 NPL live scores <span class="dim">· via 1xBet &amp; NPL</span> <span class="dim" id="sb-updated"></span></h2>
     <div id="sb-list"><p class="dim">Loading live scores…</p></div>
     <p class="dim" style="margin-top:8px">Nepal Premier League — live scores from the NPL official site, fixtures from 1xBet. Kickoff times are Nepal time.</p>
+    <a id="sb-watch" href="https://1xlite-6229051.com/en/live/cricket/2791573-nepal-premier-league" target="_blank" rel="noopener" style="display:none;margin-top:10px;padding:10px 18px;border-radius:999px;background:linear-gradient(135deg,#ff3b3b,#ff5c5c);color:#fff;font-weight:800;text-decoration:none">▶ Watch live on 1xBet</a>
   </div>
 
   <div id="player-wrap">
@@ -310,9 +311,14 @@ async function sbLoad() {
     const d = await r.json();
     if (!r.ok || !Array.isArray(d.games)) throw new Error("bad scores");
     sbRender(d.games);
+    // Show the Watch button only while a match is live. It opens
+    // 1xBet's NPL live page (the video plays there, signed in) —
+    // the stream itself cannot be embedded on this site.
+    $("sb-watch").style.display = d.games.some((g) => g.status === "live") ? "inline-block" : "none";
     $("sb-updated").textContent = "· updated just now";
   } catch (e) {
     $("sb-list").innerHTML = '<p class="dim">Scores unavailable right now — will retry.</p>';
+    $("sb-watch").style.display = "none";
   }
 }
 sbLoad();
