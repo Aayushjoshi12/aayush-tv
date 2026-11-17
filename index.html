@@ -335,7 +335,7 @@ $("player-poster").addEventListener("keydown", (e) => { if (e.key === "Enter" ||
 // Vercel proxy (/api/onexbet). The site cannot call 1xBet directly
 // (no CORS), so the proxy fetches it server-side. Refreshes every
 // 45s; a failed refresh shows a quiet note, never an error popup.
-const SB_REFRESH_MS = 45000;
+const SB_REFRESH_MS = 15000;
 function sbKickoff(ts) {
   if (!ts) return "Upcoming";
   const d = new Date(ts * 1000);
