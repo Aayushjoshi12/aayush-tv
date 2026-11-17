@@ -377,7 +377,11 @@ function sbTick() {
 setInterval(sbTick, 1000);
 function sbClockHtml(g) {
   if (g.status === "live" && g.timerSec !== null && g.timerSec !== undefined) {
-    return '<span class="dim" data-tick="' + sbEsc(g.id) + '">' + sbEsc(fmtTimer(g.timerSec)) + '</span>';
+    // Like 1xBet: "2nd half 61:23" — period label, then the clock
+    // that ticks every second via sbTick.
+    const per = { "1H": "1st half", "2H": "2nd half", "ET": "ET", "PEN": "Pens" }[g.period] || "";
+    return (per ? '<span class="dim">' + per + ' </span>' : "") +
+      '<span class="dim" data-tick="' + sbEsc(g.id) + '">' + sbEsc(fmtTimer(g.timerSec)) + '</span>';
   }
   return '<span class="dim">' + sbEsc(sbClock(g)) + '</span>';
 }
