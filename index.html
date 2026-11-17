@@ -497,8 +497,10 @@ async function findTop() {
     body.innerHTML = '<p class="dim">Top games unavailable right now — try a search.</p>';
   }
 }
+let findDetailId = null;
 function findShowDetail(g) {
   findMode = "detail";
+  findDetailId = g.id;
   sbSyncTimer(g);
   const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
   const side = (v) => (v !== null && v !== undefined ? v : "–");
@@ -520,7 +522,11 @@ function findShowDetail(g) {
     '<b>' + sbEsc(g.home) + '</b> vs <b>' + sbEsc(g.away) + '</b>' +
     score +
     '<p style="margin:4px 0">' + sbClockHtml(g) + '</p>' +
-    rows.map((r) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span class="dim">' + r[0] + '</span><span style="text-align:right">' + sbEsc(r[1]) + '</span></div>').join("");
+    rows.map((r) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span class="dim">' + r[0] + '</span><span style="text-align:right">' + sbEsc(r[1]) + '</span></div>').join("") +
+    ((g.stats && g.stats.length)
+      ? '<p style="margin:14px 0 2px"><b>Match stats</b></p>' +
+        g.stats.map((st) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span><b>' + sbEsc(st.home) + '</b></span><span class="dim">' + sbEsc(st.name) + '</span><span><b>' + sbEsc(st.away) + '</b></span></div>').join("")
+      : "");
 }
 async function findSearch(q) {
   const body = $("find-body");
@@ -539,9 +545,9 @@ async function findSearch(q) {
     body.innerHTML = '<p class="dim">Search failed — try again.</p>';
   }
 }
-async function findDetail(id) {
+async function findDetail(id, quiet) {
   const body = $("find-body");
-  body.innerHTML = '<p class="dim">Loading game detail…</p>';
+  if (!quiet) body.innerHTML = '<p class="dim">Loading game detail…</p>';
   try {
     const r = await fetch(FIND_URL + "?mode=search&q=" + encodeURIComponent(id), { signal: AbortSignal.timeout(15000) });
     const d = await r.json();
@@ -553,7 +559,10 @@ async function findDetail(id) {
 }
 $("find-form").addEventListener("submit", (e) => { e.preventDefault(); const q = $("find-q").value.trim(); if (q) findSearch(q); });
 findTop();
-setInterval(() => { if (findMode === "top") findTop(); }, 15000);
+setInterval(() => {
+  if (findMode === "top") findTop();
+  else if (findMode === "detail" && findDetailId) findDetail(findDetailId, true);
+}, 15000);
 
 sbLoad();
 setInterval(sbLoad, SB_REFRESH_MS);
