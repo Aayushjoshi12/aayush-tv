@@ -357,6 +357,30 @@ function sbClock(g) {
 function sbEsc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 }
+// Live timer, like 1xBet: the match clock ticks every second.
+// The proxy sends timerSec (match elapsed seconds, from 1xBet)
+// when 1xBet provides it; the page counts up locally from the
+// last fetch so the clock moves every second, not just on polls.
+const sbTimers = {};
+function fmtTimer(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
+}
+function sbTick() {
+  const now = Date.now();
+  document.querySelectorAll("[data-tick]").forEach((el) => {
+    const t = sbTimers[el.getAttribute("data-tick")];
+    if (!t) return;
+    el.textContent = fmtTimer(t.sec + (now - t.at) / 1000);
+  });
+}
+setInterval(sbTick, 1000);
+function sbClockHtml(g) {
+  if (g.status === "live" && g.timerSec !== null && g.timerSec !== undefined) {
+    return '<span class="dim" data-tick="' + sbEsc(g.id) + '">' + sbEsc(fmtTimer(g.timerSec)) + '</span>';
+  }
+  return '<span class="dim">' + sbEsc(sbClock(g)) + '</span>';
+}
 function sbRender(games) {
   const list = $("sb-list");
   if (!games || !games.length) {
@@ -370,7 +394,7 @@ function sbRender(games) {
     const side = (v) => (v !== null && v !== undefined ? v : "–");
     const score = hasScore
       ? "<b>" + sbEsc(side(g.homeScore)) + " – " + sbEsc(side(g.awayScore)) + "</b> " : "";
-    return '<div class="match"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + '<span class="dim">' + sbEsc(sbClock(g)) + '</span></span></div>';
+    return '<div class="match"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + sbClockHtml(g) + '</span></div>';
   }).join("");
 }
 async function sbLoad() {
@@ -379,6 +403,7 @@ async function sbLoad() {
     const d = await r.json();
     if (!r.ok || !Array.isArray(d.games)) throw new Error("bad scores");
     sbRender(d.games);
+    d.games.forEach((g) => { if (g.timerSec !== null && g.timerSec !== undefined) sbTimers[g.id] = { sec: g.timerSec, at: Date.now() }; });
     // Show the Watch button only while a match is live. It opens
     // The green button plays the 1xBet stream right here, in the
     // site's own player, with no ads — it uses the direct link
