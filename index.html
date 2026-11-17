@@ -436,22 +436,20 @@ function sbGroupHtml(title, games, emptyText) {
   else html += games.map(sbMatchHtml).join("");
   return html;
 }
-function sbRender(npl, uefa) {
+function sbRender(npl) {
   const list = $("sb-list");
   list.innerHTML =
-    sbGroupHtml("🏏 Nepal Premier League", npl, "No NPL matches listed right now — check back later.") +
-    sbGroupHtml("⚽ UEFA", uefa, "No UEFA games live right now.");
+    sbGroupHtml("🏏 Nepal Premier League", npl, "No NPL matches listed right now — check back later.");
 }
 async function sbLoad() {
   try {
-    const r = await fetch(MINTER_URL + "/api/onexbet?mode=scoreboard", { signal: AbortSignal.timeout(10000) });
+    const r = await fetch(MINTER_URL + "/api/onexbet", { signal: AbortSignal.timeout(10000) });
     const d = await r.json();
     if (!r.ok) throw new Error("bad scores");
     const npl = d.npl || d.games || [];
-    const uefa = d.uefa || [];
-    if (!Array.isArray(npl) || !Array.isArray(uefa)) throw new Error("bad scores");
-    npl.concat(uefa).forEach(sbSyncTimer);
-    sbRender(npl, uefa);
+    if (!Array.isArray(npl)) throw new Error("bad scores");
+    npl.forEach(sbSyncTimer);
+    sbRender(npl);
     // Show the Watch button only while an NPL match is live. It opens
     // The green button plays the 1xBet stream right here, in the
     // site's own player, with no ads — it uses the direct link
