@@ -643,7 +643,13 @@ const WATCH_SOURCES = [
   // answers, otherwise the direct MP4 fallback. Falls back to
   // the next source by itself when the title has no copy.
   { id: "netmirror", label: "NetMirror", native: true, nm: true },
-  { id: "embedwave", label: "EmbedWave", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc" },
+  // EmbedWave: ?nobrand=1 hides its "▶ EmbedWave" badge button
+  // (the embed page only renders the badge when nobrand is not
+  // "1" — 17 Nov 2026). The player's own control bar (progress,
+  // time, server name, control icons) is the video player's and
+  // cannot be removed from outside; it hides itself when the
+  // mouse is still.
+  { id: "embedwave", label: "EmbedWave", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc&nobrand=1" },
   { id: "vidrift", label: "VidRift", base: "https://embed.vidrift.net/embed" },
 ];
 let currentWatchTmdb = null;
