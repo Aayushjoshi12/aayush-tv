@@ -199,6 +199,7 @@ async function playNPL() {
   const triedHosts = new Set();
   let usedMinter = false;
   let directTried = false;
+  let sourceKind = "saved link"; // shown under the player so you can see which feed is playing
   let handlingFailure = false;
   // Mint a fresh NPL link, preferring a Wowza host we haven't tried yet.
   // The minter rotates hosts, so a single failed draw doesn't prove the
@@ -227,20 +228,25 @@ async function playNPL() {
           const d = await r.json();
           if (d && typeof d.url === "string" && d.url.includes("mediaplaylist.m3u8") &&
               typeof d.ageSec === "number" && d.ageSec < 4500) {
+            sourceKind = "fresh link";
             return d.url;
           }
         }
       } catch (e) { /* relay unreachable — use the hardcoded link */ }
+      sourceKind = "saved link";
       return DIRECT_NPL_URL;
     }
     const url = await mintFreshNPL(triedHosts);
     if (url) {
       usedMinter = true;
+      sourceKind = "backup feed";
       try { triedHosts.add(new URL(url).host); } catch (e) {}
     }
     return url;
   };
   const showError = (msg) => { $("now-playing").textContent = msg; };
+  // Show which feed is playing, so you can tell the fresh link from the saved link and the backup feed.
+  const showPlaying = () => { $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span> <span style="color:#9aa0a6;font-size:13px">· ${sourceKind}</span>`; };
   let url = await mint();
   if (!url) {
     showError("Could not reach the live feed right now — please try again in a moment.");
@@ -255,7 +261,7 @@ async function playNPL() {
   // Show the video element now that we have a playable source.
   $("player-poster").style.display = "none";
   video.classList.add("open");
-  $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span>`;
+  showPlaying();
   if (hls) { hls.destroy(); hls = null; }
   video.onerror = null;
   let watchdog = null;
@@ -264,7 +270,7 @@ async function playNPL() {
   const onPlaying = () => {
     if (myPlay !== playToken) return;
     clearWatchdog();
-    $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span>`;
+    showPlaying();
     video.play().catch(() => {});
   };
   const failAttempt = async () => {
