@@ -46,6 +46,8 @@
   #watch-wrap video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
   #watch-wrap .watch-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; }
   #watch-wrap .watch-srcs { display: flex; gap: 8px; margin-bottom: 10px; }
+.watch-eps { display: flex; gap: 8px; margin-bottom: 10px; }
+.watch-eps select { padding: 7px 10px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; max-width: 100%; }
   #watch-wrap .wsrc { padding: 7px 14px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; }
   #watch-wrap .wsrc.active { border-color: #22c55e; background: #16a34a; color: #fff; }
   #dl-note { display: none; margin-top: 12px; font-size: 13px; color: #9aa1b2; line-height: 1.7; }
@@ -370,6 +372,10 @@ const DL_CACHE_KEY = "aayush-dl-cache-v1";
 const DL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 let downloadPrefetch = null; // {key, promise}
 let currentIsSeries = false;
+let currentWatchSeason = 1; // Watch episode picker (series only)
+let currentWatchEpisode = 1;
+let currentWatchMeta = null; // Cinemeta meta for the Watch title (videos = episode list)
+let currentWatchMetaTitle = "";
 function dlCacheKey(title, year, site, slug) {
   return [title, year || "", site || "", slug || ""].join("|").toLowerCase();
 }
@@ -691,6 +697,7 @@ async function resolveTmdbId(title, year) {
   const hit = watchCacheGet(key);
   if (hit) return hit;
   const meta = await cinemetaMeta(title, year, currentIsSeries);
+  if (meta) { currentWatchMeta = meta; currentWatchMetaTitle = title; }
   const tmdb = meta && meta.moviedb_id;
   if (tmdb) watchCacheSet(key, tmdb);
   return tmdb || null;
@@ -825,6 +832,16 @@ async function watchTitle() {
     return;
   }
   currentWatchTmdb = tmdb;
+  currentWatchSeason = 1;
+  currentWatchEpisode = 1;
+  // Series: the episode picker needs the Cinemeta episode list.
+  // Usually stashed already by resolveTmdbId (same promise the
+  // prefetch started); if the TMDB id came from cache, the meta
+  // was never fetched, so fetch it now before rendering.
+  if (currentIsSeries && currentWatchMetaTitle !== title) {
+    const m = await cinemetaMeta(title, currentYear, true).catch(() => null);
+    if (m) { currentWatchMeta = m; currentWatchMetaTitle = title; }
+  }
   currentWatchSource = "direct";
   watchTriedSources = new Set(); // a new Watch open retries every source
   renderWatchPlayer();
@@ -836,7 +853,7 @@ async function watchTitle() {
 function watchSourceUrl(sourceId, tmdb) {
   const s = WATCH_SOURCES.find((x) => x.id === sourceId) || WATCH_SOURCES[0];
   const path = currentIsSeries
-    ? s.base + "/tv/" + tmdb + "/1/1"
+    ? s.base + "/tv/" + tmdb + "/" + currentWatchSeason + "/" + currentWatchEpisode
     : s.base + "/movie/" + tmdb;
   return path + (s.suffix || "");
 }
@@ -850,6 +867,63 @@ let watchHls = null;
 let watchBlobUrl = null;
 let watchTriedSources = new Set(); // sources auto-fallback already tried in this Watch open
 let watchWatchdog = null;
+// Series episode picker: seasons + episodes from the Cinemeta
+// meta (videos[]), stashed by resolveTmdbId. Shown above the
+// player for series only, and only when the show has more than
+// one episode listed. Picking a season resets the episode to 1;
+// picking either re-renders the player on that episode, with
+// all sources retrying from the start for the new episode.
+function watchEpisodeList() {
+  const vids = (currentWatchMeta && currentWatchMeta.videos) || [];
+  const eps = vids.filter((v) => v && v.season != null && v.episode != null)
+    .map((v) => ({ season: +v.season, episode: +v.episode, name: v.title || v.name || "" }))
+    .filter((e) => !isNaN(e.season) && !isNaN(e.episode));
+  eps.sort((a, b) => a.season - b.season || a.episode - b.episode);
+  return eps;
+}
+function renderWatchEpisodePicker(wrap) {
+  if (!currentIsSeries) return;
+  const eps = watchEpisodeList();
+  if (eps.length <= 1) return;
+  const seasons = [...new Set(eps.map((e) => e.season))].sort((a, b) => a - b);
+  if (!seasons.includes(currentWatchSeason)) currentWatchSeason = seasons[0];
+  const seasonEps = eps.filter((e) => e.season === currentWatchSeason);
+  if (!seasonEps.some((e) => e.episode === currentWatchEpisode)) currentWatchEpisode = seasonEps[0].episode;
+  const row = el("div", "watch-eps");
+  const sSel = document.createElement("select");
+  sSel.setAttribute("aria-label", "Season");
+  seasons.forEach((s) => {
+    const o = document.createElement("option");
+    o.value = String(s);
+    o.textContent = s === 0 ? "Specials" : "Season " + s;
+    if (s === currentWatchSeason) o.selected = true;
+    sSel.appendChild(o);
+  });
+  sSel.addEventListener("change", () => {
+    currentWatchSeason = +sSel.value || 1;
+    currentWatchEpisode = 1;
+    watchTriedSources = new Set();
+    renderWatchPlayer();
+  });
+  const eSel = document.createElement("select");
+  eSel.setAttribute("aria-label", "Episode");
+  seasonEps.forEach((e) => {
+    const o = document.createElement("option");
+    o.value = String(e.episode);
+    o.textContent = "Episode " + e.episode + (e.name ? " — " + e.name : "");
+    if (e.episode === currentWatchEpisode) o.selected = true;
+    eSel.appendChild(o);
+  });
+  eSel.addEventListener("change", () => {
+    currentWatchEpisode = +eSel.value || 1;
+    watchTriedSources = new Set();
+    renderWatchPlayer();
+  });
+  row.appendChild(sSel);
+  row.appendChild(eSel);
+  wrap.appendChild(row);
+}
+
 function renderWatchPlayer() {
   const wrap = $("watch-wrap");
   const tmdb = currentWatchTmdb;
@@ -871,6 +945,7 @@ function renderWatchPlayer() {
     row.appendChild(b);
   });
   wrap.appendChild(row);
+  renderWatchEpisodePicker(wrap);
   const src = WATCH_SOURCES.find((x) => x.id === currentWatchSource) || WATCH_SOURCES[0];
   if (src.nm) {
     renderNetMirrorPlayer(wrap);
@@ -929,7 +1004,7 @@ async function renderDirectPlayer(wrap, tmdb) {
     window.MediaSource &&
     MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L120.90"')
   );
-  const url = MOVIE_RESOLVER + "?watch=" + tmdb + "&type=" + type + "&se=1&ep=1&hevc=" + (hevcOk ? "1" : "0");
+  const url = MOVIE_RESOLVER + "?watch=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode + "&hevc=" + (hevcOk ? "1" : "0");
   let text = "";
   try {
     const r = await fetch(url);
@@ -1001,12 +1076,14 @@ async function renderDirectPlayer(wrap, tmdb) {
 // 24h in localStorage like the TMDB id; the play answer itself
 // is NOT cached — its MP4 links are signed and expire.
 // Movies: search (?q=) -> match title+year -> ?play=<id>.
-// Series: search -> series id -> ?detail= -> the S1E1 episode id
-// (season/episode come back as "S4"/"E1", so the letters are
-// stripped before comparing). If S1E1 is not listed, NetMirror
-// reports no source and the player falls back instead of
-// playing the wrong episode.
-function nmCacheKey(title, year, isSeries) { return "watch-nm|" + (isSeries ? "tv|" : "movie|") + title + "|" + year; }
+// Series: search -> series id -> ?detail= -> the requested
+// episode id (season/episode come back as "S4"/"E1", so the
+// letters are stripped before comparing). If that episode is
+// not listed, NetMirror reports no source and the player falls
+// back instead of playing the wrong episode. The cache key
+// carries the episode for series, so picking S2E5 never reuses
+// the cached S1E1 id.
+function nmCacheKey(title, year, isSeries, season, episode) { return "watch-nm|" + (isSeries ? "tv|" : "movie|") + title + "|" + year + (isSeries ? "|S" + (season || 1) + "E" + (episode || 1) : ""); }
 function nmCacheGet(key) {
   try {
     const r = JSON.parse(localStorage.getItem(key) || "null");
@@ -1017,9 +1094,9 @@ function nmCacheGet(key) {
 function nmCacheSet(key, id) {
   try { localStorage.setItem(key, JSON.stringify({ t: Date.now(), id })); } catch { /* ignore */ }
 }
-async function resolveNetMirrorId(title, year, isSeries) {
+async function resolveNetMirrorId(title, year, isSeries, season, episode) {
   const base = baseTitle(title);
-  const key = nmCacheKey(base, year, isSeries);
+  const key = nmCacheKey(base, year, isSeries, season, episode);
   const hit = nmCacheGet(key);
   if (hit) return hit;
   const d = await getJSON(MOVIE_RESOLVER + "?q=" + encodeURIComponent(base)).catch(() => null);
@@ -1034,14 +1111,14 @@ async function resolveNetMirrorId(title, year, isSeries) {
     nmCacheSet(key, m.id);
     return m.id;
   }
-  // Series: find the S1E1 episode id.
+  // Series: find the requested episode id.
   const det = await getJSON(MOVIE_RESOLVER + "?detail=" + encodeURIComponent(m.id)).catch(() => null);
   const eps = (det && det.episodes) || [];
   const num = (v) => { const n = parseInt(String(v || "").replace(/\D/g, ""), 10); return isNaN(n) ? 0 : n; };
-  const s1e1 = eps.find((e) => num(e.season) === 1 && num(e.episode) === 1);
-  if (!s1e1 || !s1e1.id) return null;
-  nmCacheSet(key, s1e1.id);
-  return s1e1.id;
+  const want = eps.find((e) => num(e.season) === (season || 1) && num(e.episode) === (episode || 1));
+  if (!want || !want.id) return null;
+  nmCacheSet(key, want.id);
+  return want.id;
 }
 
 // NetMirror player: ask the resolver for the play answer
@@ -1064,11 +1141,11 @@ async function renderNetMirrorPlayer(wrap) {
   wrap.appendChild(loading);
   let id = null;
   try {
-    const nmKey = nmCacheKey(baseTitle(title), year, currentIsSeries);
+    const nmKey = nmCacheKey(baseTitle(title), year, currentIsSeries, currentWatchSeason, currentWatchEpisode);
     if (watchNmPrefetch && watchNmPrefetch.key === nmKey) {
       id = await watchNmPrefetch.promise;
     } else {
-      id = await resolveNetMirrorId(title, year, currentIsSeries);
+      id = await resolveNetMirrorId(title, year, currentIsSeries, currentWatchSeason, currentWatchEpisode);
     }
   } catch { id = null; }
   if (!id) { watchFallback(); return; }
