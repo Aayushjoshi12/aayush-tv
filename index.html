@@ -148,13 +148,16 @@
 // fresh link from it on every press.
 const MINTER_URL = "https://aayush-tv-minter.vercel.app"; // base only — fetch appends /api/stream (FIX 2026-11-12: the Azure techjail minter's upstream huritv9/getlink.php is gone — http 301 -> https 404 "File not found" — so it returns "Upstream failed" for every channel. Vercel's stream.js now calls the working huritv8/getlink.php instead. The Azure function itself is untouched.)
 // DIRECT_NPL_URL: the live NPL video itself, captured from the user's
-// Chrome via the Network Inspector, 17 Nov 2026 ~18:37 NPT (Qualifier 1,
-// Lumbini vs Sudurpaschim). It is 1xBet/TVBET's HLS playlist on
+// Chrome via the Network Inspector (Qualifier 1, Lumbini vs
+// Sudurpaschim). It is 1xBet/TVBET's HLS playlist on
 // edge14.xmediaget.com, signed for this live session — it plays on
-// this https page, but the signature may stop working when the
-// 1xBet session ends. If it fails, the player falls back to the
-// minter feed below.
-const DIRECT_NPL_URL = "https://edge14.xmediaget.com/hls-live/21013954/1/mediaplaylist.m3u8?s=ea7baeba8b5b0fac0b4c86e022a023b48d4f1beb8d5f05c4024d065ec2476bd4&t=1794914157866&ai=101&av=1025&ui=1131378233";
+// this https page, but the signature lasts only ~85 min: the first
+// token (minted ~11:15 UTC) went 403 at ~12:41 UTC and the player
+// fell back to the minter feed. This token was refreshed 17 Nov
+// 2026 ~18:41 NPT (minted ~12:55 UTC) after reloading the 1xBet
+// match page. If it fails, the player falls back to the minter
+// feed below.
+const DIRECT_NPL_URL = "https://edge14.xmediaget.com/hls-live/21013954/1/mediaplaylist.m3u8?s=570330f99e1519fd2f1681e4fd2a9a9dcc7c35843429bdba9df3661c9bfc66a8&t=1794920140965&ai=101&av=1025&ui=1131378233";
 
 const $ = (id) => document.getElementById(id);
 const ATTEMPT_TIMEOUT_MS = 8000;
