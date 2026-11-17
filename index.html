@@ -498,7 +498,7 @@ async function findTop() {
   }
 }
 let findDetailId = null;
-function findShowDetail(g) {
+function findShowDetail(g, searchedId) {
   findMode = "detail";
   findDetailId = g.id;
   sbSyncTimer(g);
@@ -513,7 +513,7 @@ function findShowDetail(g) {
   if (g.format) rows.push(["Format", g.format]);
   if (g.weather) rows.push(["Weather", g.weather]);
   if (g.startTs) rows.push(["Kickoff", sbKickoff(g.startTs)]);
-  rows.push(["Game ID", g.id + (g.constId ? " · " + g.constId : "")]);
+  rows.push(["Game ID", g.id + (g.constId ? " · " + g.constId : "") + (searchedId && searchedId !== g.id ? " · you searched " + searchedId : "")]);
   if (g.video) rows.push(["Video", "Live stream available"]);
   if (g.hasLineups) rows.push(["Line-ups", "Available"]);
   $("find-body").innerHTML =
@@ -535,7 +535,7 @@ async function findSearch(q) {
     const r = await fetch(FIND_URL + "?mode=search&q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(15000) });
     const d = await r.json();
     if (!r.ok) throw new Error("bad search");
-    if (d.detail) { findShowDetail(d.detail); return; }
+    if (d.detail) { findShowDetail(d.detail, q); return; }
     const games = d.games || [];
     games.forEach(sbSyncTimer);
     findMode = "results";
@@ -552,7 +552,7 @@ async function findDetail(id, quiet) {
     const r = await fetch(FIND_URL + "?mode=search&q=" + encodeURIComponent(id), { signal: AbortSignal.timeout(15000) });
     const d = await r.json();
     if (!r.ok || !d.detail) throw new Error("no detail");
-    findShowDetail(d.detail);
+    findShowDetail(d.detail, id);
   } catch (e) {
     body.innerHTML = '<p class="dim">Could not load that game.</p>';
   }
