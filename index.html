@@ -511,6 +511,13 @@ function findShowDetail(g, searchedId) {
   if (g.sport) rows.push(["Sport", g.sport]);
   if (g.venue) rows.push(["Venue", g.venue]);
   if (g.format) rows.push(["Format", g.format]);
+  // Cricket: chasing target, runs needed and run rate — the
+  // detail 1xBet has for every limited-overs game.
+  if (g.cricket) {
+    if (g.cricket.target != null) rows.push(["Target", String(g.cricket.target)]);
+    if (g.cricket.need != null) rows.push(["Need", g.cricket.ballsLeft != null ? g.cricket.need + " off " + g.cricket.ballsLeft + " balls" : g.cricket.need + " runs"]);
+    if (g.cricket.runRate) rows.push(["Run rate", g.cricket.runRate]);
+  }
   if (g.weather) rows.push(["Weather", g.weather]);
   if (g.startTs) rows.push(["Kickoff", sbKickoff(g.startTs)]);
   rows.push(["Game ID", g.id + (g.constId ? " · " + g.constId : "") + (searchedId && searchedId !== g.id ? " · you searched " + searchedId : "")]);
