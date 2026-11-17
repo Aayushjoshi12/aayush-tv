@@ -99,7 +99,7 @@
 
   <div class="hero">
     <h2>Bigg Boss — <em>Live 24/7</em></h2>
-    <p>Every Bigg Boss live feed in one place — Tamil, Telugu, Malayalam, Kannada and Hindi — plus the Kick stream. Tap a card and it plays here.</p>
+    <p>Every Bigg Boss live feed in one place — Tamil, Telugu, Malayalam, Kannada and Hindi — plus the Kick streams (Mogambo and Neyoo Gaming). Tap a card and it plays here.</p>
     <div class="ep-time">🕘 New episode every day at 9:15 PM</div>
   </div>
 
@@ -169,7 +169,8 @@ var KICK_RESOLVER = "https://aayush-tv-minter.vercel.app/api/kick?url=";
 var BB_PROXY = "https://aayush-bb-proxy.azurewebsites.net/bb?lang=";
 
 var FEEDS = [
-  { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick" },
+  { key: "kick",      name: "Mogambo — Kick",        sub: "Kick • live when the episode is on", cls: "kick",      kind: "kick", big: "MOGAMBO", channel: "mogambo" },
+  { key: "kick-neyoo", name: "Neyoo Gaming — Kick",   sub: "Kick • Bigg Boss watchparty",         cls: "kick",      kind: "kick", big: "NEYOO",   channel: "neyoo_gaming" },
   { key: "hindi",     name: "Bigg Boss Hindi",       sub: "Season 20 • Colors TV",                cls: "",          kind: "lang", short: "https://maskr.blog/11k1DhTKJjThRlLhepyP" },
   { key: "tamil",     name: "Bigg Boss Tamil",       sub: "Season 10 • Vijay TV",               cls: "",          kind: "lang", short: "https://maskr.blog/58TyuQQRSPFmvge8oLQq" },
   { key: "telugu",    name: "Bigg Boss Telugu",      sub: "Season 10 • Maa TV",                 cls: "",          kind: "lang", short: "https://maskr.blog/MNH5dIkHE9xF09T0aNAk" },
@@ -193,7 +194,7 @@ function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;"); }
 function renderTiles() {
   var g = $("live-grid");
   g.innerHTML = FEEDS.map(function (f) {
-    var big = f.kind === "kick" ? "MOGAMBO" : f.name.replace("Bigg Boss ", "").toUpperCase();
+    var big = f.big || (f.kind === "kick" ? "KICK" : f.name.replace("Bigg Boss ", "").toUpperCase());
     return '<div class="bb-card ' + f.cls + '" data-key="' + f.key + '">' +
       '<div class="poster"><span class="live-dot">LIVE 24/7</span><span class="big">' + esc(big) + '</span></div>' +
       '<div class="name">' + esc(f.name) + '</div><div class="sub">' + esc(f.sub) + '</div></div>';
@@ -309,13 +310,18 @@ function playDirectNow(f) {
 }
 function playKick(f) {
   showPlayer(f.name);
-  $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Checking if Mogambo is live…</div></div>';
+  $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Checking if ' + esc(f.big ? f.big.charAt(0) + f.big.slice(1).toLowerCase() : "the stream") + ' is live…</div></div>';
   $("bb-note").innerHTML = "";
   setSrcs([{ label: "Native", run: function () { playKickNative(f); } }], 0);
   playKickNative(f);
 }
 function playKickNative(f) {
-  fetch(KICK_API, { cache: "no-store" })
+  /* Each Kick feed has its own channel; Mogambo's addresses are
+     the defaults, so the old tile is unchanged. */
+  var api = f.channel ? "https://kick.com/api/v2/channels/" + f.channel : KICK_API;
+  var site = f.channel ? "https://kick.com/" + f.channel : KICK_SITE;
+  var label = f.big ? f.big.charAt(0) + f.big.slice(1).toLowerCase() : "Mogambo";
+  fetch(api, { cache: "no-store" })
     .then(function (r) { return r.json(); })
     .then(function (d) {
       var ls = d && d.livestream;
@@ -327,9 +333,9 @@ function playKickNative(f) {
       var live = ls && ls.is_live;
       var url = live ? ((d && d.playback_url) || (ls && ls.playback_url)) : null;
       if (url) {
-        var note = 'Live now — <b>' + esc(ls.session_title || "Mogambo") + '</b>' +
+        var note = 'Live now — <b>' + esc(ls.session_title || label) + '</b>' +
           (ls.viewer_count ? ' • ' + ls.viewer_count + ' watching' : '') +
-          '. Playing directly here. <a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.';
+          '. Playing directly here. <a href="' + site + '" target="_blank" rel="noopener">Open on Kick</a>.';
         /* Ask the resolver for the variant addresses (the master
            itself has no CORS, so the player cannot read it).
            The resolver returns every quality; the player starts
@@ -353,15 +359,15 @@ function playKickNative(f) {
           });
       } else {
         destroyHls();
-        $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Mogambo is offline right now</div>' +
-          '<p>The stream starts again with the new episode at <b>9:15 PM</b>.<br><a href="' + KICK_SITE + '" target="_blank" rel="noopener">Open on Kick</a>.</p></div>';
+        $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">' + esc(label) + ' is offline right now</div>' +
+          '<p>The stream starts again with the new episode at <b>9:15 PM</b>.<br><a href="' + site + '" target="_blank" rel="noopener">Open on Kick</a>.</p></div>';
         $("bb-note").innerHTML = "";
       }
     })
     .catch(function () {
       destroyHls();
-      $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Could not check if Mogambo is live</div>' +
-        '<p>Try again, or <a href="' + KICK_SITE + '" target="_blank" rel="noopener">open on Kick</a>.</p></div>';
+      $("bb-screen").innerHTML = '<div class="offline-box"><div class="big">Could not check if ' + esc(label) + ' is live</div>' +
+        '<p>Try again, or <a href="' + site + '" target="_blank" rel="noopener">open on Kick</a>.</p></div>';
       $("bb-note").innerHTML = "";
     });
 }
