@@ -362,6 +362,19 @@ function sbEsc(s) {
 // when 1xBet provides it; the page counts up locally from the
 // last fetch so the clock moves every second, not just on polls.
 const sbTimers = {};
+// Sync a game's local clock from a fresh fetch — forward only.
+// The fetched value can be up to ~2s stale (proxy cache), so
+// adopting it blindly made the clock jump back. Keep the local
+// clock when it is ahead; take the fetched value only when 1xBet
+// is ahead of us.
+function sbSyncTimer(g) {
+  if (g.timerSec === null || g.timerSec === undefined) return;
+  const now = Date.now();
+  const cur = sbTimers[g.id];
+  if (!cur) { sbTimers[g.id] = { sec: g.timerSec, at: now }; return; }
+  const localNow = cur.sec + (now - cur.at) / 1000;
+  if (g.timerSec > localNow) sbTimers[g.id] = { sec: g.timerSec, at: now };
+}
 function fmtTimer(sec) {
   sec = Math.max(0, Math.floor(sec || 0));
   return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
@@ -378,10 +391,14 @@ setInterval(sbTick, 1000);
 function sbClockHtml(g) {
   if (g.status === "live" && g.timerSec !== null && g.timerSec !== undefined) {
     // Like 1xBet: "2nd half 61:23" — period label, then the clock
-    // that ticks every second via sbTick.
+    // that ticks every second via sbTick. The shown value comes
+    // from the local clock (sbTimers), never straight from the
+    // fetch, so re-renders can't freeze or rewind it.
+    const t = sbTimers[g.id];
+    const shown = t ? t.sec + (Date.now() - t.at) / 1000 : g.timerSec;
     const per = { "1H": "1st half", "2H": "2nd half", "ET": "ET", "PEN": "Pens" }[g.period] || "";
     return (per ? '<span class="dim">' + per + ' </span>' : "") +
-      '<span class="dim" data-tick="' + sbEsc(g.id) + '">' + sbEsc(fmtTimer(g.timerSec)) + '</span>';
+      '<span class="dim" data-tick="' + sbEsc(g.id) + '">' + sbEsc(fmtTimer(shown)) + '</span>';
   }
   return '<span class="dim">' + sbEsc(sbClock(g)) + '</span>';
 }
@@ -414,8 +431,8 @@ async function sbLoad() {
     const npl = d.npl || d.games || [];
     const uefa = d.uefa || [];
     if (!Array.isArray(npl) || !Array.isArray(uefa)) throw new Error("bad scores");
+    npl.concat(uefa).forEach(sbSyncTimer);
     sbRender(npl, uefa);
-    npl.concat(uefa).forEach((g) => { if (g.timerSec !== null && g.timerSec !== undefined) sbTimers[g.id] = { sec: g.timerSec, at: Date.now() }; });
     // Show the Watch button only while an NPL match is live. It opens
     // The green button plays the 1xBet stream right here, in the
     // site's own player, with no ads — it uses the direct link
