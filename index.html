@@ -82,6 +82,12 @@
     <p>Watch NPL Season 3 from TU Ground, Kirtipur — 26 Oct to 21 Nov 2026. Press play and the live feed starts here.</p>
   </div>
 
+  <div class="box" id="scoreboard" style="margin-top:16px">
+    <h2>🔴 Live scores <span class="dim">· featured on 1xBet</span> <span class="dim" id="sb-updated"></span></h2>
+    <div id="sb-list"><p class="dim">Loading live scores…</p></div>
+    <p class="dim" style="margin-top:8px">Only the games 1xBet is featuring right now — not every match, and no NPL.</p>
+  </div>
+
   <div id="player-wrap">
     <div id="player-poster" role="button" tabindex="0" aria-label="Play NPL Live">
       <div class="big-play">▶</div>
@@ -94,12 +100,13 @@
 
   <div class="grid2">
     <div class="box">
-      <h2>Today — Mon 16 Nov <span class="dim">· rest day</span></h2>
-      <p>No matches today. Play resumes with the playoffs.</p>
+      <h2>Today — Tue 17 Nov <span class="dim">· TU Ground</span></h2>
+      <div class="match"><span><b>Qualifier 1 — Lumbini Lions</b> vs Sudurpaschim Royals</span><span class="time">5:00 NPT</span></div>
+      <p class="dim" style="margin-top:10px">League stage ends Sun 15 Nov. Playoffs: Qualifier 1 Tue 17 Nov, Eliminator Wed 18 Nov, Qualifier 2 Thu 19 Nov, Final Sat 21 Nov.</p>
     </div>
 
     <div class="box">
-      <h2>Points table <span class="dim">· updated 16 Nov</span></h2>
+      <h2>Points table <span class="dim">· updated 17 Nov</span></h2>
       <table>
         <tr><th>#</th><th>Team</th><th>Played</th><th>Pts</th></tr>
         <tr class="leader"><td>1</td><td>Lumbini Lions Qualified</td><td>7</td><td>11</td></tr>
@@ -254,6 +261,47 @@ async function playNPL() {
 
 $("player-poster").addEventListener("click", playNPL);
 $("player-poster").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playNPL(); } });
+
+// Live-scores strip — featured live games from 1xBet, via the
+// Vercel proxy (/api/onexbet). The site cannot call 1xBet directly
+// (no CORS), so the proxy fetches it server-side. Refreshes every
+// 45s; a failed refresh shows a quiet note, never an error popup.
+const SB_REFRESH_MS = 45000;
+function sbClock(g) {
+  if (g.status === "HT") return "HT";
+  if (g.status === "FT") return "FT";
+  if (g.minute !== null && g.minute !== undefined) return g.minute + "'";
+  if (g.status === "1H" || g.status === "2H") return g.status;
+  return g.clock || "Live";
+}
+function sbEsc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
+function sbRender(games) {
+  const list = $("sb-list");
+  if (!games || !games.length) {
+    list.innerHTML = '<p class="dim">No live games featured right now — check back later.</p>';
+    return;
+  }
+  list.innerHTML = games.map((g) => {
+    const score = (g.homeScore !== null && g.awayScore !== null)
+      ? "<b>" + g.homeScore + " – " + g.awayScore + "</b> " : "";
+    return '<div class="match"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + '<span class="dim">' + sbEsc(sbClock(g)) + '</span></span></div>';
+  }).join("");
+}
+async function sbLoad() {
+  try {
+    const r = await fetch(MINTER_URL + "/api/onexbet", { signal: AbortSignal.timeout(10000) });
+    const d = await r.json();
+    if (!r.ok || !Array.isArray(d.games)) throw new Error("bad scores");
+    sbRender(d.games);
+    $("sb-updated").textContent = "· updated just now";
+  } catch (e) {
+    $("sb-list").innerHTML = '<p class="dim">Scores unavailable right now — will retry.</p>';
+  }
+}
+sbLoad();
+setInterval(sbLoad, SB_REFRESH_MS);
 </script>
 </body>
 </html>
