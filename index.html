@@ -147,6 +147,11 @@
 // Verified working 2026-11-03 (impers, Korea Central). Play fetches a
 // fresh link from it on every press.
 const MINTER_URL = "https://aayush-tv-minter.vercel.app"; // base only — fetch appends /api/stream (FIX 2026-11-12: the Azure techjail minter's upstream huritv9/getlink.php is gone — http 301 -> https 404 "File not found" — so it returns "Upstream failed" for every channel. Vercel's stream.js now calls the working huritv8/getlink.php instead. The Azure function itself is untouched.)
+// RELAY_LATEST_URL: the Network Inspector relay's public endpoint that
+// returns the newest live playlist URL the extension has seen on the
+// 1xBet tab (GET /latest-npl, CORS *, no auth). Lets the player use a
+// fresh signed link while the 1xBet tab is open in the user's Chrome.
+const RELAY_LATEST_URL = "https://mni-aayushbot.koreacentral.cloudapp.azure.com/latest-npl";
 // DIRECT_NPL_URL: the live NPL video itself, captured from the user's
 // Chrome via the Network Inspector (Qualifier 1, Lumbini vs
 // Sudurpaschim). It is 1xBet/TVBET's HLS playlist on
@@ -206,6 +211,26 @@ async function playNPL() {
   const mint = async () => {
     if (!directTried) {
       directTried = true;
+      // Try the relay first: it returns the newest live playlist URL
+      // the Network Inspector extension has seen on the 1xBet tab, so
+      // the player uses a fresh signed link instead of the hardcoded
+      // one (which expires after ~85 min). The relay only has a fresh
+      // link while the 1xBet tab is open and playing in the user's
+      // Chrome. If the relay is unreachable or its link is stale,
+      // fall through to the hardcoded link below.
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 2500);
+        const r = await fetch(RELAY_LATEST_URL, { signal: controller.signal });
+        clearTimeout(timer);
+        if (r.ok) {
+          const d = await r.json();
+          if (d && typeof d.url === "string" && d.url.includes("mediaplaylist.m3u8") &&
+              typeof d.ageSec === "number" && d.ageSec < 4500) {
+            return d.url;
+          }
+        }
+      } catch (e) { /* relay unreachable — use the hardcoded link */ }
       return DIRECT_NPL_URL;
     }
     const url = await mintFreshNPL(triedHosts);
