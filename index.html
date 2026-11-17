@@ -83,7 +83,7 @@
   </div>
 
   <div class="box" id="scoreboard" style="margin-top:16px">
-    <h2>🏏 NPL live scores <span class="dim" id="sb-updated"></span></h2>
+    <h2>Scoreboard <span class="dim" id="sb-updated"></span></h2>
     <div id="sb-list"><p class="dim">Loading live scores…</p></div>
     <p class="dim" style="margin-top:8px">Nepal Premier League — live scores from the NPL official site. Kickoff times are Nepal time.</p>
     <button id="sb-play-here" type="button" onclick="sbPlayHere()" style="display:none;margin-top:10px;margin-left:8px;padding:10px 18px;border:0;border-radius:999px;background:linear-gradient(135deg,#00a651,#00c853);color:#fff;font-weight:800;cursor:pointer">▶ Play here, no ads</button>
@@ -381,35 +381,43 @@ function sbClockHtml(g) {
   }
   return '<span class="dim">' + sbEsc(sbClock(g)) + '</span>';
 }
-function sbRender(games) {
+function sbMatchHtml(g) {
+  // Cricket: one side may not have batted yet (null), so show the
+  // score when either side has one, with – for the missing side.
+  const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
+  const side = (v) => (v !== null && v !== undefined ? v : "–");
+  const score = hasScore
+    ? "<b>" + sbEsc(side(g.homeScore)) + " – " + sbEsc(side(g.awayScore)) + "</b> " : "";
+  return '<div class="match"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + sbClockHtml(g) + '</span></div>';
+}
+function sbGroupHtml(title, games, emptyText) {
+  let html = '<p style="margin:12px 0 2px"><b>' + title + '</b></p>';
+  if (!games || !games.length) html += '<p class="dim">' + emptyText + '</p>';
+  else html += games.map(sbMatchHtml).join("");
+  return html;
+}
+function sbRender(npl, uefa) {
   const list = $("sb-list");
-  if (!games || !games.length) {
-    list.innerHTML = '<p class="dim">No NPL matches listed right now — check back later.</p>';
-    return;
-  }
-  list.innerHTML = games.map((g) => {
-    // Cricket: one side may not have batted yet (null), so show the
-    // score when either side has one, with – for the missing side.
-    const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
-    const side = (v) => (v !== null && v !== undefined ? v : "–");
-    const score = hasScore
-      ? "<b>" + sbEsc(side(g.homeScore)) + " – " + sbEsc(side(g.awayScore)) + "</b> " : "";
-    return '<div class="match"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + sbClockHtml(g) + '</span></div>';
-  }).join("");
+  list.innerHTML =
+    sbGroupHtml("🏏 Nepal Premier League", npl, "No NPL matches listed right now — check back later.") +
+    sbGroupHtml("⚽ UEFA", uefa, "No UEFA games live right now.");
 }
 async function sbLoad() {
   try {
-    const r = await fetch(MINTER_URL + "/api/onexbet", { signal: AbortSignal.timeout(10000) });
+    const r = await fetch(MINTER_URL + "/api/onexbet?mode=scoreboard", { signal: AbortSignal.timeout(10000) });
     const d = await r.json();
-    if (!r.ok || !Array.isArray(d.games)) throw new Error("bad scores");
-    sbRender(d.games);
-    d.games.forEach((g) => { if (g.timerSec !== null && g.timerSec !== undefined) sbTimers[g.id] = { sec: g.timerSec, at: Date.now() }; });
-    // Show the Watch button only while a match is live. It opens
+    if (!r.ok) throw new Error("bad scores");
+    const npl = d.npl || d.games || [];
+    const uefa = d.uefa || [];
+    if (!Array.isArray(npl) || !Array.isArray(uefa)) throw new Error("bad scores");
+    sbRender(npl, uefa);
+    npl.concat(uefa).forEach((g) => { if (g.timerSec !== null && g.timerSec !== undefined) sbTimers[g.id] = { sec: g.timerSec, at: Date.now() }; });
+    // Show the Watch button only while an NPL match is live. It opens
     // The green button plays the 1xBet stream right here, in the
     // site's own player, with no ads — it uses the direct link
     // captured from the 1xBet tab. (The red link-out button was
     // removed 17 Nov 2026 at the user's request.)
-    const live = d.games.some((g) => g.status === "live");
+    const live = npl.some((g) => g.status === "live");
     $("sb-play-here").style.display = live ? "inline-block" : "none";
     $("sb-updated").textContent = "· updated just now";
   } catch (e) {
