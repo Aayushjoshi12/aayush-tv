@@ -490,7 +490,7 @@ async function findTop() {
     const r = await fetch(FIND_URL + "?mode=featured", { signal: AbortSignal.timeout(10000) });
     const d = await r.json();
     if (!r.ok || !Array.isArray(d.games)) throw new Error("bad top");
-    const games = d.games.slice(0, 8);
+    const games = d.games.slice(0, 2);
     games.forEach(sbSyncTimer);
     body.innerHTML = '<p style="margin:12px 0 2px"><b>Top games</b></p>' +
       (games.length ? games.map(findRowHtml).join("") : '<p class="dim">No top games right now.</p>');
