@@ -121,13 +121,13 @@
 
   <div class="grid2">
     <div class="box">
-      <h2>Today — Wed 18 Nov <span class="dim">· TU Ground</span></h2>
-      <div class="match"><span><b>Eliminator — Kathmandu Gorkhas</b> vs Chitwan Rhinos</span><span class="time">5:00 NPT</span></div>
+      <h2>Today — Thu 19 Nov <span class="dim">· TU Ground</span></h2>
+      <div class="match"><span><b>Qualifier 2 — Sudurpaschim Royals</b> vs Chitwan Rhinos</span><span class="time">5:00 NPT</span></div>
       <p class="dim" style="margin-top:10px">League stage ends Sun 15 Nov. Playoffs: Qualifier 1 Tue 17 Nov, Eliminator Wed 18 Nov, Qualifier 2 Thu 19 Nov, Final Sat 21 Nov.</p>
     </div>
 
     <div class="box">
-      <h2>Points table <span class="dim">· updated 18 Nov</span></h2>
+      <h2>Points table <span class="dim">· updated 19 Nov</span></h2>
       <table>
         <tr><th>#</th><th>Team</th><th>Played</th><th>Pts</th></tr>
         <tr class="leader"><td>1</td><td>Lumbini Lions Qualified</td><td>7</td><td>11</td></tr>
@@ -524,6 +524,26 @@ function findShowDetail(g, searchedId) {
   rows.push(["Game ID", g.id + (g.constId ? " · " + g.constId : "") + (searchedId && searchedId !== g.id ? " · you searched " + searchedId : "")]);
   if (g.video) rows.push(["Video", "Live stream available"]);
   if (g.hasLineups) rows.push(["Line-ups", "Available"]);
+  const sc = g.cricket && g.cricket.scorecard;
+  const scHtml = sc ? (function () {
+    const row = (label, val) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span class="dim">' + label + '</span><span style="text-align:right">' + sbEsc(val) + '</span></div>';
+    let h = '<p style="margin:14px 0 2px"><b>🏏 At the crease</b></p>';
+    if (sc.striker && sc.striker.name) h += row("Striker", sc.striker.name + " " + sc.striker.runs + " (" + sc.striker.balls + ")" + (sc.striker.fours !== "" ? " · " + sc.striker.fours + "x4 " + sc.striker.sixes + "x6" : ""));
+    if (sc.nonStriker && sc.nonStriker.name) h += row("Non-striker", sc.nonStriker.name + " " + sc.nonStriker.runs + " (" + sc.nonStriker.balls + ")");
+    if (sc.bowler && sc.bowler.name) h += row("Bowler", sc.bowler.name + " " + sc.bowler.overs + "-" + sc.bowler.maidens + "-" + sc.bowler.runs + "-" + sc.bowler.wickets);
+    if (sc.partnership || sc.crr) h += row("Partnership", (sc.partnership || "–") + (sc.crr ? " · CRR " + sc.crr : ""));
+    if (sc.lastWicket && sc.lastWicket.name) h += row("Last wicket", sc.lastWicket.name + " " + sc.lastWicket.runs + (sc.lastWicket.dismissal ? " (" + sc.lastWicket.dismissal + ")" : "") + (sc.lastWicket.fow ? " · " + sc.lastWicket.fow + "/" + sc.lastWicket.over : ""));
+    if (sc.lastOver) h += row("Last over", sc.lastOver);
+    if (sc.batting && sc.batting.length) {
+      h += '<p style="margin:14px 0 2px"><b>Batting</b></p>' + sc.batting.map((b) =>
+        '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span><b>' + sbEsc(b.name) + (b.onStrike === true ? "*" : "") + '</b> ' + sbEsc(b.runs) + ' (' + sbEsc(b.balls) + ')</span><span class="dim" style="text-align:right">' + sbEsc(b.dismissal || "") + '</span></div>').join("");
+    }
+    if (sc.bowling && sc.bowling.length) {
+      h += '<p style="margin:14px 0 2px"><b>Bowling</b></p>' + sc.bowling.map((b) =>
+        '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span><b>' + sbEsc(b.name) + '</b> ' + sbEsc(b.overs) + '-' + sbEsc(b.maidens) + '-' + sbEsc(b.runs) + '-' + sbEsc(b.wickets) + '</span><span class="dim">Econ ' + sbEsc(b.econ) + '</span></div>').join("");
+    }
+    return h;
+  })() : "";
   $("find-body").innerHTML =
     '<p style="margin:12px 0 2px"><a href="#" onclick="findTop();return false;" style="color:#9aa1b2">← Top games</a></p>' +
     '<p class="dim" style="margin:4px 0">' + sbEsc(g.league) + '</p>' +
@@ -531,6 +551,7 @@ function findShowDetail(g, searchedId) {
     score +
     '<p style="margin:4px 0">' + sbClockHtml(g) + '</p>' +
     rows.map((r) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span class="dim">' + r[0] + '</span><span style="text-align:right">' + sbEsc(r[1]) + '</span></div>').join("") +
+    scHtml +
     ((g.stats && g.stats.length)
       ? '<p style="margin:14px 0 2px"><b>Match stats</b></p>' +
         g.stats.map((st) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span><b>' + sbEsc(st.home) + '</b></span><span class="dim">' + sbEsc(st.name) + '</span><span><b>' + sbEsc(st.away) + '</b></span></div>').join("")
