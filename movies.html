@@ -640,10 +640,13 @@ const WATCH_SOURCES = [
   // script, seeking works. Falls back to the next source by
   // itself when the title has no copy or Direct fails.
   { id: "direct", label: "Server 1", native: true },
-  // NetMirror (native <video>): HLS via hls.js when net52
-  // answers, otherwise the direct MP4 fallback. Falls back to
-  // the next source by itself when the title has no copy.
-  { id: "netmirror", label: "Server 2", native: true, nm: true },
+  // Skyflix's Nexus server (nxsha.space embed): the default player
+  // on skyflix.me, confirmed playing Inception in the user's
+  // Chrome 21 Nov 2026. Same iframe pattern as EmbedWave/VidRift.
+  // Server 2 since 21 Nov 2026 (was Server 5): it plays, so it
+  // sits ahead of the embeds; NetMirror moved to last because
+  // its CDN is throttling (STOP slate + 429 since 17 Nov 2026).
+  { id: "skyflix", label: "Server 2", base: "https://nxsha.space/embed", suffix: "?lang=en&autoplay=true&sub=en" },
   // EmbedWave: ?nobrand=1 hides its "▶ EmbedWave" badge button
   // (the embed page only renders the badge when nobrand is not
   // "1" — 17 Nov 2026). The player's own control bar (progress,
@@ -652,10 +655,11 @@ const WATCH_SOURCES = [
   // mouse is still.
   { id: "embedwave", label: "Server 3", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc&nobrand=1" },
   { id: "vidrift", label: "Server 4", base: "https://embed.vidrift.net/embed" },
-  // Skyflix's Nexus server (nxsha.space embed): the default player
-  // on skyflix.me, confirmed playing Inception in the user's
-  // Chrome 21 Nov 2026. Same iframe pattern as EmbedWave/VidRift.
-  { id: "skyflix", label: "Server 5", base: "https://nxsha.space/embed", suffix: "?lang=en&autoplay=true&sub=en" },
+  // NetMirror (native <video>): HLS via hls.js when net52
+  // answers, otherwise the direct MP4 fallback. Falls back to
+  // the next source by itself when the title has no copy.
+  // Last since 21 Nov 2026 (was Server 2): its CDN is throttling.
+  { id: "netmirror", label: "Server 5", native: true, nm: true },
 ];
 let currentWatchTmdb = null;
 let currentWatchSource = "direct";
@@ -869,8 +873,70 @@ function watchSourceUrl(sourceId, tmdb) {
   return path + (s.suffix || "");
 }
 
-// Builds the player with a source switcher (Direct / NetMirror /
-// EmbedWave / VidRift / Skyflix). Direct is a native <video> fed by hls.js from the
+// Parallel source probes (21 Nov 2026): when a Watch opens, every
+// source starts loading at once instead of one after another, so
+// reaching Server 3 no longer waits on the Direct + NetMirror
+// checks in turn. Probes are keyed by title+season+episode and
+// restart when the episode changes; renderers consume a probe
+// when one exists and fetch normally when it does not, so a
+// manual server tap still works with no probes running.
+// - direct: the ?watch= manifest/JSON fetch (the same URL Direct
+//   plays). Started at open; Direct renders from it when ready.
+// - nm: the NetMirror ?play= answer (needs the nm id; reuses the
+//   prefetched id when there is one). NetMirror is last now, so
+//   its answer is usually already in by the time it is tried.
+// - embeds: a no-cors fetch of each embed page URL. It resolves
+//   when the host answers at all and rejects only on a network
+//   failure, so a dead embed host is skipped at once instead of
+//   showing a black iframe. The result lands in watchEmbedAlive
+//   (true/false; undefined = still unknown) — the iframe branch
+//   never waits on a probe, it only skips a known-dead host.
+let watchProbes = null; // {key, direct: Promise, nm: Promise, embeds: {id: Promise}}
+let watchEmbedAlive = {}; // id -> true/false once its probe settles
+function watchProbeKey(tmdb) {
+  return "watch-probe|" + tmdb + "|" + (currentIsSeries ? "tv" : "movie") + "|S" + currentWatchSeason + "E" + currentWatchEpisode;
+}
+function startWatchProbes(tmdb) {
+  const key = watchProbeKey(tmdb);
+  if (watchProbes && watchProbes.key === key) return watchProbes;
+  const type = currentIsSeries ? "tv" : "movie";
+  const hevcOk = !!(
+    window.MediaSource &&
+    MediaSource.isTypeSupported('video/mp4; codecs="hvc1.1.6.L120.90"')
+  );
+  const directUrl = MOVIE_RESOLVER + "?watch=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode + "&hevc=" + (hevcOk ? "1" : "0");
+  const direct = fetch(directUrl).then((r) => r.text()).catch(() => "");
+  const nm = (async () => {
+    let id = null;
+    try {
+      const nmKey = nmCacheKey(baseTitle(currentTitle), currentYear, currentIsSeries, currentWatchSeason, currentWatchEpisode);
+      if (watchNmPrefetch && watchNmPrefetch.key === nmKey) {
+        id = await watchNmPrefetch.promise;
+      } else {
+        id = await resolveNetMirrorId(currentTitle, currentYear, currentIsSeries, currentWatchSeason, currentWatchEpisode);
+      }
+    } catch { id = null; }
+    if (!id) return null;
+    try {
+      return await getJSON(MOVIE_RESOLVER + "?play=" + encodeURIComponent(id) +
+        "&title=" + encodeURIComponent(baseTitle(currentTitle)) +
+        "&year=" + encodeURIComponent(currentYear || ""));
+    } catch { return null; }
+  })();
+  const embeds = {};
+  watchEmbedAlive = {};
+  WATCH_SOURCES.forEach((s) => {
+    if (!s.base) return;
+    const url = watchSourceUrl(s.id, tmdb);
+    embeds[s.id] = fetch(url, { mode: "no-cors" }).then(() => true).catch(() => false);
+    embeds[s.id].then((v) => { watchEmbedAlive[s.id] = v; });
+  });
+  watchProbes = { key, direct, nm, embeds };
+  return watchProbes;
+}
+
+// Builds the player with a source switcher (Direct / Skyflix /
+// EmbedWave / VidRift / NetMirror). Direct is a native <video> fed by hls.js from the
 // resolver (?watch=); the other two are iframes. If Direct has no
 // copy or fails to load, the player moves to the next source by
 // itself so the user never sees a dead player.
@@ -939,6 +1005,11 @@ function renderWatchPlayer() {
   const wrap = $("watch-wrap");
   const tmdb = currentWatchTmdb;
   if (!tmdb) return;
+  // Start every source's probe at once (see startWatchProbes):
+  // a fresh open loads them in parallel, a re-render reuses the
+  // probes for this title+episode, and an episode change restarts
+  // them because the URLs changed.
+  startWatchProbes(tmdb);
   // Stop any previous native player before re-rendering.
   if (watchHls) { watchHls.destroy(); watchHls = null; }
   if (watchBlobUrl) { URL.revokeObjectURL(watchBlobUrl); watchBlobUrl = null; }
@@ -962,6 +1033,11 @@ function renderWatchPlayer() {
     renderNetMirrorPlayer(wrap);
   } else if (src.native) {
     renderDirectPlayer(wrap, tmdb);
+  } else if (watchEmbedAlive[currentWatchSource] === false) {
+    // This embed's host already failed its probe: skip it at
+    // once instead of showing a black iframe.
+    watchFallback();
+    return;
   } else {
     const f = document.createElement("iframe");
     f.src = watchSourceUrl(currentWatchSource, tmdb);
@@ -974,8 +1050,8 @@ function renderWatchPlayer() {
   wrap.classList.add("show");
 }
 
-// Move to the next source not yet tried (Direct -> NetMirror ->
-// EmbedWave -> VidRift -> Skyflix). Called whenever a source has no copy or
+// Move to the next source not yet tried (Direct -> Skyflix ->
+// EmbedWave -> VidRift -> NetMirror). Called whenever a source has no copy or
 // its player errors fatally. Stops once every source has been
 // tried, so a dead title ends on the last source instead of
 // looping forever. (Before this fix it advanced only ONCE per
@@ -1017,10 +1093,17 @@ async function renderDirectPlayer(wrap, tmdb) {
   );
   const url = MOVIE_RESOLVER + "?watch=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode + "&hevc=" + (hevcOk ? "1" : "0");
   let text = "";
-  try {
-    const r = await fetch(url);
-    text = await r.text();
-  } catch { text = ""; }
+  // The parallel probe (started at Watch open) already fetched
+  // this URL: use its answer instead of fetching twice.
+  const probes = watchProbes && watchProbes.key === watchProbeKey(tmdb) ? watchProbes : null;
+  if (probes) {
+    text = await probes.direct;
+  } else {
+    try {
+      const r = await fetch(url);
+      text = await r.text();
+    } catch { text = ""; }
+  }
   if (!text.startsWith("#EXTM3U")) {
     // The resolver could not fetch Titan itself (VidRift now
     // bot-checks servers) and handed back the Titan link for
@@ -1148,24 +1231,32 @@ async function renderNetMirrorPlayer(wrap) {
   // Show that NetMirror is being looked up, so the player area
   // is never a blank black box while the resolver works through
   // its chain (net52 -> LokLok -> Astro can take seconds).
-  const loading = el("div", "watch-note", "Loading Server 2…");
+  const loading = el("div", "watch-note", "Loading Server 5…");
   wrap.appendChild(loading);
   let id = null;
-  try {
-    const nmKey = nmCacheKey(baseTitle(title), year, currentIsSeries, currentWatchSeason, currentWatchEpisode);
-    if (watchNmPrefetch && watchNmPrefetch.key === nmKey) {
-      id = await watchNmPrefetch.promise;
-    } else {
-      id = await resolveNetMirrorId(title, year, currentIsSeries, currentWatchSeason, currentWatchEpisode);
-    }
-  } catch { id = null; }
-  if (!id) { watchFallback(); return; }
   let d = null;
-  try {
-    d = await getJSON(MOVIE_RESOLVER + "?play=" + encodeURIComponent(id) +
-      "&title=" + encodeURIComponent(baseTitle(title)) +
-      "&year=" + encodeURIComponent(year || ""));
-  } catch { d = null; }
+  // The parallel probe (started at Watch open) already resolved
+  // the id and fetched ?play=: use its answer instead of doing
+  // the slow chain again. Without a probe, resolve + fetch here.
+  const probes = watchProbes && watchProbes.key === watchProbeKey(currentWatchTmdb) ? watchProbes : null;
+  if (probes) {
+    d = await probes.nm;
+  } else {
+    try {
+      const nmKey = nmCacheKey(baseTitle(title), year, currentIsSeries, currentWatchSeason, currentWatchEpisode);
+      if (watchNmPrefetch && watchNmPrefetch.key === nmKey) {
+        id = await watchNmPrefetch.promise;
+      } else {
+        id = await resolveNetMirrorId(title, year, currentIsSeries, currentWatchSeason, currentWatchEpisode);
+      }
+    } catch { id = null; }
+    if (!id) { watchFallback(); return; }
+    try {
+      d = await getJSON(MOVIE_RESOLVER + "?play=" + encodeURIComponent(id) +
+        "&title=" + encodeURIComponent(baseTitle(title)) +
+        "&year=" + encodeURIComponent(year || ""));
+    } catch { d = null; }
+  }
   if (!d || d.noSource || d.error) { watchFallback(); return; }
   if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
   const video = document.createElement("video");
