@@ -649,13 +649,15 @@ const WATCH_SOURCES = [
   // script, seeking works. Falls back to the next source by
   // itself when the title has no copy or Direct fails.
   { id: "direct", label: "Server 1", native: true },
-  // Skyflix's Nexus server (nxsha.space embed): the default player
-  // on skyflix.me, confirmed playing Inception in the user's
-  // Chrome 21 Nov 2026. Same iframe pattern as EmbedWave/VidRift.
-  // Server 2 since 21 Nov 2026 (was Server 5): it plays, so it
-  // sits ahead of the embeds; NetMirror moved to last because
-  // its CDN is throttling (STOP slate + 429 since 17 Nov 2026).
-  { id: "skyflix", label: "Server 2", base: "https://nxsha.space/embed", suffix: "?lang=en&autoplay=true&sub=en" },
+  // Skyflix's Nexus server (nxsha.space): since 21 Nov 2026 the
+  // resolver (?nexus=) calls Nexus's own API server-side and hands
+  // this page a DIRECT stream — no iframe embed, so no clickunder
+  // ad tabs and no robot-check overlay. Same native playback as
+  // Direct (Server 1). Server 2 since 21 Nov 2026 (was Server 5):
+  // it plays, so it sits ahead of the embeds; NetMirror moved to
+  // last because its CDN is throttling (STOP slate + 429 since
+  // 17 Nov 2026).
+  { id: "skyflix", label: "Server 2", native: true, nx: true },
   // EmbedWave: ?nobrand=1 hides its "▶ EmbedWave" badge button
   // (the embed page only renders the badge when nobrand is not
   // "1" — 17 Nov 2026). The player's own control bar (progress,
@@ -1095,6 +1097,8 @@ function renderWatchPlayer() {
   const src = WATCH_SOURCES.find((x) => x.id === currentWatchSource) || WATCH_SOURCES[0];
   if (src.nm) {
     renderNetMirrorPlayer(wrap);
+  } else if (src.nx) {
+    renderNexusPlayer(wrap, tmdb);
   } else if (src.native) {
     renderDirectPlayer(wrap, tmdb);
   } else if (watchEmbedAlive[currentWatchSource] === false && !manualPick) {
@@ -1278,6 +1282,72 @@ async function resolveNetMirrorId(title, year, isSeries, season, episode) {
   if (!want || !want.id) return null;
   nmCacheSet(key, want.id);
   return want.id;
+}
+
+// Nexus player: fetch the direct stream from the resolver
+// (?nexus= answers with the rewritten master manifest, or
+// {url, kind:"mp4"} for a direct file, or {noSource:true} when
+// no provider has a copy), then play it natively like Direct —
+// no iframe, no ads. Same 20s watchdog + fallback as Direct.
+async function renderNexusPlayer(wrap, tmdb) {
+  const type = currentIsSeries ? "tv" : "movie";
+  const loading = el("div", "watch-note", "Loading Server 2…");
+  wrap.appendChild(loading);
+  const url = MOVIE_RESOLVER + "?nexus=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode;
+  let text = "";
+  try {
+    const r = await fetch(url);
+    text = await r.text();
+  } catch { text = ""; }
+  let mp4Url = "";
+  if (!text.startsWith("#EXTM3U")) {
+    try {
+      const d = JSON.parse(text);
+      if (d && d.kind === "mp4" && d.url) mp4Url = d.url;
+    } catch { /* not JSON: fall through to the fallback below */ }
+  }
+  if (!text.startsWith("#EXTM3U") && !mp4Url) { watchFallback(); return; }
+  if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+  const video = document.createElement("video");
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+  video.muted = true; // muted autoplay is allowed; tap the speaker for sound
+  video.title = "Watch " + currentTitle;
+  wrap.appendChild(video);
+  // Watchdog: if the video has not started playing within 20s,
+  // fall back to the next source instead of buffering forever.
+  // Cleared on first 'playing' and whenever the player is
+  // re-rendered.
+  watchWatchdog = setTimeout(() => { watchFallback(); }, 20000);
+  video.addEventListener("playing", () => {
+    if (watchWatchdog) { clearTimeout(watchWatchdog); watchWatchdog = null; }
+  }, { once: true });
+  if (mp4Url) {
+    video.src = mp4Url;
+    video.addEventListener("error", () => watchFallback(), { once: true });
+    video.play().catch(() => {});
+    return;
+  }
+  watchBlobUrl = URL.createObjectURL(
+    new Blob([text], { type: "application/vnd.apple.mpegurl" })
+  );
+  if (window.Hls && Hls.isSupported()) {
+    watchHls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
+    watchHls.loadSource(watchBlobUrl);
+    watchHls.attachMedia(video);
+    watchHls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+    watchHls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) return;
+      watchFallback();
+    });
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = watchBlobUrl;
+    video.addEventListener("error", () => watchFallback(), { once: true });
+    video.play().catch(() => {});
+  } else {
+    watchFallback();
+  }
 }
 
 // NetMirror player: ask the resolver for the play answer
