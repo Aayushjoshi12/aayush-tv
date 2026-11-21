@@ -57,6 +57,11 @@
   @keyframes race-spin { to { transform: rotate(360deg); } }
   #watch-wrap .race-fail { color: #f87171; }
   #watch-wrap .race-ok { color: #22c55e; }
+  /* Embed rows in the race list: … = probe still checking,
+     ✓ (plain, not green) = the host has a copy. Only a native
+     winner gets the green ✓, which means "playing". */
+  #watch-wrap .race-wait { color: #9aa1b2; }
+  #watch-wrap .race-ready { color: #c6cddc; }
   #watch-wrap .watch-srcs { display: flex; gap: 8px; margin-bottom: 10px; }
 .watch-eps { display: flex; gap: 8px; margin-bottom: 10px; }
 .watch-eps select { padding: 7px 10px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; max-width: 100%; }
@@ -1320,13 +1325,20 @@ async function raceNativePlayers(wrap, tmdb) {
   list.appendChild(el("div", "race-title", "Fetching Media"));
   list.appendChild(el("div", "race-sub", "Trying streaming servers…"));
   const rows = {};
-  RACE_SOURCES.forEach((id) => {
+  // One row per server (all 8), in switcher order. The 3 natives
+  // show the live race (spinner -> ✕/✓); the 5 embeds show what
+  // the parallel probes already know (✕ = no copy, ✓ = has a
+  // copy, … = still checking) — they cannot race for playback
+  // because an iframe cannot say whether its video is playing,
+  // so they still load one by one after the race.
+  WATCH_SOURCES.forEach((s) => {
     const row = el("div", "race-row");
-    const st = el("span", "race-st race-trying", "");
+    const isNative = RACE_SOURCES.includes(s.id);
+    const st = el("span", "race-st " + (isNative ? "race-trying" : "race-wait"), isNative ? "" : "…");
     row.appendChild(st);
-    row.appendChild(el("span", "race-name", raceLabel(id)));
+    row.appendChild(el("span", "race-name", raceLabel(s.id)));
     list.appendChild(row);
-    rows[id] = st;
+    rows[s.id] = st;
   });
   wrap.appendChild(list);
   const setRow = (id, cls, mark) => {
@@ -1410,6 +1422,20 @@ async function raceNativePlayers(wrap, tmdb) {
   // nobody is playing by then, the natives have all stalled —
   // fall through to the embeds.
   const timer = setTimeout(() => { if (alive() && !winner) loseAll(); }, 20000);
+
+  // Embed probe answers land as they settle: mark each embed
+  // ✕ (no copy) or ✓ (has a copy) while the race is still
+  // running. A ✓ here means the host has the title, not that it
+  // is playing — only a native winner gets the green ✓.
+  WATCH_SOURCES.forEach((s) => {
+    if (!s.base) return;
+    const p = watchProbes && watchProbes.embeds && watchProbes.embeds[s.id];
+    if (!p) return;
+    p.then((v) => {
+      if (!alive() || winner) return;
+      setRow(s.id, v ? "race-ready" : "race-fail", v ? "✓" : "✕");
+    });
+  });
 
   RACE_SOURCES.forEach((id) => {
     (async () => {
