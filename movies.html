@@ -382,6 +382,7 @@ let downloadPrefetch = null; // {key, promise}
 let currentIsSeries = false;
 let currentWatchSeason = 1; // Watch episode picker (series only)
 let watchStartSeason = 0; // Featured-card jump (e.g. Dhindora 2): open Watch at this season
+let lastWatchTitleKey = ""; // Watch only resets season/episode when the title changes (see watchTitle)
 let currentWatchEpisode = 1;
 let currentWatchMeta = null; // Cinemeta meta for the Watch title (videos = episode list)
 let currentWatchMetaTitle = "";
@@ -855,9 +856,17 @@ async function watchTitle() {
     return;
   }
   currentWatchTmdb = tmdb;
-  currentWatchSeason = watchStartSeason || 1;
+  // Only reset season/episode when the title changes: re-tapping
+  // Watch after picking Season 2 (21 Nov 2026) used to reset the
+  // picker to Season 1. A featured card still jumps to its season
+  // via watchStartSeason on the first open of that title.
+  const titleKey = title + "|" + (currentYear || "") + "|" + (currentIsSeries ? "tv" : "movie");
+  if (titleKey !== lastWatchTitleKey) {
+    lastWatchTitleKey = titleKey;
+    currentWatchSeason = watchStartSeason || 1;
+    currentWatchEpisode = 1;
+  }
   watchStartSeason = 0;
-  currentWatchEpisode = 1;
   // Series: the episode picker needs the Cinemeta episode list.
   // Usually stashed already by resolveTmdbId (same promise the
   // prefetch started); if the TMDB id came from cache, the meta
@@ -941,14 +950,18 @@ function startWatchProbes(tmdb) {
     // see the status, so a 404 embed page (Nexus has no copy of
     // Dhindora, S1 or S2) looked "alive" and the player sat on its
     // 404 page instead of falling back. Ask the resolver, which
-    // fetches the page server-side and reports the real status;
-    // a 404 marks the host dead so the player skips it. If the
-    // check itself gives no status, fall back to the old no-cors
-    // reachability check.
+    // fetches the page server-side and reports the real status.
+    // 404 = the host has no copy of this title: dead, skip it.
+    // 200 = the page is really there: alive. Anything else (403 =
+    // the host blocks datacentre IPs, so Vercel can't tell; 0 =
+    // the check itself failed) is unknown — check reachability
+    // from this browser instead, so a host the browser CAN load
+    // (VidRift) is not skipped on Vercel's say-so.
     embeds[s.id] = getJSON(MOVIE_RESOLVER + "?embedcheck=" + encodeURIComponent(url))
       .then((d) => {
-        if (d && typeof d.status === "number" && d.status > 0) return d.status < 400;
-        throw new Error("no status");
+        if (d && d.status === 404) return false;
+        if (d && d.status === 200) return true;
+        throw new Error("unknown status");
       })
       .catch(() => fetch(url, { mode: "no-cors" }).then(() => true).catch(() => false));
     embeds[s.id].then((v) => { watchEmbedAlive[s.id] = v; });
@@ -965,6 +978,7 @@ function startWatchProbes(tmdb) {
 let watchHls = null;
 let watchBlobUrl = null;
 let watchTriedSources = new Set(); // sources auto-fallback already tried in this Watch open
+let watchManualPick = false; // a server-button tap means "show me this server", even if its probe said dead
 let watchWatchdog = null;
 // Series episode picker: seasons + episodes from the Cinemeta
 // meta (videos[]), stashed by resolveTmdbId. Shown above the
@@ -1040,6 +1054,11 @@ function renderWatchPlayer() {
   // probes for this title+episode, and an episode change restarts
   // them because the URLs changed.
   startWatchProbes(tmdb);
+  // A manual server tap is consumed here: it bypasses the dead-host
+  // skip below, so the tapped server renders even if its probe
+  // said dead. Auto-fallback renders are not manual picks.
+  const manualPick = watchManualPick;
+  watchManualPick = false;
   // Stop any previous native player before re-rendering.
   if (watchHls) { watchHls.destroy(); watchHls = null; }
   if (watchBlobUrl) { URL.revokeObjectURL(watchBlobUrl); watchBlobUrl = null; }
@@ -1052,6 +1071,7 @@ function renderWatchPlayer() {
     b.addEventListener("click", () => {
       currentWatchSource = s.id;
       watchTriedSources = new Set();
+      watchManualPick = true;
       renderWatchPlayer();
     });
     row.appendChild(b);
@@ -1063,9 +1083,10 @@ function renderWatchPlayer() {
     renderNetMirrorPlayer(wrap);
   } else if (src.native) {
     renderDirectPlayer(wrap, tmdb);
-  } else if (watchEmbedAlive[currentWatchSource] === false) {
+  } else if (watchEmbedAlive[currentWatchSource] === false && !manualPick) {
     // This embed's host already failed its probe: skip it at
-    // once instead of showing a black iframe.
+    // once instead of showing a black iframe. (A manual tap
+    // bypasses this — the user asked for that server.)
     watchFallback();
     return;
   } else {
