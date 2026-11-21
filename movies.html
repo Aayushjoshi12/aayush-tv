@@ -45,6 +45,18 @@
   #watch-wrap iframe { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
   #watch-wrap video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
   #watch-wrap .watch-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; }
+  /* Parallel race status list (21 Nov 2026): the "Fetching Media /
+     Trying streaming servers..." panel the 3 native servers race
+     behind, one row per server with a live spinner / ✕ / ✓. */
+  #watch-wrap .race-list { background: #171b28; border: 1px solid #2b3348; border-radius: 12px; padding: 18px 20px; }
+  #watch-wrap .race-title { font-size: 17px; font-weight: 800; color: #e6ebf5; text-align: center; }
+  #watch-wrap .race-sub { font-size: 13px; color: #9aa1b2; text-align: center; margin: 4px 0 12px; }
+  #watch-wrap .race-row { display: flex; align-items: center; gap: 10px; padding: 7px 4px; font-size: 14px; color: #c6cddc; }
+  #watch-wrap .race-st { width: 18px; text-align: center; font-weight: 800; }
+  #watch-wrap .race-trying { display: inline-block; width: 13px; height: 13px; border: 2px solid #2b3348; border-top-color: #c6cddc; border-radius: 50%; animation: race-spin 0.8s linear infinite; }
+  @keyframes race-spin { to { transform: rotate(360deg); } }
+  #watch-wrap .race-fail { color: #f87171; }
+  #watch-wrap .race-ok { color: #22c55e; }
   #watch-wrap .watch-srcs { display: flex; gap: 8px; margin-bottom: 10px; }
 .watch-eps { display: flex; gap: 8px; margin-bottom: 10px; }
 .watch-eps select { padding: 7px 10px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; max-width: 100%; }
@@ -112,7 +124,7 @@
   <div class="head-inner">
     <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
     <nav class="main-nav">
-      <a href="index.html">🏠 Home</a>
+      <a href="index.html">🏏 NPL Live</a>
       <a href="channels.html">📺 Channels</a>
       <a href="movies.html" class="active">🎬 Movies</a>
       <a href="biggboss.html">🏠 Bigg Boss</a>
@@ -150,7 +162,7 @@
 <footer>
   <div class="foot-inner">
     <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
-    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
+    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
     <div class="made-by"><div class="mini-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div><span>Made by <b>Aayush Joshi</b></span></div>
     <div>© 2026 Aayush TV</div>
   </div>
@@ -550,6 +562,7 @@ function openMoviesMod(item) {
   watchBtn.disabled = false;
   watchBtn.textContent = "▶ Watch";
   watchBtn.onclick = watchTitle;
+  stopWatchPlayer();
   $("watch-wrap").classList.remove("show");
   $("watch-wrap").innerHTML = "";
   $("dl-note").classList.remove("show");
@@ -1001,6 +1014,29 @@ let watchBlobUrl = null;
 let watchTriedSources = new Set(); // sources auto-fallback already tried in this Watch open
 let watchManualPick = false; // a server-button tap means "show me this server", even if its probe said dead
 let watchWatchdog = null;
+// Parallel race (21 Nov 2026): raceGen is bumped on every
+// re-render so a stale race's async steps abort; raceCleanupFn
+// destroys the current race's hidden players, if any.
+let raceGen = 0;
+let raceCleanupFn = null;
+function abortRace() {
+  raceGen++;
+  if (raceCleanupFn) {
+    const f = raceCleanupFn;
+    raceCleanupFn = null;
+    try { f(); } catch { /* already gone */ }
+  }
+}
+// Stop the current native player (and any race in flight) before
+// the player area is re-rendered or cleared for another title —
+// otherwise a removed <video> keeps playing audio and a stale
+// watchdog / race can re-render the old title's player.
+function stopWatchPlayer() {
+  if (watchHls) { watchHls.destroy(); watchHls = null; }
+  if (watchBlobUrl) { URL.revokeObjectURL(watchBlobUrl); watchBlobUrl = null; }
+  if (watchWatchdog) { clearTimeout(watchWatchdog); watchWatchdog = null; }
+  abortRace();
+}
 // Series episode picker: seasons + episodes from the Cinemeta
 // meta (videos[]), stashed by resolveTmdbId. Shown above the
 // player for series only, and only when the show has more than
@@ -1081,9 +1117,7 @@ function renderWatchPlayer() {
   const manualPick = watchManualPick;
   watchManualPick = false;
   // Stop any previous native player before re-rendering.
-  if (watchHls) { watchHls.destroy(); watchHls = null; }
-  if (watchBlobUrl) { URL.revokeObjectURL(watchBlobUrl); watchBlobUrl = null; }
-  if (watchWatchdog) { clearTimeout(watchWatchdog); watchWatchdog = null; }
+  stopWatchPlayer();
   wrap.innerHTML = "";
   const row = el("div", "watch-srcs");
   WATCH_SOURCES.forEach((s) => {
@@ -1100,6 +1134,15 @@ function renderWatchPlayer() {
   wrap.appendChild(row);
   renderWatchEpisodePicker(wrap);
   const src = WATCH_SOURCES.find((x) => x.id === currentWatchSource) || WATCH_SOURCES[0];
+  if (!manualPick && src.id === "direct" && watchTriedSources.size === 0) {
+    // Fresh Watch open: race the 3 native servers in parallel
+    // instead of trying them one by one (see raceNativePlayers).
+    // The race shows the status list and renders the winner
+    // itself, so nothing else is appended here.
+    raceNativePlayers(wrap, tmdb);
+    wrap.classList.add("show");
+    return;
+  }
   if (src.nm) {
     renderNetMirrorPlayer(wrap);
   } else if (src.nx) {
@@ -1144,6 +1187,281 @@ function watchFallback() {
   }
   // Every source tried: stay on the last one. The note under the
   // player already points the user to Download instead.
+}
+
+// ---------- Parallel race of the 3 native servers ----------
+// 21 Nov 2026: the user asked for all stream servers to run at
+// once, like the "Fetching Media / Trying streaming servers..."
+// screen he showed (Nebula / Light / Lisbon / Wave, each with a
+// live ✕ or spinner). On a fresh Watch open the 3 native servers
+// (Direct, Server 2 Nexus, Server 8 NetMirror) now start playing
+// in parallel, hidden, and the first video that actually starts
+// playing wins and is shown; the losers are stopped at once.
+// The 5 embeds (Servers 3–7) CANNOT race: a cross-origin iframe
+// cannot tell this page whether its video is playing or just a
+// black frame, so they still load one by one after the race, as
+// before. The race reuses the parallel probes started at Watch
+// open (same answers the single-player renderers use), so it adds
+// no extra resolver calls except Nexus's own ?nexus= fetch, which
+// is not probed. If the race has a bug, the worst case is it
+// loses and the normal sequential fallback takes over — the old
+// renderers below are untouched.
+const RACE_SOURCES = ["direct", "skyflix", "netmirror"];
+function raceLabel(id) {
+  const s = WATCH_SOURCES.find((x) => x.id === id);
+  return s ? s.label : id;
+}
+
+// Resolve one native source to a playable answer:
+// {kind:"hls", text, tracks?} or {kind:"mp4", url, tracks?}.
+// Same resolution logic as renderDirectPlayer / renderNexusPlayer /
+// renderNetMirrorPlayer, just returning the answer instead of
+// playing it. Returns null when the source has no copy.
+async function raceResolve(id, tmdb, gen) {
+  const type = currentIsSeries ? "tv" : "movie";
+  const probes = watchProbes && watchProbes.key === watchProbeKey(tmdb) ? watchProbes : null;
+  const stale = () => gen !== raceGen;
+  if (id === "direct") {
+    let text = "";
+    if (probes) {
+      text = await probes.direct;
+    } else {
+      try {
+        const r = await fetch(MOVIE_RESOLVER + "?watch=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode);
+        text = await r.text();
+      } catch { text = ""; }
+    }
+    if (stale()) return null;
+    if (!text.startsWith("#EXTM3U")) {
+      // Same Titan handoff as renderDirectPlayer: the resolver
+      // hands back the Titan link for this browser to try.
+      try {
+        const d = JSON.parse(text);
+        const turl = d && d.titanUrl;
+        if (turl) {
+          const tj = await (await fetch(turl)).json();
+          const ss = (tj && tj.streams) || [];
+          const surl = (ss[0] && ss[0].url) || "";
+          if (surl) {
+            const mt = await (await fetch(surl)).text();
+            if (mt.startsWith("#EXTM3U")) text = mt;
+          }
+        }
+      } catch { /* fall through to null below */ }
+    }
+    if (stale()) return null;
+    return text.startsWith("#EXTM3U") ? { kind: "hls", text } : null;
+  }
+  if (id === "skyflix") {
+    let text = "";
+    try {
+      const r = await fetch(NEXUS_RESOLVER + "/nexus?tmdb=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode);
+      text = await r.text();
+    } catch { text = ""; }
+    if (stale()) return null;
+    if (text.startsWith("#EXTM3U")) return { kind: "hls", text };
+    try {
+      const d = JSON.parse(text);
+      if (d && d.kind === "mp4" && d.url) return { kind: "mp4", url: d.url };
+    } catch { /* not JSON: no copy */ }
+    return null;
+  }
+  // NetMirror: same ?play= answer renderNetMirrorPlayer uses.
+  let d = null;
+  if (probes) {
+    d = await probes.nm;
+  } else {
+    try {
+      const nmKey = nmCacheKey(baseTitle(currentTitle), currentYear, currentIsSeries, currentWatchSeason, currentWatchEpisode);
+      let nid = null;
+      if (watchNmPrefetch && watchNmPrefetch.key === nmKey) {
+        nid = await watchNmPrefetch.promise;
+      } else {
+        nid = await resolveNetMirrorId(currentTitle, currentYear, currentIsSeries, currentWatchSeason, currentWatchEpisode);
+      }
+      if (nid) {
+        d = await getJSON(MOVIE_RESOLVER + "?play=" + encodeURIComponent(nid) +
+          "&title=" + encodeURIComponent(baseTitle(currentTitle)) +
+          "&year=" + encodeURIComponent(currentYear || ""));
+      }
+    } catch { d = null; }
+  }
+  if (stale()) return null;
+  if (!d || d.noSource || d.error) return null;
+  if (d.kind === "hls" && d.manifestUrl) {
+    let text = "";
+    try { text = await (await fetch(d.manifestUrl)).text(); } catch { text = ""; }
+    if (stale()) return null;
+    return text.startsWith("#EXTM3U") ? { kind: "hls", text, tracks: d.tracks } : null;
+  }
+  if (d.kind === "mp4" && Array.isArray(d.streams) && d.streams.length) {
+    const best = d.streams.slice().sort((a, b) => (b.resolution || 0) - (a.resolution || 0))[0];
+    if (!best || !best.url) return null;
+    // Same 1-byte Range check as renderNetMirrorPlayer: the MP4
+    // host 429s when busy, and a <video> fed a 429 page just
+    // sits black until the watchdog.
+    let ok = false;
+    try {
+      const pr = await fetch(best.url, { headers: { Range: "bytes=0-0" } });
+      ok = pr.ok || pr.status === 206;
+    } catch { ok = false; }
+    if (stale()) return null;
+    return ok ? { kind: "mp4", url: best.url, tracks: d.captions } : null;
+  }
+  return null;
+}
+
+async function raceNativePlayers(wrap, tmdb) {
+  const gen = raceGen;
+  const alive = () => gen === raceGen;
+  // Status list, like the screenshot: "Fetching Media / Trying
+  // streaming servers..." with one row per racer.
+  const list = el("div", "race-list");
+  list.appendChild(el("div", "race-title", "Fetching Media"));
+  list.appendChild(el("div", "race-sub", "Trying streaming servers…"));
+  const rows = {};
+  RACE_SOURCES.forEach((id) => {
+    const row = el("div", "race-row");
+    const st = el("span", "race-st race-trying", "");
+    row.appendChild(st);
+    row.appendChild(el("span", "race-name", raceLabel(id)));
+    list.appendChild(row);
+    rows[id] = st;
+  });
+  wrap.appendChild(list);
+  const setRow = (id, cls, mark) => {
+    const r = rows[id];
+    if (r) { r.className = "race-st " + cls; r.textContent = mark; }
+  };
+
+  const racers = []; // {id, video, hls, blobUrl}
+  const failed = new Set();
+  let winner = null;
+  const destroyRacer = (r) => {
+    try { if (r.hls) r.hls.destroy(); } catch { /* already gone */ }
+    try { r.video.pause(); } catch { /* already gone */ }
+    if (r.blobUrl) URL.revokeObjectURL(r.blobUrl);
+    if (r.video && r.video.parentNode) r.video.parentNode.removeChild(r.video);
+  };
+  // A re-render (server tap, episode change) aborts the race
+  // through abortRace(); this is the cleanup it runs, so no
+  // hidden player keeps downloading after the race is gone.
+  raceCleanupFn = () => { racers.forEach(destroyRacer); };
+
+  const loseAll = () => {
+    if (!alive() || winner) return;
+    raceCleanupFn = null;
+    racers.forEach(destroyRacer);
+    // All 3 natives failed: mark them tried and let the normal
+    // fallback move to the first embed (Server 3).
+    RACE_SOURCES.forEach((id) => watchTriedSources.add(id));
+    const idx = WATCH_SOURCES.findIndex((x) => x.id === currentWatchSource);
+    for (let i = 1; i <= WATCH_SOURCES.length; i++) {
+      const next = WATCH_SOURCES[(idx + i) % WATCH_SOURCES.length];
+      if (next && !watchTriedSources.has(next.id)) {
+        currentWatchSource = next.id;
+        break;
+      }
+    }
+    renderWatchPlayer();
+  };
+
+  const win = (racer) => {
+    if (!alive() || winner) return;
+    winner = racer;
+    clearTimeout(timer);
+    raceCleanupFn = null;
+    setRow(racer.id, "race-ok", "✓");
+    // Stop the losers at once.
+    racers.forEach((r) => { if (r !== racer) destroyRacer(r); });
+    // Adopt the winner as the page's player, so a later
+    // re-render (episode change, server tap) cleans it up.
+    watchHls = racer.hls;
+    watchBlobUrl = racer.blobUrl;
+    currentWatchSource = racer.id;
+    // The winner takes the visible spot: the status list goes
+    // away, the video shows, its button goes active.
+    racer.video.style.display = "";
+    if (list.parentNode) list.parentNode.removeChild(list);
+    wrap.appendChild(racer.video);
+    wrap.querySelectorAll(".wsrc").forEach((b) => {
+      b.classList.toggle("active", b.textContent === raceLabel(racer.id));
+    });
+    wrap.appendChild(el("div", "watch-note", "Server 1 plays first, in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
+    // A later fatal error on the winner falls back as usual.
+    racer.video.addEventListener("error", () => { if (alive()) watchFallback(); }, { once: true });
+    if (racer.hls) {
+      racer.hls.on(Hls.Events.ERROR, (_, data) => {
+        if (data.fatal && alive()) watchFallback();
+      });
+    }
+  };
+
+  const fail = (id) => {
+    if (!alive() || winner || failed.has(id)) return;
+    failed.add(id);
+    setRow(id, "race-fail", "✕");
+    const r = racers.find((x) => x.id === id);
+    if (r) destroyRacer(r);
+    if (failed.size >= RACE_SOURCES.length) loseAll();
+  };
+
+  // 20s race clock (same as the single-player watchdog): if
+  // nobody is playing by then, the natives have all stalled —
+  // fall through to the embeds.
+  const timer = setTimeout(() => { if (alive() && !winner) loseAll(); }, 20000);
+
+  RACE_SOURCES.forEach((id) => {
+    (async () => {
+      const ans = await raceResolve(id, tmdb, gen);
+      if (!alive() || winner) return;
+      if (!ans) { fail(id); return; }
+      const video = document.createElement("video");
+      video.controls = true;
+      video.playsInline = true;
+      video.preload = "metadata";
+      video.muted = true; // muted autoplay is allowed; tap the speaker for sound
+      video.title = "Watch " + currentTitle;
+      video.style.display = "none"; // hidden until it wins
+      wrap.appendChild(video);
+      const racer = { id, video, hls: null, blobUrl: null };
+      racers.push(racer);
+      (ans.tracks || []).forEach((t) => {
+        if (!t || !t.url) return;
+        const tr = document.createElement("track");
+        tr.kind = "subtitles";
+        tr.label = t.name || t.label || t.lang || "Subtitles";
+        tr.srclang = (t.lang || "").slice(0, 2).toLowerCase() || "en";
+        tr.src = t.url;
+        video.appendChild(tr);
+      });
+      video.addEventListener("playing", () => { if (alive()) win(racer); }, { once: true });
+      video.addEventListener("error", () => { if (alive()) fail(id); }, { once: true });
+      if (ans.kind === "mp4") {
+        video.src = ans.url;
+        video.play().catch(() => {});
+        return;
+      }
+      racer.blobUrl = URL.createObjectURL(
+        new Blob([ans.text], { type: "application/vnd.apple.mpegurl" })
+      );
+      if (window.Hls && Hls.isSupported()) {
+        const hls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
+        racer.hls = hls;
+        hls.loadSource(racer.blobUrl);
+        hls.attachMedia(video);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal && alive() && !winner) fail(id);
+        });
+      } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = racer.blobUrl;
+        video.play().catch(() => {});
+      } else {
+        fail(id);
+      }
+    })();
+  });
 }
 
 // Direct player: fetch the rewritten manifest from the resolver
