@@ -112,7 +112,7 @@
   <div class="head-inner">
     <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
     <nav class="main-nav">
-      <a href="index.html">🏠 Home</a>
+      <a href="index.html">🏏 NPL Live</a>
       <a href="channels.html">📺 Channels</a>
       <a href="movies.html" class="active">🎬 Movies</a>
       <a href="biggboss.html">🏠 Bigg Boss</a>
@@ -150,7 +150,7 @@
 <footer>
   <div class="foot-inner">
     <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
-    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
+    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
     <div class="made-by"><div class="mini-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div><span>Made by <b>Aayush Joshi</b></span></div>
     <div>© 2026 Aayush TV</div>
   </div>
@@ -195,6 +195,11 @@
 ------------------------------------------------------------------ */
 
 const MOVIE_RESOLVER = "https://aayush-tv-minter.vercel.app/api/resolve-movie";
+// Nexus resolver on the VM (aayushbot): Vercel is 403-blocked by
+// nxsha.space, so Server 2 resolves here instead. Live since
+// 21 Nov 2026 (systemd nexus-resolver on 127.0.0.1:8801, Caddy
+// /nexus-api/ on mret.aayushlife.live).
+const NEXUS_RESOLVER = "https://mret.aayushlife.live/nexus-api";
 const MOVIE_RESOLVER_FALLBACK = "https://aayush-tv-movies-geesc6d8g6fchvfk.koreacentral-01.azurewebsites.net/api/resolve-movie";
 const $ = (id) => document.getElementById(id);
 
@@ -1293,7 +1298,7 @@ async function renderNexusPlayer(wrap, tmdb) {
   const type = currentIsSeries ? "tv" : "movie";
   const loading = el("div", "watch-note", "Loading Server 2…");
   wrap.appendChild(loading);
-  const url = MOVIE_RESOLVER + "?nexus=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode;
+  const url = NEXUS_RESOLVER + "/nexus?tmdb=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode;
   let text = "";
   try {
     const r = await fetch(url);
