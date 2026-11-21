@@ -46,7 +46,7 @@
   #watch-wrap video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
   #watch-wrap .watch-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; }
   /* Parallel race status list (21 Nov 2026): the "Fetching Media /
-     Trying streaming servers..." panel the 4 native servers race
+     Trying streaming servers..." panel all 8 servers race
      behind, one row per server with a live spinner / ✕ / ✓. */
   #watch-wrap .race-list { background: #171b28; border: 1px solid #2b3348; border-radius: 12px; padding: 18px 20px; }
   #watch-wrap .race-title { font-size: 17px; font-weight: 800; color: #e6ebf5; text-align: center; }
@@ -1156,8 +1156,8 @@ function renderWatchPlayer() {
   renderWatchEpisodePicker(wrap);
   const src = WATCH_SOURCES.find((x) => x.id === currentWatchSource) || WATCH_SOURCES[0];
   if (!manualPick && src.id === "direct" && watchTriedSources.size === 0) {
-    // Fresh Watch open: race the 4 native servers in parallel
-    // instead of trying them one by one (see raceNativePlayers).
+    // Fresh Watch open: race all 8 servers in parallel instead
+    // of trying them one by one (see raceNativePlayers).
     // The race shows the status list and renders the winner
     // itself, so nothing else is appended here.
     raceNativePlayers(wrap, tmdb);
@@ -1186,7 +1186,7 @@ function renderWatchPlayer() {
     f.title = "Watch " + currentTitle;
     wrap.appendChild(f);
   }
-  wrap.appendChild(el("div", "watch-note", "Server 1 plays first, in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
+  wrap.appendChild(el("div", "watch-note", "If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
   wrap.classList.add("show");
 }
 
@@ -1212,25 +1212,25 @@ function watchFallback() {
   // player already points the user to Download instead.
 }
 
-// ---------- Parallel race of the 4 native servers ----------
+// ---------- Parallel race of all 8 servers ----------
 // 21 Nov 2026: the user asked for all stream servers to run at
 // once, like the "Fetching Media / Trying streaming servers..."
 // screen he showed (Nebula / Light / Lisbon / Wave, each with a
-// live ✕ or spinner). On a fresh Watch open the 4 native servers
-// (Direct, Server 2 Nexus, Server 8 NetMirror, Server 6 Astra)
-// now start playing in parallel, hidden, and the first video that
-// actually starts playing wins and is shown; the losers are
-// stopped at once.
-// The 4 embeds (Servers 3, 4, 5, 7) CANNOT race: a cross-origin
-// iframe cannot tell this page whether its video is playing or
-// just a black frame, so they still load one by one after the
-// race, as before. The race reuses the parallel probes started at
-// Watch open (same answers the single-player renderers use), so
-// it adds no extra resolver calls except Nexus's own ?nexus=
-// fetch and Astra's ?astra= fetch, which are not probed. If the
-// race has a bug, the worst case is it loses and the normal
-// sequential fallback takes over — the old renderers below are
-// untouched.
+// live ✕ or spinner). On a fresh Watch open ALL 8 servers now
+// start in parallel, hidden, and the FIRST one that is ready
+// wins and is shown at once — a native when its video actually
+// starts playing, an embed when its iframe loads (a cross-origin
+// iframe cannot say whether its video is playing, so 'loaded'
+// is the signal, guarded by the probe: a host the probe already
+// said has no copy never joins the race). The losers are stopped
+// at once. So if Server 4 loads first, Server 4 plays — the
+// player does not wait for the other servers.
+// The race reuses the parallel probes started at Watch open
+// (same answers the single-player renderers use), so it adds no
+// extra resolver calls except Nexus's own ?nexus= fetch and
+// Astra's ?astra= fetch, which are not probed. If the race has a
+// bug, the worst case is it loses and the normal sequential
+// fallback takes over — the old renderers below are untouched.
 const RACE_SOURCES = ["direct", "skyflix", "netmirror", "nova"];
 function raceLabel(id) {
   const s = WATCH_SOURCES.find((x) => x.id === id);
@@ -1350,16 +1350,22 @@ async function raceNativePlayers(wrap, tmdb) {
   list.appendChild(el("div", "race-title", "Fetching Media"));
   list.appendChild(el("div", "race-sub", "Trying streaming servers…"));
   const rows = {};
-  // One row per server (all 8), in switcher order. The 4 natives
-  // show the live race (spinner -> ✕/✓); the 4 embeds show what
-  // the parallel probes already know (✕ = no copy, ✓ = has a
-  // copy, … = still checking) — they cannot race for playback
-  // because an iframe cannot say whether its video is playing,
-  // so they still load one by one after the race.
+  // One row per server (all 8), in switcher order. ALL 8 race now
+  // (21 Nov 2026): the first server that is ready wins and plays
+  // at once — a native when its video starts playing, an embed
+  // when its iframe loads (an iframe cannot say whether its video
+  // is playing, so 'loaded' is the signal, guarded by the probe:
+  // a host the probe already said has no copy never joins the
+  // race). A row shows … while its server is still being checked,
+  // a spinner while it is racing, ✕ if it failed, ✓ if it won.
   WATCH_SOURCES.forEach((s) => {
     const row = el("div", "race-row");
-    const isNative = RACE_SOURCES.includes(s.id);
-    const st = el("span", "race-st " + (isNative ? "race-trying" : "race-wait"), isNative ? "" : "…");
+    // A server races if it is a native, or an embed whose probe
+    // has not already said it has no copy. A known-dead embed
+    // (probe 404) never joins the race — its row is ✕ at once.
+    const dead = !!s.base && watchEmbedAlive[s.id] === false;
+    const isRacer = !dead && (RACE_SOURCES.includes(s.id) || !!s.base);
+    const st = el("span", "race-st " + (dead ? "race-fail" : isRacer ? "race-trying" : "race-wait"), dead ? "✕" : isRacer ? "" : "…");
     row.appendChild(st);
     row.appendChild(el("span", "race-name", raceLabel(s.id)));
     list.appendChild(row);
@@ -1371,15 +1377,52 @@ async function raceNativePlayers(wrap, tmdb) {
     if (r) { r.className = "race-st " + cls; r.textContent = mark; }
   };
 
-  const racers = []; // {id, video, hls, blobUrl}
+  const racers = []; // {id, video, iframe, hls, blobUrl}
   const failed = new Set();
   let winner = null;
   const destroyRacer = (r) => {
     try { if (r.hls) r.hls.destroy(); } catch { /* already gone */ }
-    try { r.video.pause(); } catch { /* already gone */ }
+    try { if (r.video) r.video.pause(); } catch { /* already gone */ }
     if (r.blobUrl) URL.revokeObjectURL(r.blobUrl);
     if (r.video && r.video.parentNode) r.video.parentNode.removeChild(r.video);
+    if (r.iframe && r.iframe.parentNode) r.iframe.parentNode.removeChild(r.iframe);
   };
+  // The embeds join the race too (21 Nov 2026): an embed's iframe
+  // is created hidden now, and the first one to load wins — the
+  // user asked not to wait for the natives when an embed is ready
+  // first (e.g. Server 4). Only embeds the probe has not already
+  // ruled out join (a 404 probe means the host has no copy). The
+  // 'load' guard re-checks the probe at load time, so an embed
+  // whose probe came back dead while the race was running fails
+  // instead of winning on a 404 page.
+  const embedRaceIds = [];
+  WATCH_SOURCES.forEach((s) => {
+    if (!s.base || watchEmbedAlive[s.id] === false) return;
+    embedRaceIds.push(s.id);
+    const f = document.createElement("iframe");
+    f.src = watchSourceUrl(s.id, tmdb);
+    f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    f.allowFullscreen = true;
+    f.title = "Watch " + currentTitle;
+    f.style.display = "none"; // hidden until it wins
+    wrap.appendChild(f);
+    const racer = { id: s.id, iframe: f, video: null, hls: null, blobUrl: null };
+    racers.push(racer);
+    f.addEventListener("load", () => {
+      if (!alive() || winner) return;
+      // The probe may have ruled this host out while the iframe
+      // was loading — a 404 page still fires 'load', so do not
+      // let it win on that.
+      if (watchEmbedAlive[s.id] === false) { fail(s.id); return; }
+      win(racer);
+    }, { once: true });
+    f.addEventListener("error", () => { if (alive()) fail(s.id); }, { once: true });
+  });
+  // Fixed racer count for fail(): the native racers are created
+  // asynchronously as they resolve, so racers.length grows —
+  // fail() must compare against the total expected, not the
+  // current count, or it would end the race early.
+  const raceTotal = RACE_SOURCES.length + embedRaceIds.length;
   // A re-render (server tap, episode change) aborts the race
   // through abortRace(); this is the cleanup it runs, so no
   // hidden player keeps downloading after the race is gone.
@@ -1389,9 +1432,10 @@ async function raceNativePlayers(wrap, tmdb) {
     if (!alive() || winner) return;
     raceCleanupFn = null;
     racers.forEach(destroyRacer);
-    // All 4 natives failed: mark them tried and let the normal
-    // fallback move to the first embed (Server 3).
-    RACE_SOURCES.forEach((id) => watchTriedSources.add(id));
+    // Every racer failed: mark them tried and let the normal
+    // fallback move to the next untried source (an embed the race
+    // skipped, or the browser no-cors fallback for an unknown one).
+    racers.forEach((r) => watchTriedSources.add(r.id));
     const idx = WATCH_SOURCES.findIndex((x) => x.id === currentWatchSource);
     for (let i = 1; i <= WATCH_SOURCES.length; i++) {
       const next = WATCH_SOURCES[(idx + i) % WATCH_SOURCES.length];
@@ -1411,6 +1455,19 @@ async function raceNativePlayers(wrap, tmdb) {
     setRow(racer.id, "race-ok", "✓");
     // Stop the losers at once.
     racers.forEach((r) => { if (r !== racer) destroyRacer(r); });
+    if (racer.iframe) {
+      // An embed won the race: its iframe is already loaded, so
+      // just show it. No subtitles / Skip Intro (cross-origin
+      // iframe) and no "no ads" note — embeds carry their own ads.
+      currentWatchSource = racer.id;
+      racer.iframe.style.display = "";
+      if (list.parentNode) list.parentNode.removeChild(list);
+      wrap.appendChild(racer.iframe);
+      wrap.querySelectorAll(".wsrc").forEach((b) => {
+        b.classList.toggle("active", b.textContent === raceLabel(racer.id));
+      });
+      return;
+    }
     // Adopt the winner as the page's player, so a later
     // re-render (episode change, server tap) cleans it up.
     watchHls = racer.hls;
@@ -1426,7 +1483,7 @@ async function raceNativePlayers(wrap, tmdb) {
     wrap.querySelectorAll(".wsrc").forEach((b) => {
       b.classList.toggle("active", b.textContent === raceLabel(racer.id));
     });
-    wrap.appendChild(el("div", "watch-note", "Server 1 plays first, in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
+    wrap.appendChild(el("div", "watch-note", "Plays in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
     // A later fatal error on the winner falls back as usual.
     racer.video.addEventListener("error", () => { if (alive()) watchFallback(); }, { once: true });
     if (racer.hls) {
@@ -1442,7 +1499,7 @@ async function raceNativePlayers(wrap, tmdb) {
     setRow(id, "race-fail", "✕");
     const r = racers.find((x) => x.id === id);
     if (r) destroyRacer(r);
-    if (failed.size >= RACE_SOURCES.length) loseAll();
+    if (failed.size >= raceTotal) loseAll();
   };
 
   // 20s race clock (same as the single-player watchdog): if
