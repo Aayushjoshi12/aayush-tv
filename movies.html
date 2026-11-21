@@ -664,11 +664,19 @@ const WATCH_SOURCES = [
   // mouse is still.
   { id: "embedwave", label: "Server 3", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc&nobrand=1" },
   { id: "vidrift", label: "Server 4", base: "https://embed.vidrift.net/embed" },
+  // Skyflix's other three servers (21 Nov 2026): same /movie|tv/
+  // pattern as Nexus, different backends — added so a title Nexus
+  // lacks may still play. Only Nexus answered from this server
+  // during the Skyflix check; the other three are verified live
+  // in the user's browser instead. Order kept ahead of NetMirror.
+  { id: "aura", label: "Server 5", base: "https://vidgod.site", suffix: "?autoplay=true" },
+  { id: "nova", label: "Server 6", base: "https://player-4aq.pages.dev/embed", suffix: "?autoPlay=true" },
+  { id: "filix", label: "Server 7", base: "https://nhdapi.com", suffix: "?autoPlay=true" },
   // NetMirror (native <video>): HLS via hls.js when net52
   // answers, otherwise the direct MP4 fallback. Falls back to
   // the next source by itself when the title has no copy.
   // Last since 21 Nov 2026 (was Server 2): its CDN is throttling.
-  { id: "netmirror", label: "Server 5", native: true, nm: true },
+  { id: "netmirror", label: "Server 8", native: true, nm: true },
 ];
 let currentWatchTmdb = null;
 let currentWatchSource = "direct";
