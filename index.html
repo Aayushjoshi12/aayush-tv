@@ -3,9 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>NPL Live — Aayush TV</title>
+<title>Aayush TV — Live TV, Movies & Shows</title>
 <link rel="icon" href="data:,">
-<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.13), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.08), transparent 70%); background-attachment: fixed; }
@@ -21,48 +20,19 @@
   nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; }
   /* ---- page ---- */
   main { max-width: 1200px; margin: 0 auto; padding: 20px 20px 40px; }
-  .hero { padding: 10px 0 18px; display:flex; gap:24px; flex-wrap:wrap; align-items:flex-start; }
-  .hero .hero-text { flex:1 1 300px; min-width:260px; }
-  .find-card { flex:1 1 320px; max-width:440px; background:#141926; border:1px solid #232a3a; border-radius:16px; padding:16px; }
-  .find-row { display:flex; gap:8px; margin-top:10px; }
-  .find-row input { flex:1; min-width:0; padding:10px 12px; border-radius:999px; border:1px solid #2a3040; background:#0d1117; color:#e8eaf0; font-size:14px; outline:none; }
-  .find-row button { padding:10px 16px; border:0; border-radius:999px; background:#ff3b3b; color:#fff; font-weight:700; cursor:pointer; }
-  .find-item { display:flex; justify-content:space-between; gap:10px; padding:9px 2px; border-bottom:1px solid #1d2333; cursor:pointer; }
-  .find-item:last-child { border-bottom:0; }
-  @media (max-width: 760px) { .find-card { max-width:none; } }
-  .hero h2 { font-size: 34px; font-weight: 800; letter-spacing: -.4px; line-height: 1.15; }
+  .hero { padding: 26px 0 8px; text-align: center; }
+  .hero h2 { font-size: 36px; font-weight: 800; letter-spacing: -.4px; line-height: 1.15; }
   .hero h2 em { font-style: normal; color: #ff3b3b; }
-  .hero p { color: #9aa1b2; font-size: 15px; line-height: 1.6; margin-top: 8px; max-width: 640px; }
-  .live-badge { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: .6px; color: #ff5252; background: rgba(255,59,59,.12); border: 1px solid rgba(255,59,59,.4); padding: 4px 10px; border-radius: 999px; margin-bottom: 10px; }
-  /* ---- player ---- */
-  #player-wrap { margin: 4px 0 18px; }
-  #player-poster { position: relative; width: 100%; aspect-ratio: 16 / 9; max-height: 62vh; background: radial-gradient(600px 300px at 50% 30%, #2a1e2e, #0b0e14 70%), linear-gradient(160deg, #181d2d, #0b0e14); border: 1px solid #232838; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; cursor: pointer; overflow: hidden; box-shadow: 0 12px 40px rgba(0,0,0,.5); }
-  #player-poster .big-play { width: 76px; height: 76px; border-radius: 50%; background: linear-gradient(135deg, #ff3b3b, #ff5c5c); display: flex; align-items: center; justify-content: center; font-size: 30px; color: #fff; box-shadow: 0 8px 28px rgba(255,59,59,.45); transition: transform .15s; }
-  #player-poster:hover .big-play { transform: scale(1.06); }
-  #player-poster .poster-title { font-size: 22px; font-weight: 800; }
-  #player-poster .poster-sub { font-size: 14px; color: #9aa1b2; }
-  video { width: 100%; max-height: 62vh; background: #000; border-radius: 16px; border: 1px solid #232838; box-shadow: 0 12px 40px rgba(0,0,0,.5); display: none; }
-  video.open { display: block; }
-  #now-playing { font-size: 16px; margin: 12px 0 4px; }
-  #now-playing b { color: #ff5252; }
-  /* ---- cards / boxes ---- */
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } .hero h2 { font-size: 26px; } }
-  .box { background: linear-gradient(160deg, #181d2d, #12162a); border: 1px solid #262d42; border-radius: 14px; padding: 18px 20px; font-size: 14px; line-height: 1.6; }
-  .box h2 { font-size: 16px; margin-bottom: 8px; color: #ff5252; }
-  .box h2 .dim { color: #9aa1b2; font-weight: 600; font-size: 13px; }
-  .box p { margin: 6px 0; color: #cfd3dd; }
-  .box p b { color: #f2f4fa; }
-  .note { background: #2a1f0d; border: 1px solid #8a6d1b; color: #f0d48a; }
-  .note a { color: #ffd166; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 8px; }
-  td, th { padding: 7px 6px; border-bottom: 1px solid #232838; text-align: left; }
-  th { color: #9aa1b2; font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; }
-  tr.leader td { color: #ffd166; font-weight: 700; }
-  .dim { color: #9aa1b2; font-size: 12px; }
-  .match { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #232838; }
-  .match:last-child { border-bottom: none; }
-  .match .time { color: #ff5252; font-weight: 700; white-space: nowrap; }
+  .hero p { color: #9aa1b2; font-size: 15px; line-height: 1.6; margin: 10px auto 0; max-width: 640px; }
+  /* ---- option cards ---- */
+  .cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 28px; }
+  @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } .hero h2 { font-size: 27px; } }
+  .card { display: block; text-decoration: none; background: linear-gradient(160deg, #181d2d, #12162a); border: 1px solid #262d42; border-radius: 16px; padding: 26px 24px; transition: transform .15s, border-color .15s, box-shadow .15s; }
+  .card:hover { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 12px 34px rgba(0,0,0,.45); }
+  .card .icon { font-size: 40px; line-height: 1; }
+  .card h3 { font-size: 21px; font-weight: 800; margin: 14px 0 6px; color: #f2f4fa; }
+  .card p { font-size: 14px; line-height: 1.6; color: #9aa1b2; }
+  .card .go { display: inline-block; margin-top: 14px; font-size: 14px; font-weight: 700; color: #ff5252; }
   /* ---- footer ---- */
   footer { border-top: 1px solid #232838; margin-top: 20px; }
   .foot-inner { max-width: 1200px; margin: 0 auto; padding: 22px 20px 28px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; color: #9aa1b2; font-size: 13px; }
@@ -76,7 +46,7 @@
   <div class="head-inner">
     <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
     <nav class="main-nav">
-      <a href="index.html" class="active">🏏 NPL Live</a>
+      <a href="index.html" class="active">🏠 Home</a>
       <a href="channels.html">📺 Channels</a>
       <a href="movies.html">🎬 Movies</a>
       <a href="biggboss.html">🏠 Bigg Boss</a>
@@ -87,514 +57,47 @@
 
 <main>
   <div class="hero">
-    <div class="hero-text">
-      <span class="live-badge">● LIVE · SEASON 3</span>
-      <h2>Nepal Premier League, <em>live.</em></h2>
-      <p>Watch NPL Season 3 from TU Ground, Kirtipur — 26 Oct to 21 Nov 2026. Press play and the live feed starts here.</p>
-    </div>
-    <div class="find-card" id="find-card">
-      <h3 style="margin:0;font-size:16px">🔍 Find a game</h3>
-      <p class="dim" style="margin:6px 0 0;font-size:13px">Search a team, a league or a game ID — get the full detail.</p>
-      <form id="find-form" class="find-row">
-        <input id="find-q" type="text" placeholder="e.g. Greece, Kathmandu, or 771750037" autocomplete="off">
-        <button type="submit">Search</button>
-      </form>
-      <div id="find-body"><p class="dim" style="font-size:13px">Loading top games…</p></div>
-    </div>
+    <h2>Everything to watch, <em>in one place.</em></h2>
+    <p>Free live TV, movies, series and shows — pick what you want to watch.</p>
   </div>
 
-  <div class="box" id="scoreboard" style="margin-top:16px">
-    <h2>Scoreboard <span class="dim" id="sb-updated"></span></h2>
-    <div id="sb-list"><p class="dim">Loading live scores…</p></div>
-    <p class="dim" style="margin-top:8px">Nepal Premier League — live scores. Kickoff times are Nepal time.</p>
-    <button id="sb-play-here" type="button" onclick="sbPlayHere()" style="display:none;margin-top:10px;margin-left:8px;padding:10px 18px;border:0;border-radius:999px;background:linear-gradient(135deg,#00a651,#00c853);color:#fff;font-weight:800;cursor:pointer">▶ Play here, no ads</button>
-  </div>
+  <div class="cards">
+    <a class="card" href="channels.html">
+      <div class="icon">📺</div>
+      <h3>Channels</h3>
+      <p>500+ live channels, plus the ⭐ Premium sports section.</p>
+      <span class="go">Watch channels →</span>
+    </a>
 
-  <div id="player-wrap">
-    <div id="player-poster" role="button" tabindex="0" aria-label="Play NPL Live">
-      <div class="big-play">▶</div>
-      <div class="poster-title">NPL Live — Season 3</div>
-      <div class="poster-sub">Tap to watch · TU Ground, Kirtipur</div>
-    </div>
-    <video id="player" controls playsinline></video>
-    <div id="now-playing"></div>
-  </div>
+    <a class="card" href="movies.html">
+      <div class="icon">🎬</div>
+      <h3>Movies</h3>
+      <p>31,000+ movies &amp; series to watch, with new titles added every day.</p>
+      <span class="go">Browse movies →</span>
+    </a>
 
-  <div class="grid2">
-    <div class="box">
-      <h2>Today — Fri 20 Nov <span class="dim">· rest day</span></h2>
-      <p>No matches today. The Final is tomorrow — Sat 21 Nov, 5:00 NPT: Lumbini Lions vs Sudurpaschim Royals at TU Ground. Sudurpaschim got there by beating Chitwan by 3 wickets in Qualifier 2 (136/7 vs 133/9).</p>
-    </div>
+    <a class="card" href="biggboss.html">
+      <div class="icon">🏠</div>
+      <h3>Bigg Boss</h3>
+      <p>Bigg Boss episodes — watch the latest season here.</p>
+      <span class="go">Watch Bigg Boss →</span>
+    </a>
 
-    <div class="box">
-      <h2>Points table <span class="dim">· updated 20 Nov</span></h2>
-      <table>
-        <tr><th>#</th><th>Team</th><th>Played</th><th>Pts</th></tr>
-        <tr class="leader"><td>1</td><td>Lumbini Lions Qualified</td><td>7</td><td>11</td></tr>
-        <tr><td>2</td><td>Sudurpaschim Royals Qualified</td><td>7</td><td>10</td></tr>
-        <tr><td>3</td><td>Kathmandu Gorkhas Qualified</td><td>7</td><td>8</td></tr>
-        <tr><td>4</td><td>Chitwan Rhinos Qualified</td><td>7</td><td>7</td></tr>
-        <tr><td>5</td><td>Biratnagar Kings</td><td>7</td><td>6</td></tr>
-        <tr><td>6</td><td>Karnali Yaks</td><td>7</td><td>6</td></tr>
-        <tr><td>7</td><td>Pokhara Avengers</td><td>7</td><td>4</td></tr>
-        <tr><td>8</td><td>Janakpur Bolts</td><td>7</td><td>4</td></tr>
-      </table>
-      <p class="dim">Top four go to the playoffs. 2 points for a win.</p>
-    </div>
-  </div>
-
-  <div class="box note" style="margin-top:16px">
-    <h2>Watch officially</h2>
-    <p>No free official live stream exists for NPL Season 3 — it airs on TV in Nepal.</p>
-  </div>
-
-  <div class="box" style="margin-top:16px">
-    <h2>More to watch</h2>
-    <p><b>📺 Channels</b> — 500+ live channels, plus the ⭐ Premium sports section. <b>🎬 Movies</b> — 31,000+ movies &amp; series to download, with new titles on the home page every day.</p>
+    <a class="card" href="india.html">
+      <div class="icon">🇮🇳</div>
+      <h3>India's Got Latent</h3>
+      <p>All episodes — Bonus, Specials, Season 1 &amp; Season 2.</p>
+      <span class="go">Watch episodes →</span>
+    </a>
   </div>
 </main>
 
 <footer>
   <div class="foot-inner">
     <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
-    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
+    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
     <div>© 2026 Aayush TV</div>
   </div>
 </footer>
-
-<script>
-// MINTER_URL: a standalone link minter serving GET /api/stream?id=1412.
-// Verified working 2026-11-03 (impers, Korea Central). Play fetches a
-// fresh link from it on every press.
-const MINTER_URL = "https://aayush-tv-minter.vercel.app"; // base only — fetch appends /api/stream (FIX 2026-11-12: the Azure techjail minter's upstream huritv9/getlink.php is gone — http 301 -> https 404 "File not found" — so it returns "Upstream failed" for every channel. Vercel's stream.js now calls the working huritv8/getlink.php instead. The Azure function itself is untouched.)
-// RELAY_LATEST_URL: the Network Inspector relay's public endpoint that
-// returns the newest live playlist URL the extension has seen on the
-// 1xBet tab (GET /latest-npl, CORS *, no auth). Lets the player use a
-// fresh signed link while the 1xBet tab is open in the user's Chrome.
-const RELAY_LATEST_URL = "https://mni-aayushbot.koreacentral.cloudapp.azure.com/latest-npl";
-// DIRECT_NPL_URL: the live NPL video itself, captured from the user's
-// Chrome via the Network Inspector (Qualifier 1, Lumbini vs
-// Sudurpaschim). It is 1xBet/TVBET's HLS playlist on
-// edge14.xmediaget.com, signed for this live session — it plays on
-// this https page, but the signature lasts only ~85 min: the first
-// token (minted ~11:15 UTC) went 403 at ~12:41 UTC and the player
-// fell back to the minter feed. This token was refreshed 17 Nov
-// 2026 ~18:41 NPT (minted ~12:55 UTC) after reloading the 1xBet
-// match page. If it fails, the player falls back to the minter
-// feed below.
-const DIRECT_NPL_URL = "https://edge14.xmediaget.com/hls-live/21013954/1/mediaplaylist.m3u8?s=570330f99e1519fd2f1681e4fd2a9a9dcc7c35843429bdba9df3661c9bfc66a8&t=1794920140965&ai=101&av=1025&ui=1131378233";
-
-const $ = (id) => document.getElementById(id);
-const ATTEMPT_TIMEOUT_MS = 8000;
-const MAX_PLAY_ATTEMPTS = 3;
-let hls = null;
-let playToken = 0;
-
-// Mint a fresh NPL link, preferring a Wowza host we haven't tried yet.
-// The minter rotates hosts, so a single failed draw doesn't prove the
-// feed is down. Tries up to 3 mints to find an untried host; falls
-// back to the last minted URL if every draw repeats a tried host.
-// Returns null only if the minter can't be reached at all.
-async function mintFreshNPL(triedHosts) {
-  if (!MINTER_URL) return null;
-  let lastUrl = null;
-  for (let i = 0; i < 3; i++) {
-    try {
-      const r = await fetch(`${MINTER_URL}/api/stream?id=1412`, { signal: AbortSignal.timeout(8000) });
-      const d = await r.json();
-      if (r.ok && d.url) {
-        lastUrl = d.url;
-        let host = "";
-        try { host = new URL(d.url).host; } catch (e) {}
-        if (!host || !triedHosts.has(host)) return d.url;
-      }
-    } catch (e) { return null; }
-  }
-  return lastUrl;
-}
-
-async function playNPL() {
-  const myPlay = ++playToken;
-  const video = $("player");
-  const triedHosts = new Set();
-  let usedMinter = false;
-  let directTried = false;
-  let sourceKind = "saved link"; // shown under the player so you can see which feed is playing
-  let handlingFailure = false;
-  // Mint a fresh NPL link, preferring a Wowza host we haven't tried yet.
-  // The minter rotates hosts, so a single failed draw doesn't prove the
-  // feed is down. Tries up to 3 mints to find an untried host; falls
-  // back to the last minted URL if every draw repeats a tried host.
-  // Returns null only if the minter can't be reached at all.
-  // First call returns the direct 1xBet link (no mint needed); only
-  // if that fails do we mint from the minter (backup feed).
-  // Mint a fresh link and remember its host, so a retry draws a new one.
-  const mint = async () => {
-    if (!directTried) {
-      directTried = true;
-      // Try the relay first: it returns the newest live playlist URL
-      // the Network Inspector extension has seen on the 1xBet tab, so
-      // the player uses a fresh signed link instead of the hardcoded
-      // one (which expires after ~85 min). The relay only has a fresh
-      // link while the 1xBet tab is open and playing in the user's
-      // Chrome. If the relay is unreachable or its link is stale,
-      // fall through to the hardcoded link below.
-      try {
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 2500);
-        const r = await fetch(RELAY_LATEST_URL, { signal: controller.signal });
-        clearTimeout(timer);
-        if (r.ok) {
-          const d = await r.json();
-          if (d && typeof d.url === "string" && d.url.includes("mediaplaylist.m3u8") &&
-              typeof d.ageSec === "number" && d.ageSec < 4500) {
-            sourceKind = "fresh link";
-            return d.url;
-          }
-        }
-      } catch (e) { /* relay unreachable — use the hardcoded link */ }
-      sourceKind = "saved link";
-      return DIRECT_NPL_URL;
-    }
-    const url = await mintFreshNPL(triedHosts);
-    if (url) {
-      usedMinter = true;
-      sourceKind = "backup feed";
-      try { triedHosts.add(new URL(url).host); } catch (e) {}
-    }
-    return url;
-  };
-  const showError = (msg) => { $("now-playing").textContent = msg; };
-  // Show which feed is playing, so you can tell the fresh link from the saved link and the backup feed.
-  const showPlaying = () => { $("now-playing").innerHTML = `Now playing: <b>NPL Live</b> <span style="color:#ff5252">● LIVE</span> <span style="color:#9aa0a6;font-size:13px">· ${sourceKind}</span>`; };
-  let url = await mint();
-  if (!url) {
-    showError("Could not reach the live feed right now — please try again in a moment.");
-    return;
-  }
-  if (myPlay !== playToken) return;
-  // The stream is plain http, which browsers block on https pages.
-  if (url.startsWith("http:") && location.protocol === "https:") {
-    $("now-playing").innerHTML = `This feed is plain http, which browsers block on secure (https) pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> and press play. (abe dalle, yo site http ma khol, https ma chaldaina)`;
-    return;
-  }
-  // Show the video element now that we have a playable source.
-  $("player-poster").style.display = "none";
-  video.classList.add("open");
-  showPlaying();
-  if (hls) { hls.destroy(); hls = null; }
-  video.onerror = null;
-  let watchdog = null;
-  let liveAttempt = 0;
-  const clearWatchdog = () => { if (watchdog) { clearTimeout(watchdog); watchdog = null; } };
-  const onPlaying = () => {
-    if (myPlay !== playToken) return;
-    clearWatchdog();
-    showPlaying();
-    video.play().catch(() => {});
-  };
-  const failAttempt = async () => {
-    if (myPlay !== playToken || handlingFailure) return;
-    handlingFailure = true;
-    clearWatchdog();
-    if (hls) { hls.destroy(); hls = null; }
-    if (!usedMinter) {
-      // The direct link failed — fall back to the minter feed.
-      $("now-playing").textContent = "That feed didn't respond — trying the backup feed…";
-      const next = await mint();
-      handlingFailure = false;
-      if (myPlay !== playToken) return;
-      if (next) {
-        if (next.startsWith("http:") && location.protocol === "https:") {
-          $("now-playing").innerHTML = `This feed is plain http, which browsers block on secure (https) pages. Open <a href="http://aayushlife.live/" style="color:#ff5252">http://aayushlife.live/</a> and press play. (abe dalle, yo site http ma khol, https ma chaldaina)`;
-          return;
-        }
-        startHls(next);
-        return;
-      }
-    } else if (usedMinter && liveAttempt < MAX_PLAY_ATTEMPTS) {
-      // Host lottery: the minted link's Wowza host may refuse this
-      // connection while another host serves it. Re-mint for a fresh
-      // host draw (up to MAX_PLAY_ATTEMPTS tries in total) before
-      // telling the user the feed is blocked.
-      $("now-playing").textContent = `That server didn't respond — trying another server (${liveAttempt + 1} of ${MAX_PLAY_ATTEMPTS})…`;
-      const next = await mint();
-      handlingFailure = false;
-      if (myPlay !== playToken) return;
-      if (next) { startHls(next); return; }
-    }
-    handlingFailure = false;
-    showError("Could not play NPL Live: the feed did not respond. It may be offline or blocked — try the official routes below.");
-  };
-  const startHls = (src) => {
-    const myAttempt = ++liveAttempt;
-    clearWatchdog();
-    watchdog = setTimeout(() => { if (myAttempt === liveAttempt) failAttempt(); }, ATTEMPT_TIMEOUT_MS);
-    if (Hls.isSupported()) {
-      hls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
-      hls.loadSource(src);
-      hls.attachMedia(video);
-      hls.on(Hls.Events.MANIFEST_PARSED, onPlaying);
-      hls.on(Hls.Events.ERROR, (_, data) => { if (data.fatal && myAttempt === liveAttempt) failAttempt(); });
-    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
-      video.src = src;
-      video.addEventListener("playing", onPlaying, { once: true });
-      video.onerror = () => { if (myAttempt === liveAttempt) failAttempt(); };
-      video.play().catch(() => {});
-    } else {
-      showError("This browser cannot play HLS streams.");
-    }
-  };
-  startHls(url);
-}
-
-$("player-poster").addEventListener("click", playNPL);
-$("player-poster").addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); playNPL(); } });
-
-// Live-scores strip — featured live games from 1xBet, via the
-// Vercel proxy (/api/onexbet). The site cannot call 1xBet directly
-// (no CORS), so the proxy fetches it server-side. Refreshes every
-// 1s; a failed refresh shows a quiet note, never an error popup.
-const SB_REFRESH_MS = 1000;
-function sbKickoff(ts) {
-  if (!ts) return "Upcoming";
-  const d = new Date(ts * 1000);
-  const timeFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kathmandu", hour: "numeric", minute: "2-digit", hour12: true });
-  const dayFmt = new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kathmandu", year: "numeric", month: "2-digit", day: "2-digit" });
-  const time = timeFmt.format(d);
-  const gameDay = dayFmt.format(d);
-  if (gameDay === dayFmt.format(new Date())) return "Today, " + time;
-  if (gameDay === dayFmt.format(new Date(Date.now() + 86400000))) return "Tomorrow, " + time;
-  return gameDay + ", " + time;
-}
-function sbClock(g) {
-  if (g.status === "upcoming") return (g.format ? g.format + " · " : "") + sbKickoff(g.startTs);
-  if (g.status === "FT") return "FT";
-  if (g.minute !== null && g.minute !== undefined) return g.minute + "'";
-  if (g.status === "1H" || g.status === "2H") return g.status;
-  return g.clock || "Live";
-}
-function sbEsc(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
-// Live timer, like 1xBet: the match clock ticks every second.
-// The proxy sends timerSec (match elapsed seconds, from 1xBet)
-// when 1xBet provides it; the page counts up locally from the
-// last fetch so the clock moves every second, not just on polls.
-const sbTimers = {};
-// Sync a game's local clock from a fresh fetch — forward only.
-// The fetched value can be up to ~2s stale (proxy cache), so
-// adopting it blindly made the clock jump back. Keep the local
-// clock when it is ahead; take the fetched value only when 1xBet
-// is ahead of us.
-function sbSyncTimer(g) {
-  if (g.timerSec === null || g.timerSec === undefined) return;
-  const now = Date.now();
-  const cur = sbTimers[g.id];
-  if (!cur) { sbTimers[g.id] = { sec: g.timerSec, at: now }; return; }
-  const localNow = cur.sec + (now - cur.at) / 1000;
-  if (g.timerSec > localNow) sbTimers[g.id] = { sec: g.timerSec, at: now };
-}
-function fmtTimer(sec) {
-  sec = Math.max(0, Math.floor(sec || 0));
-  return Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0");
-}
-function sbTick() {
-  const now = Date.now();
-  document.querySelectorAll("[data-tick]").forEach((el) => {
-    const t = sbTimers[el.getAttribute("data-tick")];
-    if (!t) return;
-    el.textContent = fmtTimer(t.sec + (now - t.at) / 1000);
-  });
-}
-setInterval(sbTick, 1000);
-function sbClockHtml(g) {
-  if (g.status === "live" && g.timerSec !== null && g.timerSec !== undefined) {
-    // Like 1xBet: "2nd half 61:23" — period label, then the clock
-    // that ticks every second via sbTick. The shown value comes
-    // from the local clock (sbTimers), never straight from the
-    // fetch, so re-renders can't freeze or rewind it.
-    const t = sbTimers[g.id];
-    const shown = t ? t.sec + (Date.now() - t.at) / 1000 : g.timerSec;
-    const per = { "1H": "1st half", "2H": "2nd half", "ET": "ET", "PEN": "Pens" }[g.period] || "";
-    return (per ? '<span class="dim">' + per + ' </span>' : "") +
-      '<span class="dim" data-tick="' + sbEsc(g.id) + '">' + sbEsc(fmtTimer(shown)) + '</span>';
-  }
-  return '<span class="dim">' + sbEsc(sbClock(g)) + '</span>';
-}
-function sbMatchHtml(g) {
-  // Cricket: one side may not have batted yet (null), so show the
-  // score when either side has one, with – for the missing side.
-  const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
-  const side = (v) => (v !== null && v !== undefined ? v : "–");
-  const score = hasScore
-    ? "<b>" + sbEsc(side(g.homeScore)) + " – " + sbEsc(side(g.awayScore)) + "</b> " : "";
-  return '<div class="match"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + sbClockHtml(g) + '</span></div>';
-}
-function sbGroupHtml(title, games, emptyText) {
-  let html = '<p style="margin:12px 0 2px"><b>' + title + '</b></p>';
-  if (!games || !games.length) html += '<p class="dim">' + emptyText + '</p>';
-  else html += games.map(sbMatchHtml).join("");
-  return html;
-}
-function sbRender(npl) {
-  const list = $("sb-list");
-  list.innerHTML =
-    sbGroupHtml("🏏 Nepal Premier League", npl, "No NPL matches listed right now — check back later.");
-}
-async function sbLoad() {
-  try {
-    const r = await fetch(MINTER_URL + "/api/onexbet", { signal: AbortSignal.timeout(10000) });
-    const d = await r.json();
-    if (!r.ok) throw new Error("bad scores");
-    const npl = d.npl || d.games || [];
-    if (!Array.isArray(npl)) throw new Error("bad scores");
-    npl.forEach(sbSyncTimer);
-    sbRender(npl);
-    // Show the Watch button only while an NPL match is live. It opens
-    // The green button plays the 1xBet stream right here, in the
-    // site's own player, with no ads — it uses the direct link
-    // captured from the 1xBet tab. (The red link-out button was
-    // removed 17 Nov 2026 at the user's request.)
-    const live = npl.some((g) => g.status === "live");
-    $("sb-play-here").style.display = live ? "inline-block" : "none";
-    $("sb-updated").textContent = "· updated just now";
-  } catch (e) {
-    $("sb-list").innerHTML = '<p class="dim">Scores unavailable right now — will retry.</p>';
-    $("sb-play-here").style.display = "none";
-  }
-}
-// Green button: scroll to the player and play the 1xBet stream here.
-function sbPlayHere() {
-  document.getElementById("player-wrap").scrollIntoView({ behavior: "smooth", block: "center" });
-  playNPL();
-}
-// ---- Find a game (search panel in the hero) ----
-// Default view: Top games (1xBet featured list). Search by team,
-// league or game ID — a tap on any row opens the full detail:
-// league, sport, score, ticking clock, venue, weather, format,
-// kickoff and game ID. Betting odds are not shown: no endpoint
-// used here returns them.
-const FIND_URL = MINTER_URL + "/api/onexbet";
-let findMode = "top"; // "top" | "results" | "detail"
-function findRowHtml(g) {
-  const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
-  const side = (v) => (v !== null && v !== undefined ? v : "–");
-  const score = hasScore ? "<b>" + sbEsc(side(g.homeScore)) + " – " + sbEsc(side(g.awayScore)) + "</b> " : "";
-  return '<div class="find-item" onclick="findDetail(\'' + sbEsc(g.id) + '\')"><span><span class="dim">' + sbEsc(g.league) + '</span><br><b>' + sbEsc(g.home) + '</b> vs ' + sbEsc(g.away) + '</span><span class="time">' + score + sbClockHtml(g) + '</span></div>';
-}
-async function findTop() {
-  findMode = "top";
-  const body = $("find-body");
-  try {
-    const r = await fetch(FIND_URL + "?mode=featured", { signal: AbortSignal.timeout(10000) });
-    const d = await r.json();
-    if (!r.ok || !Array.isArray(d.games)) throw new Error("bad top");
-    const games = d.games.slice(0, 2);
-    games.forEach(sbSyncTimer);
-    body.innerHTML = '<p style="margin:12px 0 2px"><b>Top games</b></p>' +
-      (games.length ? games.map(findRowHtml).join("") : '<p class="dim">No top games right now.</p>');
-  } catch (e) {
-    body.innerHTML = '<p class="dim">Top games unavailable right now — try a search.</p>';
-  }
-}
-let findDetailId = null;
-function findShowDetail(g, searchedId) {
-  findMode = "detail";
-  findDetailId = g.id;
-  sbSyncTimer(g);
-  const hasScore = (g.homeScore !== null && g.homeScore !== undefined) || (g.awayScore !== null && g.awayScore !== undefined);
-  const side = (v) => (v !== null && v !== undefined ? v : "–");
-  const score = hasScore
-    ? '<div style="font-size:28px;font-weight:800;margin:8px 0">' + sbEsc(side(g.homeScore)) + ' – ' + sbEsc(side(g.awayScore)) + '</div>'
-    : "";
-  const rows = [];
-  if (g.sport) rows.push(["Sport", g.sport]);
-  if (g.venue) rows.push(["Venue", g.venue]);
-  if (g.format) rows.push(["Format", g.format]);
-  // Cricket: chasing target, runs needed and run rate — the
-  // detail 1xBet has for every limited-overs game.
-  if (g.cricket) {
-    if (g.cricket.target != null) rows.push(["Target", String(g.cricket.target)]);
-    if (g.cricket.need != null) rows.push(["Need", g.cricket.ballsLeft != null ? g.cricket.need + " off " + g.cricket.ballsLeft + " balls" : g.cricket.need + " runs"]);
-    if (g.cricket.runRate) rows.push(["Run rate", g.cricket.runRate]);
-  }
-  if (g.weather) rows.push(["Weather", g.weather]);
-  if (g.startTs) rows.push(["Kickoff", sbKickoff(g.startTs)]);
-  rows.push(["Game ID", g.id + (g.constId ? " · " + g.constId : "") + (searchedId && searchedId !== g.id ? " · you searched " + searchedId : "")]);
-  if (g.video) rows.push(["Video", "Live stream available"]);
-  if (g.hasLineups) rows.push(["Line-ups", "Available"]);
-  const sc = g.cricket && g.cricket.scorecard;
-  const scHtml = sc ? (function () {
-    const row = (label, val) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span class="dim">' + label + '</span><span style="text-align:right">' + sbEsc(val) + '</span></div>';
-    let h = '<p style="margin:14px 0 2px"><b>🏏 At the crease</b></p>';
-    if (sc.striker && sc.striker.name) h += row("Striker", sc.striker.name + " " + sc.striker.runs + " (" + sc.striker.balls + ")" + (sc.striker.fours !== "" ? " · " + sc.striker.fours + "x4 " + sc.striker.sixes + "x6" : ""));
-    if (sc.nonStriker && sc.nonStriker.name) h += row("Non-striker", sc.nonStriker.name + " " + sc.nonStriker.runs + " (" + sc.nonStriker.balls + ")");
-    if (sc.bowler && sc.bowler.name) h += row("Bowler", sc.bowler.name + " " + sc.bowler.overs + "-" + sc.bowler.maidens + "-" + sc.bowler.runs + "-" + sc.bowler.wickets);
-    if (sc.partnership || sc.crr) h += row("Partnership", (sc.partnership || "–") + (sc.crr ? " · CRR " + sc.crr : ""));
-    if (sc.lastWicket && sc.lastWicket.name) h += row("Last wicket", sc.lastWicket.name + " " + sc.lastWicket.runs + (sc.lastWicket.dismissal ? " (" + sc.lastWicket.dismissal + ")" : "") + (sc.lastWicket.fow ? " · " + sc.lastWicket.fow + "/" + sc.lastWicket.over : ""));
-    if (sc.lastOver) h += row("Last over", sc.lastOver);
-    if (sc.batting && sc.batting.length) {
-      h += '<p style="margin:14px 0 2px"><b>Batting</b></p>' + sc.batting.map((b) =>
-        '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span><b>' + sbEsc(b.name) + (b.onStrike === true ? "*" : "") + '</b> ' + sbEsc(b.runs) + ' (' + sbEsc(b.balls) + ')</span><span class="dim" style="text-align:right">' + sbEsc(b.dismissal || "") + '</span></div>').join("");
-    }
-    if (sc.bowling && sc.bowling.length) {
-      h += '<p style="margin:14px 0 2px"><b>Bowling</b></p>' + sc.bowling.map((b) =>
-        '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span><b>' + sbEsc(b.name) + '</b> ' + sbEsc(b.overs) + '-' + sbEsc(b.maidens) + '-' + sbEsc(b.runs) + '-' + sbEsc(b.wickets) + '</span><span class="dim">Econ ' + sbEsc(b.econ) + '</span></div>').join("");
-    }
-    return h;
-  })() : "";
-  $("find-body").innerHTML =
-    '<p style="margin:12px 0 2px"><a href="#" onclick="findTop();return false;" style="color:#9aa1b2">← Top games</a></p>' +
-    '<p class="dim" style="margin:4px 0">' + sbEsc(g.league) + '</p>' +
-    '<b>' + sbEsc(g.home) + '</b> vs <b>' + sbEsc(g.away) + '</b>' +
-    score +
-    '<p style="margin:4px 0">' + sbClockHtml(g) + '</p>' +
-    rows.map((r) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span class="dim">' + r[0] + '</span><span style="text-align:right">' + sbEsc(r[1]) + '</span></div>').join("") +
-    scHtml +
-    ((g.stats && g.stats.length)
-      ? '<p style="margin:14px 0 2px"><b>Match stats</b></p>' +
-        g.stats.map((st) => '<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid #1d2333;font-size:13px"><span><b>' + sbEsc(st.home) + '</b></span><span class="dim">' + sbEsc(st.name) + '</span><span><b>' + sbEsc(st.away) + '</b></span></div>').join("")
-      : "");
-}
-async function findSearch(q) {
-  const body = $("find-body");
-  body.innerHTML = '<p class="dim">Searching…</p>';
-  try {
-    const r = await fetch(FIND_URL + "?mode=search&q=" + encodeURIComponent(q), { signal: AbortSignal.timeout(15000) });
-    const d = await r.json();
-    if (!r.ok) throw new Error("bad search");
-    if (d.detail) { findShowDetail(d.detail, q); return; }
-    const games = d.games || [];
-    games.forEach(sbSyncTimer);
-    findMode = "results";
-    body.innerHTML = '<p style="margin:12px 0 2px"><b>' + games.length + ' result' + (games.length === 1 ? "" : "s") + ' for “' + sbEsc(q) + '”</b> <a href="#" onclick="findTop();return false;" style="color:#9aa1b2">← Top games</a></p>' +
-      (games.length ? games.map(findRowHtml).join("") : '<p class="dim">Nothing found. Try a team name, a league, or the game ID from the match page.</p>');
-  } catch (e) {
-    body.innerHTML = '<p class="dim">Search failed — try again.</p>';
-  }
-}
-async function findDetail(id, quiet) {
-  const body = $("find-body");
-  if (!quiet) body.innerHTML = '<p class="dim">Loading game detail…</p>';
-  try {
-    const r = await fetch(FIND_URL + "?mode=search&q=" + encodeURIComponent(id), { signal: AbortSignal.timeout(15000) });
-    const d = await r.json();
-    if (!r.ok || !d.detail) throw new Error("no detail");
-    findShowDetail(d.detail, id);
-  } catch (e) {
-    body.innerHTML = '<p class="dim">Could not load that game.</p>';
-  }
-}
-$("find-form").addEventListener("submit", (e) => { e.preventDefault(); const q = $("find-q").value.trim(); if (q) findSearch(q); });
-findTop();
-setInterval(() => {
-  if (findMode === "top") findTop();
-  else if (findMode === "detail" && findDetailId) findDetail(findDetailId, true);
-}, 15000);
-
-sbLoad();
-setInterval(sbLoad, SB_REFRESH_MS);
-</script>
 </body>
 </html>
