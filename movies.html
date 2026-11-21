@@ -142,6 +142,7 @@
       <div class="hero-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div>
     </div>
     <div class="chips" id="popular-chips"></div>
+    <div id="featured-row-wrap"></div>
     <div id="new-row-wrap"><div class="row-title" id="new-loading">🆕 New on the sites — loading…</div></div>
   </div>
 </main>
@@ -374,6 +375,7 @@ const DL_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 let downloadPrefetch = null; // {key, promise}
 let currentIsSeries = false;
 let currentWatchSeason = 1; // Watch episode picker (series only)
+let watchStartSeason = 0; // Featured-card jump (e.g. Dhindora 2): open Watch at this season
 let currentWatchEpisode = 1;
 let currentWatchMeta = null; // Cinemeta meta for the Watch title (videos = episode list)
 let currentWatchMetaTitle = "";
@@ -847,7 +849,8 @@ async function watchTitle() {
     return;
   }
   currentWatchTmdb = tmdb;
-  currentWatchSeason = 1;
+  currentWatchSeason = watchStartSeason || 1;
+  watchStartSeason = 0;
   currentWatchEpisode = 1;
   // Series: the episode picker needs the Cinemeta episode list.
   // Usually stashed already by resolveTmdbId (same promise the
@@ -956,6 +959,14 @@ function watchEpisodeList() {
     .map((v) => ({ season: +v.season, episode: +v.episode, name: v.title || v.name || "" }))
     .filter((e) => !isNaN(e.season) && !isNaN(e.episode));
   eps.sort((a, b) => a.season - b.season || a.episode - b.episode);
+  // Dhindora 2 (21 Nov 2026): Cinemeta still lists Season 1 only,
+  // but Season 2 premiered on Netflix 20 Nov 2026 (8 episodes).
+  // Offer it anyway so the picker shows Season 2; this drops
+  // itself once Cinemeta lists S2 with real episode names.
+  if (currentWatchTmdb === 135670 && !eps.some((e) => e.season === 2)) {
+    for (let ep = 1; ep <= 8; ep++) eps.push({ season: 2, episode: ep, name: "" });
+    eps.sort((a, b) => a.season - b.season || a.episode - b.episode);
+  }
   return eps;
 }
 function renderWatchEpisodePicker(wrap) {
@@ -1516,6 +1527,31 @@ POPULAR.forEach((t) => {
   });
   chipsEl.appendChild(b);
 });
+
+/* ---------- 🔥 Featured: Dhindora 2 ---------- */
+// Dhindora Season 2 premiered on Netflix 20 Nov 2026. One tap
+// opens the show and jumps Watch straight to Season 2 Episode 1
+// (the picker gets S2 from the override in watchEpisodeList,
+// since Cinemeta still lists S1 only). The card shows "Dhindora
+// 2" but the lookup uses the show's real title/year (2021), so
+// the TMDB id resolves. Poster is Cinemeta's (metahub) poster.
+function loadFeaturedRow() {
+  const wrap = $("featured-row-wrap");
+  if (!wrap) return;
+  wrap.appendChild(el("div", "row-title", "🔥 Featured"));
+  const row = el("div", "grid-row");
+  const poster = "https://images.metahub.space/poster/small/tt14650074/img";
+  row.appendChild(makeCard(
+    { title: "Dhindora 2", year: "2026", series: true, poster, siteName: "Season 2 • Netflix" },
+    () => {
+      openMoviesMod({ title: "Dhindora", year: "2021", series: true, poster });
+      watchStartSeason = 2;
+      watchTitle();
+    }
+  ));
+  wrap.appendChild(row);
+}
+loadFeaturedRow();
 
 /* ---------- 🆕 New on the sites (home row) ---------- */
 // The newest titles across the whole modlist network, rebuilt
