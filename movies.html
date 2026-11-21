@@ -329,6 +329,12 @@ async function runSearch(q) {
   try {
     const d = await getJSON(MOVIE_RESOLVER + "?dq=" + encodeURIComponent(q));
     const items = d.items || [];
+    // Dhindora 2 (21 Nov 2026): Season 2 is a Netflix exclusive
+    // and is not in the modlist index, so searching for it finds
+    // nothing. Show it anyway — one tap opens Watch at S2 E1.
+    if (/dhindora/i.test(q)) {
+      items.unshift({ title: "Dhindora 2", year: "2026", series: true, poster: DHINDORA_POSTER, siteName: "Season 2 • Netflix", dhindora2: true });
+    }
     // An IMDb code resolves to a title — show what it meant.
     const shown = d.resolvedTitle
       ? d.resolvedTitle + (d.resolvedYear ? " (" + d.resolvedYear + ")" : "")
@@ -350,7 +356,7 @@ async function runSearch(q) {
       const rowEl = el("div", "row");
       rowEl.style.flexWrap = "wrap";
       items.forEach((it) => {
-        const card = makeCard(it, (item) => openMoviesMod(item));
+        const card = makeCard(it, (item) => (item.dhindora2 ? openDhindora2() : openMoviesMod(item)));
         rowEl.appendChild(card);
       });
       resEl.appendChild(rowEl);
@@ -931,7 +937,20 @@ function startWatchProbes(tmdb) {
   WATCH_SOURCES.forEach((s) => {
     if (!s.base) return;
     const url = watchSourceUrl(s.id, tmdb);
-    embeds[s.id] = fetch(url, { mode: "no-cors" }).then(() => true).catch(() => false);
+    // Embed liveness check (21 Nov 2026): a no-cors fetch cannot
+    // see the status, so a 404 embed page (Nexus has no copy of
+    // Dhindora, S1 or S2) looked "alive" and the player sat on its
+    // 404 page instead of falling back. Ask the resolver, which
+    // fetches the page server-side and reports the real status;
+    // a 404 marks the host dead so the player skips it. If the
+    // check itself gives no status, fall back to the old no-cors
+    // reachability check.
+    embeds[s.id] = getJSON(MOVIE_RESOLVER + "?embedcheck=" + encodeURIComponent(url))
+      .then((d) => {
+        if (d && typeof d.status === "number" && d.status > 0) return d.status < 400;
+        throw new Error("no status");
+      })
+      .catch(() => fetch(url, { mode: "no-cors" }).then(() => true).catch(() => false));
     embeds[s.id].then((v) => { watchEmbedAlive[s.id] = v; });
   });
   watchProbes = { key, direct, nm, embeds };
@@ -1535,19 +1554,24 @@ POPULAR.forEach((t) => {
 // since Cinemeta still lists S1 only). The card shows "Dhindora
 // 2" but the lookup uses the show's real title/year (2021), so
 // the TMDB id resolves. Poster is Cinemeta's (metahub) poster.
+const DHINDORA_POSTER = "https://images.metahub.space/poster/small/tt14650074/img";
+// One tap opens Dhindora at Season 2 Episode 1: the detail panel
+// for the show (real title/year, so the TMDB id resolves) with
+// Watch jumping straight to S2 (see watchStartSeason).
+function openDhindora2() {
+  openMoviesMod({ title: "Dhindora", year: "2021", series: true, poster: DHINDORA_POSTER });
+  watchStartSeason = 2;
+  watchTitle();
+}
 function loadFeaturedRow() {
   const wrap = $("featured-row-wrap");
   if (!wrap) return;
   wrap.appendChild(el("div", "row-title", "🔥 Featured"));
   const row = el("div", "grid-row");
-  const poster = "https://images.metahub.space/poster/small/tt14650074/img";
+  const poster = DHINDORA_POSTER;
   row.appendChild(makeCard(
     { title: "Dhindora 2", year: "2026", series: true, poster, siteName: "Season 2 • Netflix" },
-    () => {
-      openMoviesMod({ title: "Dhindora", year: "2021", series: true, poster });
-      watchStartSeason = 2;
-      watchTitle();
-    }
+    () => openDhindora2()
   ));
   wrap.appendChild(row);
 }
