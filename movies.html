@@ -62,6 +62,13 @@
      winner gets the green ✓, which means "playing". */
   #watch-wrap .race-wait { color: #9aa1b2; }
   #watch-wrap .race-ready { color: #c6cddc; }
+  /* Subtitles + Skip Intro buttons (21 Nov 2026): the
+     .watch-player holder sits over the video; the skip buttons
+     live in it, just above the native controls. */
+  #watch-wrap .watch-player { position: relative; }
+  #watch-wrap .watch-skip-wrap { position: absolute; right: 12px; bottom: 60px; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; z-index: 5; }
+  #watch-wrap .watch-skip { display: none; padding: 8px 16px; border-radius: 999px; border: 1px solid #2b3348; background: rgba(23, 27, 40, 0.92); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; }
+  #watch-wrap .watch-skip.show { display: block; }
   #watch-wrap .watch-srcs { display: flex; gap: 8px; margin-bottom: 10px; }
 .watch-eps { display: flex; gap: 8px; margin-bottom: 10px; }
 .watch-eps select { padding: 7px 10px; border-radius: 999px; border: 1px solid #2b3348; background: #171b28; color: #c6cddc; cursor: pointer; font-size: 13px; font-weight: 700; max-width: 100%; }
@@ -1396,6 +1403,8 @@ async function raceNativePlayers(wrap, tmdb) {
     racer.video.style.display = "";
     if (list.parentNode) list.parentNode.removeChild(list);
     wrap.appendChild(racer.video);
+    loadWatchSubtitles(racer.video);
+    attachSkipButtons(racer.video);
     wrap.querySelectorAll(".wsrc").forEach((b) => {
       b.classList.toggle("active", b.textContent === raceLabel(racer.id));
     });
@@ -1490,6 +1499,175 @@ async function raceNativePlayers(wrap, tmdb) {
   });
 }
 
+// ---------- Subtitles (OpenSubtitles) + Skip Intro (Nexus introdb) ----------
+// 21 Nov 2026: the Movies player gets a subtitles menu and Skip
+// Intro / Next Episode buttons on every native player (Direct,
+// Server 2, Server 8, and the race winner). Embeds (iframes) cannot
+// take tracks or buttons from outside, so they keep their own
+// in-player controls.
+// Subtitles come from the Stremio OpenSubtitles addon (keyless,
+// CORS *): /subtitles/movie/{imdb}.json and
+// /subtitles/series/{imdb}:{S}:{E}.json. The files are SRT, and
+// <track> needs VTT, so each track points at the resolver's ?sub=
+// proxy, which converts SRT -> VTT server-side.
+// Skip timestamps come from Nexus's introdb API via the VM resolver
+// (NEXUS_RESOLVER + "/introdb") — the API sends no CORS header and
+// Vercel is 403-blocked by nxsha.space, so only the VM can call it.
+// Timestamps belong to the episode, not the server, so they are
+// fetched once per title/episode and reused across server switches.
+const OPENSUBS = "https://opensubtitles-v3.strem.io/subtitles";
+// 3-letter -> [2-letter code, display name] for <track>.
+const SUB_LANGS = {
+  eng: ["en", "English"], hin: ["hi", "Hindi"], nep: ["ne", "Nepali"],
+  spa: ["es", "Spanish"], fre: ["fr", "French"], ger: ["de", "German"],
+  ita: ["it", "Italian"], por: ["pt", "Portuguese"], rus: ["ru", "Russian"],
+  ara: ["ar", "Arabic"], chi: ["zh", "Chinese"], jpn: ["ja", "Japanese"],
+  kor: ["ko", "Korean"], dut: ["nl", "Dutch"], nld: ["nl", "Dutch"],
+  dan: ["da", "Danish"], swe: ["sv", "Swedish"], nor: ["no", "Norwegian"],
+  fin: ["fi", "Finnish"], pol: ["pl", "Polish"], tur: ["tr", "Turkish"],
+  tha: ["th", "Thai"], vie: ["vi", "Vietnamese"], ind: ["id", "Indonesian"],
+  tam: ["ta", "Tamil"], tel: ["te", "Telugu"], ben: ["bn", "Bengali"],
+  mal: ["ml", "Malayalam"], kan: ["kn", "Kannada"], mar: ["mr", "Marathi"],
+  pun: ["pa", "Punjabi"], guj: ["gu", "Gujarati"], urd: ["ur", "Urdu"],
+};
+function subLangInfo(code) {
+  const c = String(code || "").toLowerCase();
+  return SUB_LANGS[c] || [c.slice(0, 2) || "en", c || "Subtitles"];
+}
+function watchEpKey() {
+  return (currentWatchTmdb || "") + "|" + (currentIsSeries ? "tv" : "movie") + "|S" + currentWatchSeason + "E" + currentWatchEpisode;
+}
+let watchSubsCache = {}; // key -> chosen subtitle list [{label, srclang, url}]
+let watchSkipCache = {}; // key -> {intro, outro} | null (null = none / fetch failed)
+
+// The title's IMDb id. The Cinemeta meta stashed at Watch time
+// carries it (meta.id and meta.imdb_id are both the IMDb id), but
+// the meta is stale or missing when the TMDB id came from cache
+// (movies) or from the Dhindora override — so check the title
+// matches, and fetch the meta if it does not.
+async function getWatchImdbId() {
+  const m = currentWatchMeta || {};
+  if (currentWatchMetaTitle === currentTitle) {
+    const id = m.imdb_id || m.id || "";
+    if (/^tt\d+$/.test(id)) return id;
+  }
+  try {
+    const meta = await cinemetaMeta(currentTitle, currentYear, currentIsSeries);
+    if (meta) { currentWatchMeta = meta; currentWatchMetaTitle = currentTitle; }
+    const id = (meta && (meta.imdb_id || meta.id)) || "";
+    return /^tt\d+$/.test(id) ? id : "";
+  } catch { return ""; }
+}
+
+async function loadWatchSubtitles(video) {
+  if (!video || video.querySelectorAll("track").length) return; // NetMirror already added its own
+  const key = watchEpKey();
+  const isSeries = currentIsSeries;
+  const season = currentWatchSeason;
+  const episode = currentWatchEpisode;
+  const imdb = await getWatchImdbId();
+  if (!imdb || !video.isConnected) return;
+  let list = watchSubsCache[key];
+  if (!list) {
+    const url = isSeries
+      ? OPENSUBS + "/series/" + imdb + ":" + season + ":" + episode + ".json"
+      : OPENSUBS + "/movie/" + imdb + ".json";
+    let d = null;
+    try { const r = await fetch(url); if (r.ok) d = await r.json(); } catch {}
+    const subs = (d && d.subtitles) || [];
+    // One track per language, English first, then Hindi, then the
+    // rest in the addon's order (best first). Cap at 6 so the CC
+    // menu stays short. A title with few subs (e.g. Dhindora S2E1
+    // has only Dutch + German) just gets what exists.
+    const byLang = {};
+    subs.forEach((s) => {
+      if (!s || !s.url || !s.lang) return;
+      const lang = String(s.lang).toLowerCase();
+      if (!byLang[lang]) byLang[lang] = s;
+    });
+    const rank = (l) => (l === "eng" ? 0 : l === "hin" ? 1 : 2);
+    list = Object.keys(byLang).sort((a, b) => rank(a) - rank(b)).slice(0, 6).map((lang) => {
+      const [code, name] = subLangInfo(lang);
+      return { label: name, srclang: code, url: byLang[lang].url };
+    });
+    watchSubsCache[key] = list;
+  }
+  if (!video.isConnected || !list.length) return;
+  if (video.querySelectorAll("track").length) return; // a rerender added some meanwhile
+  list.forEach((t) => {
+    const tr = document.createElement("track");
+    tr.kind = "subtitles";
+    tr.label = t.label;
+    tr.srclang = t.srclang;
+    tr.src = MOVIE_RESOLVER + "?sub=" + encodeURIComponent(t.url);
+    video.appendChild(tr);
+  });
+}
+
+function attachSkipButtons(video) {
+  if (!video) return;
+  const key = watchEpKey();
+  const isSeries = currentIsSeries;
+  const season = currentWatchSeason;
+  const episode = currentWatchEpisode;
+  // Wrap the video so the buttons can sit over it (above the
+  // native controls). The holder is removed with the video on
+  // re-render, and the timeupdate listener dies with the video.
+  const holder = el("div", "watch-player");
+  video.parentNode.insertBefore(holder, video);
+  holder.appendChild(video);
+  const wrap = el("div", "watch-skip-wrap");
+  const skipBtn = el("button", "watch-skip", "Skip Intro ⏭");
+  skipBtn.type = "button";
+  const nextBtn = el("button", "watch-skip", "Next Episode ⏭");
+  nextBtn.type = "button";
+  wrap.appendChild(skipBtn);
+  wrap.appendChild(nextBtn);
+  holder.appendChild(wrap);
+  const show = (b, on) => b.classList.toggle("show", !!on);
+  getWatchImdbId().then((imdb) => {
+    if (!imdb || !video.isConnected) return;
+    const apply = (d) => {
+      if (!video.isConnected) return;
+      const intro = d && d.intro;
+      const outro = d && d.outro;
+      const onTime = () => {
+        if (!video.isConnected) return;
+        const t = video.currentTime || 0;
+        show(skipBtn, !!(intro && t >= intro.start_sec && t < intro.end_sec));
+        show(nextBtn, !!(outro && isSeries && t >= outro.start_sec));
+      };
+      video.addEventListener("timeupdate", onTime);
+      skipBtn.addEventListener("click", () => {
+        if (intro) { video.currentTime = intro.end_sec; show(skipBtn, false); }
+      });
+      nextBtn.addEventListener("click", () => { watchNextEpisode(); });
+      onTime();
+    };
+    if (watchSkipCache[key] !== undefined) { apply(watchSkipCache[key]); return; }
+    const url = NEXUS_RESOLVER + "/introdb?imdb=" + imdb + "&type=" + (isSeries ? "tv" : "movie") +
+      (isSeries ? "&se=" + season + "&ep=" + episode : "");
+    fetch(url).then((r) => (r.ok ? r.json() : null)).catch(() => null).then((d) => {
+      const clean = d && typeof d === "object" ? d : null;
+      watchSkipCache[key] = clean;
+      apply(clean);
+    });
+  });
+}
+
+function watchNextEpisode() {
+  const eps = watchEpisodeList();
+  if (!eps.length) return;
+  const cur = eps.findIndex((e) => e.season === currentWatchSeason && e.episode === currentWatchEpisode);
+  if (cur < 0) return;
+  const next = eps.slice(cur + 1).find((e) => e.season === currentWatchSeason) || eps[cur + 1] || null;
+  if (!next) return;
+  currentWatchSeason = next.season;
+  currentWatchEpisode = next.episode;
+  watchTriedSources = new Set();
+  renderWatchPlayer();
+}
+
 // Direct player: fetch the rewritten manifest from the resolver
 // (?watch= answers { noSource: true } as JSON when the title has
 // no Orion copy, and a plain #EXTM3U manifest otherwise), then
@@ -1553,6 +1731,8 @@ async function renderDirectPlayer(wrap, tmdb) {
   video.muted = true; // muted autoplay is allowed; tap the speaker for sound
   video.title = "Watch " + currentTitle;
   wrap.appendChild(video);
+  loadWatchSubtitles(video);
+  attachSkipButtons(video);
   watchBlobUrl = URL.createObjectURL(
     new Blob([text], { type: "application/vnd.apple.mpegurl" })
   );
@@ -1664,6 +1844,8 @@ async function renderNexusPlayer(wrap, tmdb) {
   video.muted = true; // muted autoplay is allowed; tap the speaker for sound
   video.title = "Watch " + currentTitle;
   wrap.appendChild(video);
+  loadWatchSubtitles(video);
+  attachSkipButtons(video);
   // Watchdog: if the video has not started playing within 20s,
   // fall back to the next source instead of buffering forever.
   // Cleared on first 'playing' and whenever the player is
@@ -1750,6 +1932,8 @@ async function renderNetMirrorPlayer(wrap) {
   video.muted = true; // muted autoplay is allowed; tap the speaker for sound
   video.title = "Watch " + title;
   wrap.appendChild(video);
+  loadWatchSubtitles(video);
+  attachSkipButtons(video);
   // Watchdog: if the video has not started playing within 20s,
   // fall back to the next source instead of buffering forever.
   // Cleared on first 'playing' and whenever the player is
