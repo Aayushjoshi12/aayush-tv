@@ -652,6 +652,10 @@ const WATCH_SOURCES = [
   // mouse is still.
   { id: "embedwave", label: "Server 3", base: "https://embedwave.cc/embed", suffix: "?server=cinesrc&nobrand=1" },
   { id: "vidrift", label: "Server 4", base: "https://embed.vidrift.net/embed" },
+  // Skyflix's Nexus server (nxsha.space embed): the default player
+  // on skyflix.me, confirmed playing Inception in the user's
+  // Chrome 21 Nov 2026. Same iframe pattern as EmbedWave/VidRift.
+  { id: "skyflix", label: "Server 5", base: "https://nxsha.space/embed", suffix: "?lang=en&autoplay=true&sub=en" },
 ];
 let currentWatchTmdb = null;
 let currentWatchSource = "direct";
@@ -865,8 +869,8 @@ function watchSourceUrl(sourceId, tmdb) {
   return path + (s.suffix || "");
 }
 
-// Builds the player with a source switcher (Direct / EmbedWave /
-// VidRift). Direct is a native <video> fed by hls.js from the
+// Builds the player with a source switcher (Direct / NetMirror /
+// EmbedWave / VidRift / Skyflix). Direct is a native <video> fed by hls.js from the
 // resolver (?watch=); the other two are iframes. If Direct has no
 // copy or fails to load, the player moves to the next source by
 // itself so the user never sees a dead player.
@@ -971,7 +975,7 @@ function renderWatchPlayer() {
 }
 
 // Move to the next source not yet tried (Direct -> NetMirror ->
-// EmbedWave -> VidRift). Called whenever a source has no copy or
+// EmbedWave -> VidRift -> Skyflix). Called whenever a source has no copy or
 // its player errors fatally. Stops once every source has been
 // tried, so a dead title ends on the last source instead of
 // looping forever. (Before this fix it advanced only ONCE per
