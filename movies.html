@@ -46,7 +46,7 @@
   #watch-wrap video { width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 12px; background: #000; }
   #watch-wrap .watch-note { font-size: 12px; color: #9aa1b2; margin-top: 8px; }
   /* Parallel race status list (21 Nov 2026): the "Fetching Media /
-     Trying streaming servers..." panel the 3 native servers race
+     Trying streaming servers..." panel the 4 native servers race
      behind, one row per server with a live spinner / ✕ / ✓. */
   #watch-wrap .race-list { background: #171b28; border: 1px solid #2b3348; border-radius: 12px; padding: 18px 20px; }
   #watch-wrap .race-title { font-size: 17px; font-weight: 800; color: #e6ebf5; text-align: center; }
@@ -702,7 +702,16 @@ const WATCH_SOURCES = [
   // during the Skyflix check; the other three are verified live
   // in the user's browser instead. Order kept ahead of NetMirror.
   { id: "aura", label: "Server 5", base: "https://vidgod.site", suffix: "?autoplay=true" },
-  { id: "nova", label: "Server 6", base: "https://player-4aq.pages.dev/embed", suffix: "?autoPlay=true" },
+  // Nova (Server 6) is a NATIVE player now (21 Nov 2026), not an
+  // iframe: its Astra API returns direct signed HLS links
+  // (hscow/fcxmb, same pool as VidRift/Citadel), CORS *, no key —
+  // so it joins the race and gets subtitles + Skip Intro like the
+  // other natives, and the embed (with its redirect-to-flaxmovies
+  // behaviour) is gone. The API needs the Nova player page's
+  // Referer/Origin (Cloudflare 403s without them), so the
+  // resolver's ?astra= mode fetches it server-side; the page
+  // plays the direct link (no proxy in the play path).
+  { id: "nova", label: "Server 6", native: true, astra: true },
   { id: "filix", label: "Server 7", base: "https://nhdapi.com", suffix: "?autoPlay=true" },
   // NetMirror (native <video>): HLS via hls.js when net52
   // answers, otherwise the direct MP4 fallback. Falls back to
@@ -1147,7 +1156,7 @@ function renderWatchPlayer() {
   renderWatchEpisodePicker(wrap);
   const src = WATCH_SOURCES.find((x) => x.id === currentWatchSource) || WATCH_SOURCES[0];
   if (!manualPick && src.id === "direct" && watchTriedSources.size === 0) {
-    // Fresh Watch open: race the 3 native servers in parallel
+    // Fresh Watch open: race the 4 native servers in parallel
     // instead of trying them one by one (see raceNativePlayers).
     // The race shows the status list and renders the winner
     // itself, so nothing else is appended here.
@@ -1159,6 +1168,8 @@ function renderWatchPlayer() {
     renderNetMirrorPlayer(wrap);
   } else if (src.nx) {
     renderNexusPlayer(wrap, tmdb);
+  } else if (src.astra) {
+    renderAstraPlayer(wrap, tmdb);
   } else if (src.native) {
     renderDirectPlayer(wrap, tmdb);
   } else if (watchEmbedAlive[currentWatchSource] === false && !manualPick) {
@@ -1201,24 +1212,26 @@ function watchFallback() {
   // player already points the user to Download instead.
 }
 
-// ---------- Parallel race of the 3 native servers ----------
+// ---------- Parallel race of the 4 native servers ----------
 // 21 Nov 2026: the user asked for all stream servers to run at
 // once, like the "Fetching Media / Trying streaming servers..."
 // screen he showed (Nebula / Light / Lisbon / Wave, each with a
-// live ✕ or spinner). On a fresh Watch open the 3 native servers
-// (Direct, Server 2 Nexus, Server 8 NetMirror) now start playing
-// in parallel, hidden, and the first video that actually starts
-// playing wins and is shown; the losers are stopped at once.
-// The 5 embeds (Servers 3–7) CANNOT race: a cross-origin iframe
-// cannot tell this page whether its video is playing or just a
-// black frame, so they still load one by one after the race, as
-// before. The race reuses the parallel probes started at Watch
-// open (same answers the single-player renderers use), so it adds
-// no extra resolver calls except Nexus's own ?nexus= fetch, which
-// is not probed. If the race has a bug, the worst case is it
-// loses and the normal sequential fallback takes over — the old
-// renderers below are untouched.
-const RACE_SOURCES = ["direct", "skyflix", "netmirror"];
+// live ✕ or spinner). On a fresh Watch open the 4 native servers
+// (Direct, Server 2 Nexus, Server 8 NetMirror, Server 6 Astra)
+// now start playing in parallel, hidden, and the first video that
+// actually starts playing wins and is shown; the losers are
+// stopped at once.
+// The 4 embeds (Servers 3, 4, 5, 7) CANNOT race: a cross-origin
+// iframe cannot tell this page whether its video is playing or
+// just a black frame, so they still load one by one after the
+// race, as before. The race reuses the parallel probes started at
+// Watch open (same answers the single-player renderers use), so
+// it adds no extra resolver calls except Nexus's own ?nexus=
+// fetch and Astra's ?astra= fetch, which are not probed. If the
+// race has a bug, the worst case is it loses and the normal
+// sequential fallback takes over — the old renderers below are
+// untouched.
+const RACE_SOURCES = ["direct", "skyflix", "netmirror", "nova"];
 function raceLabel(id) {
   const s = WATCH_SOURCES.find((x) => x.id === id);
   return s ? s.label : id;
@@ -1278,6 +1291,11 @@ async function raceResolve(id, tmdb, gen) {
     } catch { /* not JSON: no copy */ }
     return null;
   }
+  if (id === "nova") {
+    const text = await fetchAstraManifest(tmdb);
+    if (stale()) return null;
+    return text.startsWith("#EXTM3U") ? { kind: "hls", text } : null;
+  }
   // NetMirror: same ?play= answer renderNetMirrorPlayer uses.
   let d = null;
   if (probes) {
@@ -1332,8 +1350,8 @@ async function raceNativePlayers(wrap, tmdb) {
   list.appendChild(el("div", "race-title", "Fetching Media"));
   list.appendChild(el("div", "race-sub", "Trying streaming servers…"));
   const rows = {};
-  // One row per server (all 8), in switcher order. The 3 natives
-  // show the live race (spinner -> ✕/✓); the 5 embeds show what
+  // One row per server (all 8), in switcher order. The 4 natives
+  // show the live race (spinner -> ✕/✓); the 4 embeds show what
   // the parallel probes already know (✕ = no copy, ✓ = has a
   // copy, … = still checking) — they cannot race for playback
   // because an iframe cannot say whether its video is playing,
@@ -1371,7 +1389,7 @@ async function raceNativePlayers(wrap, tmdb) {
     if (!alive() || winner) return;
     raceCleanupFn = null;
     racers.forEach(destroyRacer);
-    // All 3 natives failed: mark them tried and let the normal
+    // All 4 natives failed: mark them tried and let the normal
     // fallback move to the first embed (Server 3).
     RACE_SOURCES.forEach((id) => watchTriedSources.add(id));
     const idx = WATCH_SOURCES.findIndex((x) => x.id === currentWatchSource);
@@ -1666,6 +1684,94 @@ function watchNextEpisode() {
   currentWatchEpisode = next.episode;
   watchTriedSources = new Set();
   renderWatchPlayer();
+}
+
+// ---------- Astra (Nova's direct API) ----------
+// 21 Nov 2026: Server 6 (Nova) is a native player, not an iframe
+// (see WATCH_SOURCES). Its Astra API returns direct signed HLS
+// links (hscow/fcxmb, CORS *), so the page plays them in its own
+// <video> via hls.js — same pattern as Direct (blob URL, 20s
+// watchdog, subtitles + Skip Intro attached). The resolver's
+// ?astra= mode fetches the source list server-side (the API needs
+// the Nova player page's Referer/Origin, which a browser cannot
+// set); the manifest itself is fetched from the page (CORS *).
+async function fetchAstraSources(tmdb) {
+  const type = currentIsSeries ? "tv" : "movie";
+  const url = MOVIE_RESOLVER + "?astra=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode;
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    const d = await r.json();
+    return Array.isArray(d && d.sources) ? d.sources : null;
+  } catch { return null; }
+}
+// Best source: highest resolution; Dhindora is Hindi, everything
+// else English first.
+function pickAstraSource(sources, tmdb) {
+  if (!sources || !sources.length) return null;
+  const wantHindi = tmdb === 275204; // Dhindora
+  const res = (s) => { const m = /(\d{3,4})\s*p/i.exec(String(s.quality || "")); return m ? +m[1] : 0; };
+  const langRank = (s) => {
+    const q = String(s.quality || "").toLowerCase();
+    if (wantHindi) return q.includes("hindi") ? 0 : q.includes("english") ? 1 : 2;
+    return q.includes("english") ? 0 : q.includes("hindi") ? 1 : 2;
+  };
+  const cands = sources.filter((s) => s && s.url && /\.m3u8(\?|$)/i.test(s.url));
+  if (!cands.length) return null;
+  cands.sort((a, b) => res(b) - res(a) || langRank(a) - langRank(b));
+  return cands[0];
+}
+async function fetchAstraManifest(tmdb) {
+  const best = pickAstraSource(await fetchAstraSources(tmdb), tmdb);
+  if (!best) return "";
+  try {
+    const r = await fetch(best.url);
+    const text = await r.text();
+    return text.startsWith("#EXTM3U") ? text : "";
+  } catch { return ""; }
+}
+async function renderAstraPlayer(wrap, tmdb) {
+  const loading = el("div", "watch-note", "Loading Server 6…");
+  wrap.appendChild(loading);
+  const text = await fetchAstraManifest(tmdb);
+  if (!text.startsWith("#EXTM3U")) { watchFallback(); return; }
+  if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+  const video = document.createElement("video");
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+  video.muted = true; // muted autoplay is allowed; tap the speaker for sound
+  video.title = "Watch " + currentTitle;
+  wrap.appendChild(video);
+  loadWatchSubtitles(video);
+  attachSkipButtons(video);
+  watchBlobUrl = URL.createObjectURL(
+    new Blob([text], { type: "application/vnd.apple.mpegurl" })
+  );
+  // Watchdog: if the video has not started playing within 20s,
+  // fall back to the next source instead of buffering forever.
+  // Cleared on first 'playing' and whenever the player is
+  // re-rendered.
+  watchWatchdog = setTimeout(() => { watchFallback(); }, 20000);
+  video.addEventListener("playing", () => {
+    if (watchWatchdog) { clearTimeout(watchWatchdog); watchWatchdog = null; }
+  }, { once: true });
+  if (window.Hls && Hls.isSupported()) {
+    watchHls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
+    watchHls.loadSource(watchBlobUrl);
+    watchHls.attachMedia(video);
+    watchHls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+    watchHls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) return;
+      watchFallback();
+    });
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = watchBlobUrl;
+    video.addEventListener("error", () => watchFallback(), { once: true });
+    video.play().catch(() => {});
+  } else {
+    watchFallback();
+  }
 }
 
 // Direct player: fetch the rewritten manifest from the resolver
