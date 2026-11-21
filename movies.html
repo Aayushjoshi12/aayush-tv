@@ -725,6 +725,13 @@ function prefetchWatch() {
 }
 
 async function resolveTmdbId(title, year) {
+  // Dhindora (21 Nov 2026): Cinemeta's moviedb_id for it is stale —
+  // it says 135670, which does not exist on TMDB (their /tv/135670
+  // 404s), so every embed built from it 404d on every server. The
+  // real TMDB id is 275204 (verified: Nexus has the full Season 2
+  // under it). Override here, before the cache, so every path
+  // (search, featured card, Watch) gets the right id.
+  if (/dhindora/i.test(title || "")) return 275204;
   const key = watchCacheKey(title, year);
   const hit = watchCacheGet(key);
   if (hit) return hit;
@@ -955,10 +962,9 @@ function startWatchProbes(tmdb) {
     if (!s.base) return;
     const url = watchSourceUrl(s.id, tmdb);
     // Embed liveness check (21 Nov 2026): a no-cors fetch cannot
-    // see the status, so a 404 embed page (Nexus has no copy of
-    // Dhindora, S1 or S2) looked "alive" and the player sat on its
-    // 404 page instead of falling back. Ask the resolver, which
-    // fetches the page server-side and reports the real status.
+    // see the status, so a 404 embed page (a title the host has no
+    // copy of) looked "alive" and the player sat on its 404 page
+    // instead of falling back. Ask the resolver, which fetches the
     // 404 = the host has no copy of this title: dead, skip it.
     // 200 = the page is really there: alive. Anything else (403 =
     // the host blocks datacentre IPs, so Vercel can't tell; 0 =
@@ -1004,7 +1010,7 @@ function watchEpisodeList() {
   // but Season 2 premiered on Netflix 20 Nov 2026 (8 episodes).
   // Offer it anyway so the picker shows Season 2; this drops
   // itself once Cinemeta lists S2 with real episode names.
-  if (currentWatchTmdb === 135670 && !eps.some((e) => e.season === 2)) {
+  if (currentWatchTmdb === 275204 && !eps.some((e) => e.season === 2)) {
     for (let ep = 1; ep <= 8; ep++) eps.push({ season: 2, episode: ep, name: "" });
     eps.sort((a, b) => a.season - b.season || a.episode - b.episode);
   }
