@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Muse Bridge — Options</title>
+<style>
+  :root { color-scheme: dark; }
+  body { margin: 24px; background: #0b0e14; color: #e8eaf0;
+         font: 14px/1.5 system-ui, sans-serif; max-width: 520px; }
+  h1 { font-size: 18px; }
+  label { display: block; margin: 14px 0 4px; color: #c3cad8; }
+  input { width: 100%; box-sizing: border-box; background: #0f1420; color: #e8eaf0;
+          border: 1px solid #2a3247; border-radius: 8px; padding: 8px; font: inherit; }
+  button { background: #ff3b3b; color: #fff; border: 0; border-radius: 8px;
+           padding: 8px 16px; font-size: 14px; cursor: pointer; margin-top: 18px; }
+  .hint { color: #9aa3b2; font-size: 12.5px; }
+  #saved { color: #8be08b; margin-left: 10px; }
+</style>
+</head>
+<body>
+  <h1>Muse Bridge — Options</h1>
+
+  <label>GitHub owner</label>
+  <input id="owner" type="text">
+  <label>Repository</label>
+  <input id="repo" type="text">
+  <label>Branch</label>
+  <input id="branch" type="text">
+  <label>Bridge folder</label>
+  <input id="folder" type="text">
+
+  <label>GitHub token (only needed to ADD tasks, or if the repo is private)</label>
+  <input id="token" type="password" autocomplete="off" placeholder="github_pat_…">
+  <p class="hint">Use a fine-grained personal access token limited to this one repo,
+  with Contents: Read and write. It is stored only in this browser
+  (chrome.storage.local) and is sent only to api.github.com. Never paste tokens
+  into any chat — this options page is the safe place for it.</p>
+
+  <button id="save">Save</button><span id="saved"></span>
+
+<script src="options.js"></script>
+</body>
+</html>
