@@ -118,6 +118,7 @@
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
   .chips button { padding: 8px 15px; border-radius: 20px; border: 1px solid #2a3040; background: #151a26; color: #cfd3dd; cursor: pointer; font-size: 13px; font-weight: 600; transition: border-color .15s, color .15s; }
   .chips button:hover { border-color: #ff3b3b; color: #fff; }
+  .chips button.active { border-color: #ff3b3b; background: #ff3b3b; color: #fff; }
   #status { padding: 8px 20px 20px; color: #9aa1b2; font-size: 14px; text-align: center; }
   .hint { color: #9aa1b2; font-size: 14px; line-height: 1.6; margin-top: 8px; }
   /* ---- footer ---- */
@@ -168,6 +169,12 @@
     <div class="chips" id="popular-chips"></div>
     <div id="featured-row-wrap"></div>
     <div id="new-row-wrap"><div class="row-title" id="new-loading">🆕 New on the sites — loading…</div></div>
+    <div id="browse-wrap">
+      <div class="row-title" id="browse-loading">🎬 Trending — loading…</div>
+      <div class="chips" id="browse-genres"></div>
+      <div id="browse-movies-wrap"></div>
+      <div id="browse-series-wrap"></div>
+    </div>
   </div>
 </main>
 <div id="status"></div>
@@ -1428,11 +1435,27 @@ async function raceNativePlayers(wrap, tmdb) {
     racers.push(racer);
     f.addEventListener("load", () => {
       if (!alive() || winner) return;
-      // The probe may have ruled this host out while the iframe
-      // was loading — a 404 page still fires 'load', so do not
-      // let it win on that.
-      if (watchEmbedAlive[s.id] === false) { fail(s.id); return; }
-      win(racer);
+      // A dead host's iframe still fires 'load' — a DNS error or
+      // 404 page is a document that loads — so 'loaded' alone does
+      // not mean the host has the video. Do not win until the probe
+      // confirms the host is alive. (21 Nov 2026: a fresh load
+      // auto-picked Server 5/Aura, whose vidgod.site is DNS-dead,
+      // because its error page fired 'load' before the probe had
+      // said dead and before any native played, leaving a broken
+      // white page. The probe is already running from Watch open,
+      // so waiting for it costs nothing in the normal case.)
+      const probe = watchProbes && watchProbes.embeds && watchProbes.embeds[s.id];
+      if (probe && typeof probe.then === "function") {
+        probe.then((v) => {
+          if (!alive() || winner) return;
+          if (v === false) { fail(s.id); return; }
+          win(racer);
+        });
+      } else if (watchEmbedAlive[s.id] === false) {
+        fail(s.id);
+      } else {
+        win(racer);
+      }
     }, { once: true });
     f.addEventListener("error", () => { if (alive()) fail(s.id); }, { once: true });
   });
@@ -2424,6 +2447,98 @@ async function loadNewRow() {
   }
 }
 loadNewRow();
+
+/* ---------- 🎬 Browse — trending movies & top TV (Cinemeta catalog) ---------- */
+// Skyflix-style browse without a TMDB key: Cinemeta's free catalog API
+// (already used for posters/ids on this page) serves popular movies and
+// top series with poster, year and genres. Tapping a card opens the same
+// detail panel as a search result — Watch resolves by title, Download
+// searches the modlist by title. A failed catalog fetch hides the section;
+// it never breaks the page.
+const BROWSE_MOVIES_URL = CINEMETA + "/catalog/movie/popular.json";
+const BROWSE_SERIES_URL = CINEMETA + "/catalog/series/top.json";
+const BROWSE_SHOW = 20; // cards per row
+let browseMovies = [];
+let browseSeries = [];
+let browseGenre = "All";
+
+function browseItem(meta) {
+  return {
+    title: meta.name || "",
+    year: String(meta.year || "").slice(0, 4),
+    poster: meta.poster || "",
+    series: meta.type === "series",
+    site: "",
+    slug: "",
+  };
+}
+
+function renderBrowseRows() {
+  const moviesWrap = $("browse-movies-wrap");
+  const seriesWrap = $("browse-series-wrap");
+  if (!moviesWrap || !seriesWrap) return;
+  const match = (m) =>
+    browseGenre === "All" || (m.genres || []).includes(browseGenre);
+  moviesWrap.innerHTML = "";
+  seriesWrap.innerHTML = "";
+  const movies = browseMovies.filter(match).slice(0, BROWSE_SHOW);
+  const series = browseSeries.filter(match).slice(0, BROWSE_SHOW);
+  if (movies.length) {
+    moviesWrap.appendChild(el("div", "row-title", "🎬 Trending movies"));
+    const row = el("div", "grid-row");
+    movies.forEach((m) => row.appendChild(makeCard(browseItem(m), (it) => openMoviesMod(it))));
+    moviesWrap.appendChild(row);
+  }
+  if (series.length) {
+    seriesWrap.appendChild(el("div", "row-title", "📺 Top TV shows"));
+    const row = el("div", "grid-row");
+    series.forEach((m) => row.appendChild(makeCard(browseItem(m), (it) => openMoviesMod(it))));
+    seriesWrap.appendChild(row);
+  }
+  if (!movies.length && !series.length) {
+    moviesWrap.appendChild(el("div", "row-title", "No titles in this genre yet."));
+  }
+}
+
+function renderBrowseGenres() {
+  const wrap = $("browse-genres");
+  if (!wrap) return;
+  const counts = {};
+  [...browseMovies, ...browseSeries].forEach((m) => {
+    (m.genres || []).forEach((g) => { counts[g] = (counts[g] || 0) + 1; });
+  });
+  const genres = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 12);
+  wrap.innerHTML = "";
+  ["All", ...genres].forEach((g) => {
+    const chip = el("button", "chip" + (g === browseGenre ? " active" : ""), g);
+    chip.type = "button";
+    chip.onclick = () => { browseGenre = g; renderBrowseGenres(); renderBrowseRows(); };
+    wrap.appendChild(chip);
+  });
+}
+
+async function loadBrowse() {
+  const wrap = $("browse-wrap");
+  if (!wrap) return;
+  try {
+    const [moviesRes, seriesRes] = await Promise.all([
+      getJSON(BROWSE_MOVIES_URL).catch(() => null),
+      getJSON(BROWSE_SERIES_URL).catch(() => null),
+    ]);
+    const movies = moviesRes && Array.isArray(moviesRes.metas) ? moviesRes.metas : [];
+    const series = seriesRes && Array.isArray(seriesRes.metas) ? seriesRes.metas : [];
+    if (!movies.length && !series.length) { wrap.innerHTML = ""; return; }
+    browseMovies = movies;
+    browseSeries = series;
+    const loading = $("browse-loading");
+    if (loading) loading.remove();
+    renderBrowseGenres();
+    renderBrowseRows();
+  } catch {
+    wrap.innerHTML = "";
+  }
+}
+loadBrowse();
 </script>
 </body>
 </html>
