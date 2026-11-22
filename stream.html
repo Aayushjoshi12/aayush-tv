@@ -61,8 +61,15 @@
   async function mint(videoId){
     setStatus('Getting the stream link…');
     const api = 'https://mret.aayushlife.live/cinema-api/stream-chrome?videoId=' + encodeURIComponent(videoId);
-    const r = await fetch(api);
-    const j = await r.json().catch(()=>({}));
+    let r, j;
+    try {
+      r = await fetch(api);
+      j = await r.json().catch(()=>({}));
+    } catch (e) {
+      setStatus('Could not reach the stream service — check your connection and try again.', 'err');
+      subEl.textContent = 'No stream is available for this match right now.';
+      return;
+    }
     if (!r.ok || !j.url) {
       const msg = (j && (j.detail || j.error)) ? (j.detail || j.error) : ('Could not get a stream link (HTTP ' + r.status + ').');
       setStatus(msg, 'err');
