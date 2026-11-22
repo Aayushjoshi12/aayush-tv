@@ -41,11 +41,13 @@ async function ghFetch(s, path, options = {}) {
     ...(options.headers || {})
   };
   if (s.token) headers.Authorization = "Bearer " + s.token;
+  const [pathPart, queryPart] = path.split("?");
   const url =
     "https://api.github.com/repos/" +
     encodeURIComponent(s.owner) + "/" + encodeURIComponent(s.repo) +
     "/contents/" + s.folder.split("/").map(encodeURIComponent).join("/") +
-    "/" + path.split("/").map(encodeURIComponent).join("/");
+    "/" + pathPart.split("/").map(encodeURIComponent).join("/") +
+    (queryPart ? "?" + queryPart : "");
   const res = await fetch(url, { ...options, headers });
   if (!res.ok) {
     let detail = "";
