@@ -39,11 +39,12 @@
   function setStatus(msg, cls){ statusEl.textContent = msg; statusEl.className = 'status' + (cls ? ' ' + cls : ''); }
   function playUrl(url){
     subEl.textContent = videoId ? ('Video: ' + videoId) : 'Direct stream';
-    if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = url;
-      video.play().catch(()=>{});
-      setStatus('Playing.', 'ok');
-    } else if (window.Hls && Hls.isSupported()) {
+    // Prefer hls.js when it is available: Chrome on Windows reports
+    // canPlayType('application/vnd.apple.mpegurl') === 'maybe' but
+    // cannot actually play HLS natively, so the native branch would
+    // sit at readyState 0 forever. Native playback is only the
+    // fallback for Safari, which has real built-in HLS.
+    if (window.Hls && Hls.isSupported()) {
       const hls = new Hls({maxBufferLength: 30});
       hls.loadSource(url);
       hls.attachMedia(video);
@@ -51,6 +52,10 @@
       hls.on(Hls.Events.ERROR, function(ev, data){
         if (data && data.fatal) setStatus('Stream error: ' + (data.details || data.type || 'unknown'), 'err');
       });
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = url;
+      video.play().catch(()=>{});
+      setStatus('Playing.', 'ok');
     } else {
       setStatus('HLS is not supported in this browser.', 'err');
     }
