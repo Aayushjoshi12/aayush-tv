@@ -1,0 +1,15 @@
+[Unit]
+Description=Muse Bridge — shared message shelf for Aayush's two Muses
+After=network.target
+
+[Service]
+Type=simple
+User=azureuser
+WorkingDirectory=/opt/muse-bridge
+EnvironmentFile=/opt/muse-bridge/.env
+ExecStart=/usr/bin/python3 /opt/muse-bridge/bridge_service.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
