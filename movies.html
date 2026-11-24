@@ -394,20 +394,35 @@ async function runSearch(q) {
     if (/dhindora/i.test(q)) {
       items.unshift({ title: "Dhindora 2", year: "2026", series: true, poster: DHINDORA_POSTER, siteName: "Season 2 • Netflix", dhindora2: true });
     }
-    // Cinemeta fallback (24 Nov 2026): the modlist only covers
-    // what the download sites list. When it returns few results,
-    // also search Cinemeta's catalog so titles it knows (with a
-    // poster + rating) still appear — Watch resolves them by
+    // Cinemeta enrichment + fallback (24 Nov 2026): the modlist
+    // only covers what the download sites list, and its items
+    // carry no rating. Search Cinemeta too: its results fill in a
+    // ★ rating on the matching modlist entries (by title + year),
+    // and when the modlist returns few results its unmatched
+    // titles are appended as extra cards — Watch resolves them by
     // title, so they play even without a download entry.
-    if (items.length < 5 && !/dhindora/i.test(q)) {
+    if (!/dhindora/i.test(q)) {
       try {
         const [cm, cs] = await Promise.all([
           getJSON(CINEMETA + "/catalog/movie/top/search=" + encodeURIComponent(q) + ".json").catch(() => null),
           getJSON(CINEMETA + "/catalog/series/top/search=" + encodeURIComponent(q) + ".json").catch(() => null),
         ]);
-        const seen = new Set(items.map((it) => (it.title || "").toLowerCase() + "|" + (it.year || "")));
-        const add = (metas) => {
-          (metas || []).forEach((m) => {
+        const byKey = {};
+        const metas = [...((cm && cm.metas) || []), ...((cs && cs.metas) || [])];
+        metas.forEach((m) => {
+          const key = (m.name || "").toLowerCase() + "|" + String(m.year || "").slice(0, 4);
+          if (m.name && !byKey[key]) byKey[key] = m;
+        });
+        // Fill in ratings on the modlist entries Cinemeta knows.
+        items.forEach((it) => {
+          if (it.rating) return;
+          const m = byKey[(it.title || "").toLowerCase() + "|" + String(it.year || "").slice(0, 4)];
+          if (m && m.imdbRating) it.rating = m.imdbRating;
+        });
+        // Few modlist results: append Cinemeta titles it lacks.
+        if (items.length < 5) {
+          const seen = new Set(items.map((it) => (it.title || "").toLowerCase() + "|" + (it.year || "")));
+          metas.forEach((m) => {
             const key = (m.name || "").toLowerCase() + "|" + String(m.year || "").slice(0, 4);
             if (!m.name || seen.has(key)) return;
             seen.add(key);
@@ -420,9 +435,7 @@ async function runSearch(q) {
               siteName: "",
             });
           });
-        };
-        add(cm && cm.metas);
-        add(cs && cs.metas);
+        }
       } catch { /* Cinemeta down: modlist results still stand */ }
     }
     // An IMDb code resolves to a title — show what it meant.
