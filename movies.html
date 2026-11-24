@@ -108,7 +108,24 @@
   .card { flex: 0 0 auto; width: 150px; cursor: pointer; }
   .card .poster { position: relative; width: 150px; aspect-ratio: 2 / 3; border-radius: 14px; overflow: hidden; background: radial-gradient(120px 90px at 50% 40%, #232a42, #161b2c); border: 1px solid #262d42; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
   .card:hover .poster { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 1px rgba(255,59,59,.35); }
-  .card .poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .card .poster img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
+  .card:hover .poster img { transform: scale(1.07); }
+  /* Watch overlay (24 Nov 2026): a ▶ button fades in over the
+     poster on hover, so a card reads as "tap to watch". */
+  .card .watch-overlay { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(11,14,20,.45); opacity: 0; transition: opacity .18s ease; }
+  .card:hover .watch-overlay { opacity: 1; }
+  .card .watch-overlay span { width: 46px; height: 46px; border-radius: 50%; background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; font-size: 18px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(255,59,59,.5); padding-left: 3px; }
+  .card .rating { display: inline-block; font-size: 12px; font-weight: 700; color: #fbbf24; margin-left: 6px; }
+  /* Skeleton shimmer (24 Nov 2026): placeholder cards while a
+     browse row loads, instead of a bare "loading…" line. */
+  .skel { border-radius: 14px; background: linear-gradient(100deg, #171b28 40%, #232a42 50%, #171b28 60%); background-size: 200% 100%; animation: skel-shimmer 1.2s linear infinite; }
+  @keyframes skel-shimmer { to { background-position: -200% 0; } }
+  /* Detail meta line (24 Nov 2026): ★ rating • genres • runtime,
+     filled in once the Cinemeta meta arrives. */
+  #detail-panel .d-meta2 { font-size: 13px; color: #fbbf24; margin-bottom: 8px; font-weight: 600; }
+  #detail-panel .d-meta2:empty { display: none; }
+  .more-btn { display: block; margin: 14px auto 4px; padding: 10px 22px; border-radius: 999px; border: 1px solid #2a3040; background: #151a26; color: #e8eaf0; cursor: pointer; font-size: 13px; font-weight: 700; }
+  .more-btn:hover { border-color: #ff3b3b; color: #fff; }
   .card .poster .noimg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: #ff5c5c; }
   .card .badge { position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 800; letter-spacing: .4px; padding: 3px 7px; border-radius: 999px; background: rgba(11,14,20,.82); color: #9db4ff; border: 1px solid rgba(80,120,255,.5); backdrop-filter: blur(4px); }
   .card .badge.movie { color: #ff8a8a; border-color: rgba(255,59,59,.5); }
@@ -174,6 +191,7 @@
       <div class="chips" id="browse-genres"></div>
       <div id="browse-movies-wrap"></div>
       <div id="browse-series-wrap"></div>
+      <div id="browse-top-wrap"></div>
     </div>
   </div>
 </main>
@@ -329,9 +347,14 @@ function makeCard(item, onTap) {
     });
   }
   poster.appendChild(el("div", "badge" + (series ? "" : " movie"), series ? "📺 SERIES" : "🎬 MOVIE"));
+  const overlay = el("div", "watch-overlay");
+  overlay.appendChild(el("span", "", "▶"));
+  poster.appendChild(overlay);
   card.appendChild(poster);
   card.appendChild(el("div", "name", item.title || "…"));
-  if (item.year) card.appendChild(el("div", "year", item.year));
+  const yearLine = el("div", "year", item.year || "");
+  if (item.rating) yearLine.appendChild(el("span", "rating", "★ " + item.rating));
+  if (item.year || item.rating) card.appendChild(yearLine);
   if (item.siteName) {
     const pill = el("span", "site", item.siteName);
     card.appendChild(pill);
@@ -370,6 +393,37 @@ async function runSearch(q) {
     // nothing. Show it anyway — one tap opens Watch at S2 E1.
     if (/dhindora/i.test(q)) {
       items.unshift({ title: "Dhindora 2", year: "2026", series: true, poster: DHINDORA_POSTER, siteName: "Season 2 • Netflix", dhindora2: true });
+    }
+    // Cinemeta fallback (24 Nov 2026): the modlist only covers
+    // what the download sites list. When it returns few results,
+    // also search Cinemeta's catalog so titles it knows (with a
+    // poster + rating) still appear — Watch resolves them by
+    // title, so they play even without a download entry.
+    if (items.length < 5 && !/dhindora/i.test(q)) {
+      try {
+        const [cm, cs] = await Promise.all([
+          getJSON(CINEMETA + "/catalog/movie/top/search=" + encodeURIComponent(q) + ".json").catch(() => null),
+          getJSON(CINEMETA + "/catalog/series/top/search=" + encodeURIComponent(q) + ".json").catch(() => null),
+        ]);
+        const seen = new Set(items.map((it) => (it.title || "").toLowerCase() + "|" + (it.year || "")));
+        const add = (metas) => {
+          (metas || []).forEach((m) => {
+            const key = (m.name || "").toLowerCase() + "|" + String(m.year || "").slice(0, 4);
+            if (!m.name || seen.has(key)) return;
+            seen.add(key);
+            items.push({
+              title: m.name,
+              year: String(m.year || "").slice(0, 4),
+              poster: m.poster || "",
+              series: m.type === "series",
+              rating: m.imdbRating || "",
+              siteName: "",
+            });
+          });
+        };
+        add(cm && cm.metas);
+        add(cs && cs.metas);
+      } catch { /* Cinemeta down: modlist results still stand */ }
     }
     // An IMDb code resolves to a title — show what it meant.
     const shown = d.resolvedTitle
@@ -565,6 +619,18 @@ function openMoviesMod(item) {
   info.appendChild(
     el("div", "meta", currentYear || "")
   );
+  // Rating • genres • runtime (24 Nov 2026): filled in once the
+  // Cinemeta meta arrives (same fetch Watch uses, cached).
+  const metaLine = el("div", "meta d-meta2", "");
+  info.appendChild(metaLine);
+  cinemetaMetaCached(currentTitle, currentYear, series).then((m) => {
+    if (!m || currentTitle !== (item.title || "")) return;
+    const parts = [];
+    if (m.imdbRating) parts.push("★ " + m.imdbRating);
+    if (Array.isArray(m.genres) && m.genres.length) parts.push(m.genres.slice(0, 3).join(", "));
+    if (m.runtime) parts.push(m.runtime);
+    if (parts.length) metaLine.textContent = parts.join("  •  ");
+  }).catch(() => {});
   info.appendChild(
     el("div", "desc", series
       ? "Download the whole season in one zip, or pick a single episode — choose a quality and tap."
@@ -718,7 +784,7 @@ const WATCH_SOURCES = [
   // lacks may still play. Only Nexus answered from this server
   // during the Skyflix check; the other three are verified live
   // in the user's browser instead. Order kept ahead of NetMirror.
-  { id: "aura", label: "Server 5", base: "https://vidgod.site", suffix: "?autoplay=true" },
+  { id: "aura", label: "Server 5", base: "https://vidgod.site", suffix: "?autoplay=true", dead: true }, // DNS-dead since 21 Nov 2026 — never probed, row is ✕ at once
   // Nova (Server 6) is a NATIVE player now (21 Nov 2026), not an
   // iframe: its Astra API returns direct signed HLS links
   // (hscow/fcxmb, same pool as VidRift/Citadel), CORS *, no key —
@@ -729,7 +795,7 @@ const WATCH_SOURCES = [
   // resolver's ?astra= mode fetches it server-side; the page
   // plays the direct link (no proxy in the play path).
   { id: "nova", label: "Server 6", native: true, astra: true },
-  { id: "filix", label: "Server 7", base: "https://nhdapi.com", suffix: "?autoPlay=true" },
+  { id: "filix", label: "Server 7", base: "https://nhdapi.com", suffix: "?autoPlay=true", dead: true }, // times out since 21 Nov 2026 — never probed, row is ✕ at once
   // NetMirror (native <video>): HLS via hls.js when net52
   // answers, otherwise the direct MP4 fallback. Falls back to
   // the next source by itself when the title has no copy.
@@ -754,6 +820,7 @@ function watchCacheSet(key, tmdb) {
 
 let watchPrefetch = null; // {key, promise}
 let watchNmPrefetch = null; // {key, promise} — NetMirror id lookup
+let watchNativePrefetch = null; // {key, skyflix: Promise<text>, nova: Promise<text>} — native manifests prefetched with the detail panel (24 Nov 2026)
 // Start the TMDB lookup as soon as a title is tapped (see
 // openMoviesMod): Watch then opens on the first source at once
 // instead of waiting ~1-2s for the Cinemeta round-trips. The
@@ -780,6 +847,28 @@ function prefetchWatch() {
       promise: resolveNetMirrorId(currentTitle, currentYear, currentIsSeries).catch(() => null),
     };
   }
+  // Race prefetch (24 Nov 2026): once the TMDB id is known, start
+  // the probes AND fetch the two native manifests (Nexus + Astra)
+  // while the user reads the detail panel. Watch then opens on a
+  // winner that is already resolved instead of starting from zero.
+  // Keyed by season/episode, so a picker change after the detail
+  // opens simply ignores the stale prefetch.
+  watchPrefetch.promise.then((tmdb) => {
+    if (!tmdb) return;
+    startWatchProbes(tmdb);
+    const key = watchProbeKey(tmdb);
+    const type = currentIsSeries ? "tv" : "movie";
+    watchNativePrefetch = {
+      key,
+      skyflix: (async () => {
+        try {
+          const r = await fetch(NEXUS_RESOLVER + "/nexus?tmdb=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode);
+          return await r.text();
+        } catch { return ""; }
+      })(),
+      nova: fetchAstraManifest(tmdb).catch(() => ""),
+    };
+  }).catch(() => {});
 }
 
 async function resolveTmdbId(title, year) {
@@ -793,7 +882,7 @@ async function resolveTmdbId(title, year) {
   const key = watchCacheKey(title, year);
   const hit = watchCacheGet(key);
   if (hit) return hit;
-  const meta = await cinemetaMeta(title, year, currentIsSeries);
+  const meta = await cinemetaMetaCached(title, year, currentIsSeries);
   if (meta) { currentWatchMeta = meta; currentWatchMetaTitle = title; }
   const tmdb = meta && meta.moviedb_id;
   if (tmdb) watchCacheSet(key, tmdb);
@@ -817,6 +906,18 @@ async function cinemetaMeta(title, year, isSeries) {
     if (meta && meta.meta) return meta.meta;
   }
   return null;
+}
+
+// In-memory Cinemeta meta cache (24 Nov 2026): the detail panel
+// and the Watch TMDB lookup both fetch the same meta for a
+// title — one fetch serves both instead of two.
+const cinemetaMetaCache = {};
+async function cinemetaMetaCached(title, year, isSeries) {
+  const k = (title || "") + "|" + (year || "") + "|" + (isSeries ? "s" : "m");
+  if (cinemetaMetaCache[k]) return cinemetaMetaCache[k];
+  const m = await cinemetaMeta(title, year, isSeries);
+  if (m) cinemetaMetaCache[k] = m;
+  return m;
 }
 
 // Poster fallback: the modlist sites host their own cover images,
@@ -1026,6 +1127,13 @@ function startWatchProbes(tmdb) {
   watchEmbedAlive = {};
   WATCH_SOURCES.forEach((s) => {
     if (!s.base) return;
+    // Known-dead host (24 Nov 2026): no probe at all — its row
+    // is ✕ at once instead of hanging on a timeout.
+    if (s.dead) {
+      embeds[s.id] = Promise.resolve(false);
+      watchEmbedAlive[s.id] = false;
+      return;
+    }
     const url = watchSourceUrl(s.id, tmdb);
     // Embed liveness check (21 Nov 2026): a no-cors fetch cannot
     // see the status, so a 404 embed page (a title the host has no
@@ -1304,10 +1412,14 @@ async function raceResolve(id, tmdb, gen) {
   }
   if (id === "skyflix") {
     let text = "";
-    try {
-      const r = await fetch(NEXUS_RESOLVER + "/nexus?tmdb=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode);
-      text = await r.text();
-    } catch { text = ""; }
+    if (watchNativePrefetch && watchNativePrefetch.key === watchProbeKey(tmdb)) {
+      text = await watchNativePrefetch.skyflix; // prefetched with the detail panel
+    } else {
+      try {
+        const r = await fetch(NEXUS_RESOLVER + "/nexus?tmdb=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode);
+        text = await r.text();
+      } catch { text = ""; }
+    }
     if (stale()) return null;
     if (text.startsWith("#EXTM3U")) return { kind: "hls", text };
     try {
@@ -1317,7 +1429,12 @@ async function raceResolve(id, tmdb, gen) {
     return null;
   }
   if (id === "nova") {
-    const text = await fetchAstraManifest(tmdb);
+    let text = "";
+    if (watchNativePrefetch && watchNativePrefetch.key === watchProbeKey(tmdb)) {
+      text = await watchNativePrefetch.nova; // prefetched with the detail panel
+    } else {
+      text = await fetchAstraManifest(tmdb);
+    }
     if (stale()) return null;
     return text.startsWith("#EXTM3U") ? { kind: "hls", text } : null;
   }
@@ -1368,6 +1485,7 @@ async function raceResolve(id, tmdb, gen) {
 
 async function raceNativePlayers(wrap, tmdb) {
   const gen = raceGen;
+  const raceStart = Date.now(); // (24 Nov 2026) for the "ready in Xs" note
   const alive = () => gen === raceGen;
   // Status list, like the screenshot: "Fetching Media / Trying
   // streaming servers..." with one row per racer.
@@ -1524,7 +1642,7 @@ async function raceNativePlayers(wrap, tmdb) {
     wrap.querySelectorAll(".wsrc").forEach((b) => {
       b.classList.toggle("active", b.textContent === raceLabel(racer.id));
     });
-    wrap.appendChild(el("div", "watch-note", "Plays in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
+    wrap.appendChild(el("div", "watch-note", raceLabel(racer.id) + " ready in " + ((Date.now() - raceStart) / 1000).toFixed(1) + "s — plays in this page with no ads. If a source doesn't load, the next one opens by itself — or tap Download for the file instead."));
     // A later fatal error on the winner falls back as usual.
     racer.video.addEventListener("error", () => { if (alive()) watchFallback(); }, { once: true });
     if (racer.hls) {
@@ -2457,10 +2575,13 @@ loadNewRow();
 // it never breaks the page.
 const BROWSE_MOVIES_URL = CINEMETA + "/catalog/movie/popular.json";
 const BROWSE_SERIES_URL = CINEMETA + "/catalog/series/top.json";
-const BROWSE_SHOW = 20; // cards per row
+const BROWSE_TOP_URL = CINEMETA + "/catalog/movie/top.json";
+const BROWSE_SHOW = 20; // cards per row (initial)
 let browseMovies = [];
 let browseSeries = [];
+let browseTop = [];
 let browseGenre = "All";
+let browseLimit = BROWSE_SHOW; // grows with "Show more"
 
 function browseItem(meta) {
   return {
@@ -2470,32 +2591,55 @@ function browseItem(meta) {
     series: meta.type === "series",
     site: "",
     slug: "",
+    rating: meta.imdbRating || "",
   };
 }
 
 function renderBrowseRows() {
   const moviesWrap = $("browse-movies-wrap");
   const seriesWrap = $("browse-series-wrap");
+  const topWrap = $("browse-top-wrap");
   if (!moviesWrap || !seriesWrap) return;
   const match = (m) =>
     browseGenre === "All" || (m.genres || []).includes(browseGenre);
   moviesWrap.innerHTML = "";
   seriesWrap.innerHTML = "";
-  const movies = browseMovies.filter(match).slice(0, BROWSE_SHOW);
-  const series = browseSeries.filter(match).slice(0, BROWSE_SHOW);
+  if (topWrap) topWrap.innerHTML = "";
+  const movies = browseMovies.filter(match);
+  const series = browseSeries.filter(match);
+  const top = browseTop.filter(match);
+  const showMore = (total) => {
+    if (total <= browseLimit) return null;
+    const b = el("button", "more-btn", "Show more (" + (total - browseLimit) + " more)");
+    b.type = "button";
+    b.onclick = () => { browseLimit += 40; renderBrowseRows(); };
+    return b;
+  };
   if (movies.length) {
     moviesWrap.appendChild(el("div", "row-title", "🎬 Trending movies"));
     const row = el("div", "grid-row");
-    movies.forEach((m) => row.appendChild(makeCard(browseItem(m), (it) => openMoviesMod(it))));
+    movies.slice(0, browseLimit).forEach((m) => row.appendChild(makeCard(browseItem(m), (it) => openMoviesMod(it))));
     moviesWrap.appendChild(row);
+    const more = showMore(movies.length);
+    if (more) moviesWrap.appendChild(more);
   }
   if (series.length) {
     seriesWrap.appendChild(el("div", "row-title", "📺 Top TV shows"));
     const row = el("div", "grid-row");
-    series.forEach((m) => row.appendChild(makeCard(browseItem(m), (it) => openMoviesMod(it))));
+    series.slice(0, browseLimit).forEach((m) => row.appendChild(makeCard(browseItem(m), (it) => openMoviesMod(it))));
     seriesWrap.appendChild(row);
+    const more = showMore(series.length);
+    if (more) seriesWrap.appendChild(more);
   }
-  if (!movies.length && !series.length) {
+  if (topWrap && top.length) {
+    topWrap.appendChild(el("div", "row-title", "⭐ Top rated movies"));
+    const row = el("div", "grid-row");
+    top.slice(0, browseLimit).forEach((m) => row.appendChild(makeCard(browseItem(m), (it) => openMoviesMod(it))));
+    topWrap.appendChild(row);
+    const more = showMore(top.length);
+    if (more) topWrap.appendChild(more);
+  }
+  if (!movies.length && !series.length && !top.length) {
     moviesWrap.appendChild(el("div", "row-title", "No titles in this genre yet."));
   }
 }
@@ -2504,7 +2648,7 @@ function renderBrowseGenres() {
   const wrap = $("browse-genres");
   if (!wrap) return;
   const counts = {};
-  [...browseMovies, ...browseSeries].forEach((m) => {
+  [...browseMovies, ...browseSeries, ...browseTop].forEach((m) => {
     (m.genres || []).forEach((g) => { counts[g] = (counts[g] || 0) + 1; });
   });
   const genres = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 12);
@@ -2520,16 +2664,33 @@ function renderBrowseGenres() {
 async function loadBrowse() {
   const wrap = $("browse-wrap");
   if (!wrap) return;
+  // Skeleton cards while the catalog loads (24 Nov 2026).
+  const skelRow = () => {
+    const r = el("div", "grid-row");
+    for (let i = 0; i < 10; i++) {
+      const c = el("div", "card");
+      const p = el("div", "poster skel");
+      p.style.aspectRatio = "2 / 3";
+      c.appendChild(p);
+      r.appendChild(c);
+    }
+    return r;
+  };
+  const mw = $("browse-movies-wrap");
+  if (mw) mw.appendChild(skelRow());
   try {
-    const [moviesRes, seriesRes] = await Promise.all([
+    const [moviesRes, seriesRes, topRes] = await Promise.all([
       getJSON(BROWSE_MOVIES_URL).catch(() => null),
       getJSON(BROWSE_SERIES_URL).catch(() => null),
+      getJSON(BROWSE_TOP_URL).catch(() => null),
     ]);
     const movies = moviesRes && Array.isArray(moviesRes.metas) ? moviesRes.metas : [];
     const series = seriesRes && Array.isArray(seriesRes.metas) ? seriesRes.metas : [];
-    if (!movies.length && !series.length) { wrap.innerHTML = ""; return; }
+    const top = topRes && Array.isArray(topRes.metas) ? topRes.metas : [];
+    if (!movies.length && !series.length && !top.length) { wrap.innerHTML = ""; return; }
     browseMovies = movies;
     browseSeries = series;
+    browseTop = top;
     const loading = $("browse-loading");
     if (loading) loading.remove();
     renderBrowseGenres();
