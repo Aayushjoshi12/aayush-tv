@@ -406,7 +406,12 @@
           v.appendChild(tr);
         }
         setStatus(d.title ? d.title : ("Part " + currentPart), false);
-        v.src = d.video;
+        // Play through the resolver's ?video= Range proxy, NOT the raw
+        // Yandex URL: the host marks the file Content-Disposition:
+        // attachment (and 403s on any Referer), which makes a <video>
+        // fail outright. The proxy re-serves the same bytes with clean
+        // headers (video/mp4, no Content-Disposition, Range support).
+        v.src = RESOLVER + "?video=" + encodeURIComponent(d.video);
         v.load();
         var p = v.play();
         if (p && p.catch) p.catch(function(){ /* autoplay blocked; user taps play */ });
