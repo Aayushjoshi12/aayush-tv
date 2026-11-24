@@ -341,6 +341,36 @@
   // every tap and never store them.
   var currentEp = null;
   var currentPart = 1;
+  var currentParts = [1];
+  var errTimer = null;
+
+  // Auto-play the next part when one ends, so an episode plays straight
+  // through like a single video (Part 1 -> 2 -> 3).
+  document.getElementById("player").addEventListener("ended", function(){
+    var idx = currentParts.indexOf(currentPart);
+    if (currentEp && idx >= 0 && idx + 1 < currentParts.length) {
+      playEpisode(currentEp.guid, currentParts[idx + 1]);
+    }
+  });
+
+  // The video briefly flashes the browser's own "Unable to play media"
+  // while the proxy stream is still loading, then recovers and plays.
+  // Only treat it as a real failure if nothing is playing a few seconds
+  // after the error, and clear the message as soon as playback starts.
+  document.getElementById("player").addEventListener("error", function(){
+    if (errTimer) clearTimeout(errTimer);
+    errTimer = setTimeout(function(){
+      var v = document.getElementById("player");
+      if (v.paused && !v.ended && v.readyState < 2) {
+        setStatus("Could not play this part. Try tapping it again, or open the episode page ↗.", true);
+      }
+    }, 5000);
+  });
+  document.getElementById("player").addEventListener("playing", function(){
+    if (errTimer) { clearTimeout(errTimer); errTimer = null; }
+    var s = document.getElementById("playerStatus");
+    if (s.className === "err") setStatus(document.getElementById("playerTitle").textContent, false);
+  });
 
   function setStatus(msg, isErr){
     var s = document.getElementById("playerStatus");
@@ -393,7 +423,8 @@
       .then(function(res){
         if (!res.ok || !res.d.video) throw new Error((res.d && res.d.error) || "no stream found");
         var d = res.d;
-        renderParts(d.parts || [1], d.part || currentPart);
+        currentParts = d.parts || [1];
+        renderParts(currentParts, d.part || currentPart);
         // Remove old subtitle tracks, then add the fresh one (proxied for CORS).
         Array.prototype.slice.call(v.querySelectorAll("track")).forEach(function(t){ t.remove(); });
         if (d.subtitles && d.subtitles.length) {
@@ -413,8 +444,18 @@
         // headers (video/mp4, no Content-Disposition, Range support).
         v.src = RESOLVER + "?video=" + encodeURIComponent(d.video);
         v.load();
-        var p = v.play();
-        if (p && p.catch) p.catch(function(){ /* autoplay blocked; user taps play */ });
+        // Wait until the video has buffered enough to play before
+        // starting it, so it does not flash an error while the first
+        // chunk is still loading. Fall back to playing after 10s.
+        var started = false;
+        var doPlay = function(){
+          if (started) return;
+          started = true;
+          var p = v.play();
+          if (p && p.catch) p.catch(function(){ /* autoplay blocked; user taps play */ });
+        };
+        v.addEventListener("canplay", doPlay, { once: true });
+        setTimeout(doPlay, 10000);
       })
       .catch(function(err){
         renderParts([], 0);
