@@ -396,42 +396,76 @@ async function runSearch(q) {
     }
     // Cinemeta enrichment + fallback (24 Nov 2026): the modlist
     // only covers what the download sites list, and its items
-    // carry no rating. Search Cinemeta too: its results fill in a
-    // ★ rating on the matching modlist entries (by title + year),
-    // and when the modlist returns few results its unmatched
-    // titles are appended as extra cards — Watch resolves them by
-    // title, so they play even without a download entry.
+    // carry no rating. Search Cinemeta too. NOTE: its search
+    // endpoint returns light metas — no `year` (use releaseInfo)
+    // and no `imdbRating` — so the rating comes from the full
+    // meta (/meta/{type}/{imdb_id}.json), fetched once per unique
+    // title, in parallel, capped at 8.
     if (!/dhindora/i.test(q)) {
       try {
         const [cm, cs] = await Promise.all([
           getJSON(CINEMETA + "/catalog/movie/top/search=" + encodeURIComponent(q) + ".json").catch(() => null),
           getJSON(CINEMETA + "/catalog/series/top/search=" + encodeURIComponent(q) + ".json").catch(() => null),
         ]);
-        const byKey = {};
         const metas = [...((cm && cm.metas) || []), ...((cs && cs.metas) || [])];
+        const yearOf = (m) => String(m.year || (m.releaseInfo || "").slice(0, 4) || "").slice(0, 4);
+        const byKey = {};
         metas.forEach((m) => {
-          const key = (m.name || "").toLowerCase() + "|" + String(m.year || "").slice(0, 4);
+          const key = (m.name || "").toLowerCase() + "|" + yearOf(m);
           if (m.name && !byKey[key]) byKey[key] = m;
         });
+        // Unique titles the modlist items match — fetch their
+        // full meta once each (deduped, capped) for the rating.
+        // Also include the fallback titles (appended below when
+        // results are few) so they get a rating too.
+        const need = [];
+        const seenIds = new Set();
+        const addNeed = (m) => {
+          if (m && m.imdb_id && !seenIds.has(m.imdb_id)) { seenIds.add(m.imdb_id); need.push(m); }
+        };
+        items.forEach((it) => {
+          addNeed(byKey[(it.title || "").toLowerCase() + "|" + String(it.year || "").slice(0, 4)]);
+        });
+        if (items.length < 5) {
+          const seenTitles = new Set(items.map((it) => (it.title || "").toLowerCase() + "|" + (it.year || "")));
+          metas.forEach((m) => {
+            const key = (m.name || "").toLowerCase() + "|" + yearOf(m);
+            if (m.name && !seenTitles.has(key)) addNeed(m);
+          });
+        }
+        const ratingByKey = {};
+        if (need.length) {
+          const fullMetas = await Promise.all(
+            need.slice(0, 8).map((m) =>
+              getJSON(CINEMETA + "/meta/" + (m.type || "movie") + "/" + m.imdb_id + ".json")
+                .then((d) => d && d.meta).catch(() => null)
+            )
+          );
+          fullMetas.forEach((fm, i) => {
+            if (!fm || !fm.imdbRating) return;
+            const m = need[i];
+            ratingByKey[(m.name || "").toLowerCase() + "|" + yearOf(m)] = fm.imdbRating;
+          });
+        }
         // Fill in ratings on the modlist entries Cinemeta knows.
         items.forEach((it) => {
           if (it.rating) return;
-          const m = byKey[(it.title || "").toLowerCase() + "|" + String(it.year || "").slice(0, 4)];
-          if (m && m.imdbRating) it.rating = m.imdbRating;
+          const r = ratingByKey[(it.title || "").toLowerCase() + "|" + String(it.year || "").slice(0, 4)];
+          if (r) it.rating = r;
         });
         // Few modlist results: append Cinemeta titles it lacks.
         if (items.length < 5) {
           const seen = new Set(items.map((it) => (it.title || "").toLowerCase() + "|" + (it.year || "")));
           metas.forEach((m) => {
-            const key = (m.name || "").toLowerCase() + "|" + String(m.year || "").slice(0, 4);
+            const key = (m.name || "").toLowerCase() + "|" + yearOf(m);
             if (!m.name || seen.has(key)) return;
             seen.add(key);
             items.push({
               title: m.name,
-              year: String(m.year || "").slice(0, 4),
+              year: yearOf(m),
               poster: m.poster || "",
               series: m.type === "series",
-              rating: m.imdbRating || "",
+              rating: ratingByKey[key] || "",
               siteName: "",
             });
           });
