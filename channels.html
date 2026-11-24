@@ -5,23 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aayush TV</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: #090c12; color: #e8eaf0; font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.13), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.08), transparent 70%); background-attachment: fixed; }
+  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.13), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.08), transparent 70%); background-attachment: fixed; }
   html { scroll-padding-top: 150px; }
-  header { position: sticky; top: 0; z-index: 10; background: rgba(9,12,18,.82); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); box-shadow: 0 8px 30px rgba(0,0,0,.35); padding: 0; border-bottom: 1px solid #232838; }
+  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 0; border-bottom: 1px solid #232838; }
   .head-inner { max-width: 1440px; margin: 0 auto; padding: 14px 20px 10px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .brand { font-size: 24px; font-weight: 800; letter-spacing: .2px; text-decoration: none; color: #fff; flex-shrink: 0; }
-  .brand span { background: linear-gradient(135deg, #ff3b3b, #ff8a5c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .brand span { color: #ff3b3b; }
   nav.main-nav { display: flex; gap: 4px; flex-wrap: wrap; }
-  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; background: none; border: none; transition: background .15s, color .15s, transform .15s, box-shadow .15s; }
-  nav.main-nav a:hover { background: #1c2338; color: #fff; transform: translateY(-1px); }
-  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; box-shadow: 0 4px 16px rgba(255,59,59,.45); }
+  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; background: none; border: none; transition: background .15s, color .15s; }
+  nav.main-nav a:hover { background: #1a2033; color: #fff; }
+  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; }
   .search-row { max-width: 1440px; margin: 0 auto; padding: 0 20px 12px; }
-  h1 { font-size: 28px; font-weight: 900; letter-spacing: -.5px; margin-bottom: 10px; }
+  h1 { font-size: 24px; font-weight: 800; letter-spacing: .2px; margin-bottom: 10px; }
   h1 span { color: #ff3b3b; }
   header a { background: rgba(255,59,59,.10); border: 1px solid rgba(255,59,59,.35); padding: 5px 12px; border-radius: 20px; }
   #search { width: 100%; padding: 11px 12px 11px 40px; border-radius: 999px; border: 1px solid #2a3040; background: #151a26 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa1b2' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") no-repeat 13px center; color: #fff; font-size: 15px; outline: none; transition: border-color .15s, box-shadow .15s; }
@@ -46,8 +43,8 @@
   #frame-player.open { display: block; }
   #offline-note { background: #1c1620; border: 1px solid #4a2b2b; border-radius: 14px; }
   #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; padding: 18px 20px 36px; max-width: 1440px; margin: 0 auto; }
-  .card { background: linear-gradient(160deg, #181d2d, #12162a); border: 1px solid #262d42; border-radius: 16px; padding: 12px 10px 13px; text-align: center; cursor: pointer; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
-  .card:hover, .card:focus-visible { transform: translateY(-4px); border-color: rgba(255,59,59,.7); box-shadow: 0 14px 32px rgba(0,0,0,.5), 0 0 0 1px rgba(255,59,59,.3); outline: none; }
+  .card { background: linear-gradient(160deg, #181d2d, #12162a); border: 1px solid #262d42; border-radius: 14px; padding: 12px 10px 13px; text-align: center; cursor: pointer; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
+  .card:hover, .card:focus-visible { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 10px 24px rgba(0,0,0,.45), 0 0 0 1px rgba(255,59,59,.35); outline: none; }
   .card:active { transform: translateY(-1px); }
   .logo-box { position: relative; height: 76px; border-radius: 10px; background: radial-gradient(120px 60px at 50% 40%, #232a42, #161b2c); margin-bottom: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
   .logo-box img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: contain; padding: 8px 10px; background: #1a2033; }
@@ -76,6 +73,7 @@
       <a href="index.html">🏠 Home</a>
       <a href="channels.html" class="active">📺 Channels</a>
       <a href="movies.html">🎬 Movies</a>
+      <a href="entertainment.html">📺 TV Serials</a>
       <a href="biggboss.html">🏠 Bigg Boss</a>
       <a href="india.html">🇮🇳 India's Got Latent</a>
     </nav>
