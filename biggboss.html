@@ -5,36 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bigg Boss — Aayush TV</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; }
-  body { background: #090c12; color: #e8eaf0; font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.16), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.10), transparent 70%), radial-gradient(600px 260px at 8% 100%, rgba(255,59,59,.06), transparent 70%); background-attachment: fixed; margin: 0; }
+  body { background: #0b0e14; color: #e8eaf0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.16), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.10), transparent 70%), radial-gradient(600px 260px at 8% 100%, rgba(255,59,59,.06), transparent 70%); background-attachment: fixed; margin: 0; }
 
-  header { position: sticky; top: 0; z-index: 10; background: rgba(9,12,18,.82); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); box-shadow: 0 8px 30px rgba(0,0,0,.35); padding: 0; border-bottom: 1px solid #232838; }
+  header { position: sticky; top: 0; z-index: 10; background: rgba(11,14,20,.88); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); padding: 0; border-bottom: 1px solid #232838; }
   .head-inner { max-width: 1440px; margin: 0 auto; padding: 14px 20px 10px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
   .brand { font-size: 24px; font-weight: 800; letter-spacing: .2px; text-decoration: none; color: #fff; flex-shrink: 0; }
-  .brand span { background: linear-gradient(135deg, #ff3b3b, #ff8a5c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .brand span { color: #ff3b3b; }
   nav.main-nav { display: flex; gap: 4px; flex-wrap: wrap; }
-  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; transition: background .15s, color .15s, transform .15s, box-shadow .15s; }
-  nav.main-nav a:hover { background: #1c2338; color: #fff; transform: translateY(-1px); }
-  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; box-shadow: 0 4px 16px rgba(255,59,59,.45); }
+  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; transition: background .15s, color .15s; }
+  nav.main-nav a:hover { background: #1a2033; color: #fff; }
+  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; }
 
   main { max-width: 1440px; margin: 0 auto; padding: 18px 20px 36px; }
   .hero { padding: 26px 4px 6px; }
-  .hero h2 { font-size: clamp(28px, 4vw, 36px); font-weight: 900; line-height: 1.15; letter-spacing: -.8px; margin: 0; }
-  .hero h2 em { font-style: normal; background: linear-gradient(90deg, #ff3b3b, #ff8a5c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero h2 { font-size: 30px; font-weight: 800; line-height: 1.2; letter-spacing: -.3px; margin: 0; }
+  .hero h2 em { font-style: normal; color: #ff3b3b; }
   .hero p { color: #9aa1b2; font-size: 15px; line-height: 1.6; margin-top: 8px; max-width: 640px; }
   .hero p b { color: #f2f4fa; }
   .ep-time { display: inline-block; margin-top: 10px; padding: 8px 14px; border-radius: 999px; background: rgba(255,59,59,.12); border: 1px solid rgba(255,59,59,.45); color: #ffb3b3; font-size: 13px; font-weight: 700; }
 
-  .row-title { font-size: 19px; font-weight: 800; letter-spacing: -.3px; margin: 26px 0 14px; display: flex; align-items: center; gap: 10px; } .row-title::before { content: ""; width: 4px; height: 20px; border-radius: 4px; background: linear-gradient(180deg, #ff3b3b, #ff8a5c); flex-shrink: 0; }
+  .row-title { font-size: 18px; font-weight: 800; margin: 22px 0 12px; }
   .grid-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
 
   .bb-card { cursor: pointer; }
   .bb-card .poster { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background: linear-gradient(135deg, #1b2340, #3a1020); border: 1px solid #262d42; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; display: flex; align-items: center; justify-content: center; }
-  .bb-card:hover .poster { transform: translateY(-4px); border-color: rgba(255,59,59,.7); box-shadow: 0 16px 34px rgba(0,0,0,.55), 0 0 0 1px rgba(255,59,59,.3); }
+  .bb-card:hover .poster { transform: translateY(-3px); border-color: #ff3b3b; box-shadow: 0 12px 26px rgba(0,0,0,.5), 0 0 0 1px rgba(255,59,59,.35); }
   .bb-card .poster .big { font-size: 34px; font-weight: 800; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.6); text-align: center; padding: 0 10px; line-height: 1.15; }
   .bb-card.kick .poster { background: linear-gradient(135deg, #0f2a1a, #14532d); }
   .bb-card .live-dot { position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 800; letter-spacing: .4px; padding: 3px 7px; border-radius: 999px; background: rgba(11,14,20,.82); color: #4ade80; border: 1px solid rgba(74,222,128,.5); backdrop-filter: blur(4px); }
@@ -83,6 +80,7 @@
       <a href="index.html">🏠 Home</a>
       <a href="channels.html">📺 Channels</a>
       <a href="movies.html">🎬 Movies</a>
+      <a href="entertainment.html">📺 TV Serials</a>
       <a href="biggboss.html" class="active">🏠 Bigg Boss</a>
       <a href="india.html">🇮🇳 India's Got Latent</a>
     </nav>
