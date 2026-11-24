@@ -47,6 +47,20 @@
   .note { margin-top: 34px; padding: 14px 16px; background: #141a26; border: 1px solid #232d42; border-radius: 10px; color: #9aa7bd; font-size: .88rem; }
   .updated { color: #7c8aa5; font-size: .85rem; margin-top: 18px; }
   .empty { color: #9aa7bd; padding: 20px 0; }
+  /* ---- all-shows browse ---- */
+  .showgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .showcard { background: #131a28; border: 1px solid #232d42; border-radius: 12px; padding: 12px 14px; cursor: pointer; text-align: left; font-family: inherit; color: #e8eaf0; transition: transform .15s ease, border-color .15s ease; }
+  .showcard:hover { transform: translateY(-2px); border-color: rgba(255,59,59,.7); }
+  .showcard .sname { font-weight: 700; font-size: .95rem; }
+  .showcard .sch { color: #9aa7bd; font-size: .82rem; margin-top: 2px; }
+  .showcard .sgo { color: #ff5252; font-size: .85rem; font-weight: 700; margin-top: 6px; }
+  #showView { display: none; }
+  #showView.open { display: block; }
+  #showBack { background: #182134; border: 1px solid #2a3448; border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: .9rem; font-weight: 700; color: #dbe4f2; font-family: inherit; margin-bottom: 12px; }
+  #showBack:hover { border-color: #7cc4ff; }
+  #loadMore { display: none; margin: 18px auto 0; background: #182134; border: 1px solid #2a3448; border-radius: 999px; padding: 10px 22px; cursor: pointer; font-size: .95rem; font-weight: 700; color: #e8eaf0; font-family: inherit; }
+  #loadMore:hover { border-color: #ff5a5a; }
+  #loadMore.show { display: block; }
   /* ---- in-site player ---- */
   #playerWrap { display: none; margin: 0 0 26px; background: #0d1119; border: 1px solid #2a3448; border-radius: 16px; overflow: hidden; }
   #playerWrap.open { display: block; }
@@ -103,6 +117,20 @@
   <h2>Browse by channel</h2>
   <div id="channels" class="channels"></div>
 
+  <h2>All shows</h2>
+  <p class="sub" style="margin-bottom:12px">Every channel and show on Desi Tashan — pick one to see its episodes.</p>
+  <div id="showChannels" class="channels" style="margin-bottom:14px"></div>
+  <div id="showGrid" class="showgrid"></div>
+  <p id="showEmpty" class="empty" hidden>No shows match that search.</p>
+
+  <section id="showView" aria-label="Show episodes">
+    <h2 id="showViewTitle">Show</h2>
+    <button id="showBack" type="button">← All shows</button>
+    <div id="showGrid2" class="grid"></div>
+    <p id="showStatus" class="empty"></p>
+    <button id="loadMore" type="button">Load more episodes</button>
+  </section>
+
   <h2>Latest episodes</h2>
   <div id="grid" class="grid"></div>
   <p id="empty" class="empty" hidden>No episodes match that search.</p>
@@ -111,7 +139,9 @@
 
   <div class="note">
     <strong>About this section:</strong> episode listings come from Desi Tashan's public RSS feed
-    (<code>desitashan.su/feed.xml</code>); tapping an episode now plays it right here on Aayush TV —
+    (<code>desitashan.su/feed.xml</code>, 50 latest) and its public category pages — every channel
+    (Star Plus, Colors, Zee TV, Sony, SAB, &amp;TV, Dangal, Star Bharat, MTV, Netflix, Prime Video
+    and more) and every show, 233 in all. Tapping an episode plays it right here on Aayush TV —
     the video is resolved fresh at tap time and never stored. Aayush TV does not host any video.
     Episodes are third-party content; shows can be removed on request. If the main domain ever
     stops working, the section falls back to the mirrors desitashan.com.in and desitashantv.net.
@@ -131,6 +161,11 @@
   var SNAPSHOT = {"domain_fallbacks": ["https://www.desitashan.su/", "https://desitashan.com.in/", "https://desitashantv.net/"], "episodes": [{"channel": "Star Plus", "date": "24 November 2026", "episode": 249, "guid": "49ebde0264ee09fc", "link": "https://www.desitashan.su/kyunki-rishton-ke-bhi-roop-badalte-hai-24th-november-2026-full-episode-star-plus/49ebde0264ee09fc/", "poster": "https://www.desitashan.su/media-cache/c2/c209769d63b17ff99bb185b1bc41ee37.jpg", "pubDate": "Tue, 24 Nov 2026 04:31:01 +0300", "show": "Kyunki Rishton Ke Bhi Roop Badalte Hai"}, {"channel": "Colors TV", "date": "24 November 2026", "episode": null, "guid": "094943e783691489", "link": "https://www.desitashan.su/shayad-yahi-hai-pyaar-24th-november-2026-full-episode-colors-tv/094943e783691489/", "poster": "https://www.desitashan.su/media-cache/78/78644ba0d7925ff5862e1ffd8b3fa93a.jpg", "pubDate": "Tue, 24 Nov 2026 04:28:02 +0300", "show": "Shayad Yahi Hai Pyaar"}, {"channel": "Star Plus", "date": "24 November 2026", "episode": null, "guid": "136202b9a32912ab", "link": "https://www.desitashan.su/apsara-24th-november-2026-full-episode-star-plus/136202b9a32912ab/", "poster": "https://www.desitashan.su/media-cache/b7/b75abc16fcc0338828190013b6c2d9de.jpg", "pubDate": "Tue, 24 Nov 2026 04:22:02 +0300", "show": "Apsara"}, {"channel": "Colors TV", "date": "24 November 2026", "episode": 247, "guid": "6bf39e688f5862a0", "link": "https://www.desitashan.su/dr-aarambhi-24th-november-2026-full-episode-colors-tv/6bf39e688f5862a0/", "poster": "https://www.desitashan.su/media-cache/96/9691206df7c6502b7bf624cef1815f1e.jpg", "pubDate": "Tue, 24 Nov 2026 04:19:01 +0300", "show": "Dr.Aarambhi"}, {"channel": "Colors TV", "date": "24 November 2026", "episode": 142, "guid": "e829ca6aaa73ff28", "link": "https://www.desitashan.su/bareilly-ke-bachchan-24th-november-2026-full-episode-colors-tv/e829ca6aaa73ff28/", "poster": "https://www.desitashan.su/media-cache/6a/6aba2ab01c3004359259ff612619bc4f.jpg", "pubDate": "Tue, 24 Nov 2026 04:16:01 +0300", "show": "Bareilly Ke Bachchan"}, {"channel": "Colors TV", "date": "24 November 2026", "episode": 251, "guid": "0e7956cf4479a19c", "link": "https://www.desitashan.su/mahadev-and-sons-24th-november-2026-full-episode-colors-tv/0e7956cf4479a19c/", "poster": "https://www.desitashan.su/media-cache/0b/0bdc27660a86df219556d01d22b49ca4.jpg", "pubDate": "Tue, 24 Nov 2026 04:13:01 +0300", "show": "Mahadev And Sons"}, {"channel": "Colors TV", "date": "24 November 2026", "episode": null, "guid": "f0799f45d0ea9c91", "link": "https://www.desitashan.su/queen-24th-november-2026-full-episode-colors-tv/f0799f45d0ea9c91/", "poster": "https://www.desitashan.su/media-cache/15/15ca2453b8d8e6e93712d2ad97542e18.jpg", "pubDate": "Tue, 24 Nov 2026 04:07:02 +0300", "show": "Queen"}, {"channel": "Star Plus", "date": "24 November 2026", "episode": 2212, "guid": "b37e7fae3060138c", "link": "https://www.desitashan.su/anupama-24th-november-2026-full-episode-star-plus/b37e7fae3060138c/", "poster": "https://www.desitashan.su/media-cache/b9/b9a00e9444606040f9d464845d75fda1.jpg", "pubDate": "Tue, 24 Nov 2026 04:04:01 +0300", "show": "Anupama"}, {"channel": "Colors TV", "date": "24 November 2026", "episode": 373, "guid": "feed20cbb8c3a799", "link": "https://www.desitashan.su/tu-juliet-jatt-di-24th-november-2026-full-episode-colors-tv/feed20cbb8c3a799/", "poster": "https://www.desitashan.su/media-cache/35/355a19bbf6558c0e6a8bbbc739a75dd5.jpg", "pubDate": "Tue, 24 Nov 2026 04:01:01 +0300", "show": "Tu Juliet Jatt Di"}, {"channel": "Star Plus", "date": "24 November 2026", "episode": null, "guid": "1c676f5d2b737213", "link": "https://www.desitashan.su/sayonee-24th-november-2026-full-episode-star-plus/1c676f5d2b737213/", "poster": "https://www.desitashan.su/media-cache/cb/cb6a55565c905e91b5e58888dafb52f8.jpg", "pubDate": "Tue, 24 Nov 2026 03:58:01 +0300", "show": "Sayonee"}, {"channel": "Star Plus", "date": "24 November 2026", "episode": null, "guid": "de2d1a813f0b3b65", "link": "https://www.desitashan.su/yeh-rishta-kya-kehlata-hai-24th-november-2026-full-episode-star-plus/de2d1a813f0b3b65/", "poster": "https://www.desitashan.su/media-cache/05/05eac3f5e8430a7743bf6a67df2558d0.jpg", "pubDate": "Tue, 24 Nov 2026 03:55:02 +0300", "show": "Yeh Rishta Kya Kehlata Hai"}, {"channel": "Colors TV", "date": "24 November 2026", "episode": null, "guid": "b0d9c093a361bc4c", "link": "https://www.desitashan.su/mannat-2-24th-november-2026-full-episode-colors-tv/b0d9c093a361bc4c/", "poster": "https://www.desitashan.su/media-cache/ef/efff160ac38aa6bf752d1adcca847d34.jpg", "pubDate": "Tue, 24 Nov 2026 03:46:02 +0300", "show": "Mannat 2"}, {"channel": "Star Plus", "date": "24 November 2026", "episode": null, "guid": "d1def93e3ee39846", "link": "https://www.desitashan.su/udne-ki-aasha-24th-november-2026-full-episode-star-plus/d1def93e3ee39846/", "poster": "https://www.desitashan.su/media-cache/b1/b11c67a7a37e57bdc9410d8a42088144.jpg", "pubDate": "Tue, 24 Nov 2026 01:42:02 +0300", "show": "Udne Ki Aasha"}, {"channel": "Star Plus", "date": "24 November 2026", "episode": null, "guid": "4f469f53d62e96c8", "link": "https://www.desitashan.su/o-humnava-tum-dena-saath-mera-24th-november-2026-full-episode-star-plus/4f469f53d62e96c8/", "poster": "https://www.desitashan.su/media-cache/e4/e4f600ee5b190db44cdbd7bc11acf5f3.jpg", "pubDate": "Tue, 24 Nov 2026 01:35:02 +0300", "show": "O Humnava Tum Dena Saath Mera"}, {"channel": "Star Plus", "date": "24 November 2026", "episode": null, "guid": "a8fe3abed63ec35a", "link": "https://www.desitashan.su/yeh-fitoor-tera-24th-november-2026-full-episode-star-plus/a8fe3abed63ec35a/", "poster": "https://www.desitashan.su/media-cache/0c/0cf2611893caa0215a0aba9f6ba5a404.jpg", "pubDate": "Tue, 24 Nov 2026 01:32:02 +0300", "show": "Yeh Fitoor Tera"}, {"channel": "MTV", "date": "24 November 2026", "episode": null, "guid": "c070c645dff10503", "link": "https://www.desitashan.su/rizz-master-24th-november-2026-full-episode-mtv/c070c645dff10503/", "poster": "https://www.desitashan.su/media-cache/21/21c04f3aba94e2a98629b612b50077f5.jpg", "pubDate": "Tue, 24 Nov 2026 00:02:01 +0300", "show": "Rizz Master"}, {"channel": "Sony TV", "date": "23 November 2026", "episode": null, "guid": "1c5efa53d4e1ffff", "link": "https://www.desitashan.su/kaun-banega-crorepati-18-23rd-november-2026-full-episode-sony-tv/1c5efa53d4e1ffff/", "poster": "https://www.desitashan.su/media-cache/2e/2eab05b143c9b0916eda1d78fc5c54ab.jpg", "pubDate": "Mon, 23 Nov 2026 21:16:02 +0300", "show": "Kaun Banega Crorepati 18"}, {"channel": "JioHotstar", "date": "23 November 2026", "episode": null, "guid": "34c659f8a6cb3a97", "link": "https://www.desitashan.su/bigg-boss-malayalam-season-8-23rd-november-2026-full-episode-jiohotstar/34c659f8a6cb3a97/", "poster": "https://www.desitashan.su/media-cache/5b/5b42a48544fd80b2f1af6df9e74b807f.jpg", "pubDate": "Mon, 23 Nov 2026 21:09:01 +0300", "show": "Bigg Boss (Malayalam) Season 8"}, {"channel": "Vijay Television", "date": "23 November 2026", "episode": null, "guid": "d63b359b65e7b49f", "link": "https://www.desitashan.su/bigg-boss-tamil-season-10-23rd-november-2026-full-episode-vijay-television/d63b359b65e7b49f/", "poster": "https://www.desitashan.su/media-cache/c9/c987f042b2015cda4fdeadc7f1e8c1ef.jpg", "pubDate": "Mon, 23 Nov 2026 21:03:02 +0300", "show": "Bigg Boss (Tamil) Season 10"}, {"channel": "Star Jalsha", "date": "23 November 2026", "episode": null, "guid": "bf8f23a4a0532706", "link": "https://www.desitashan.su/bigg-boss-bangla-season-3-23rd-november-2026-full-episode-star-jalsha/bf8f23a4a0532706/", "poster": "https://www.desitashan.su/media-cache/55/551bc02e388202001d2f3c5fdc1dc19d.jpg", "pubDate": "Mon, 23 Nov 2026 20:57:02 +0300", "show": "Bigg Boss (Bangla) Season 3"}, {"channel": "JioHotstar", "date": "23 November 2026", "episode": null, "guid": "7411e9c88debeada", "link": "https://www.desitashan.su/bigg-boss-kannada-season-13-23rd-november-2026-full-episode-jiohotstar/7411e9c88debeada/", "poster": "https://www.desitashan.su/media-cache/a1/a1271bd61d026cdfa8085ecb417ca1d3.jpg", "pubDate": "Mon, 23 Nov 2026 20:51:02 +0300", "show": "Bigg Boss (Kannada) Season 13"}, {"channel": "Star Maa", "date": "23 November 2026", "episode": null, "guid": "670f402de4a68014", "link": "https://www.desitashan.su/bigg-boss-telugu-season-10-23rd-november-2026-full-episode-star-maa/670f402de4a68014/", "poster": "https://www.desitashan.su/media-cache/b4/b4bd73c9b7f73d92c6837c8e6e987fb5.jpg", "pubDate": "Mon, 23 Nov 2026 20:32:01 +0300", "show": "Bigg Boss (Telugu) Season 10"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "6309f6cb52f451d2", "link": "https://www.desitashan.su/saanche-darbar-ki-jai-23rd-november-2026-full-episode-dangal-tv/6309f6cb52f451d2/", "poster": "https://www.desitashan.su/media-cache/7b/7b1312cfe1da59f0b9e4110a69a852d8.jpg", "pubDate": "Mon, 23 Nov 2026 20:13:02 +0300", "show": "Saanche Darbar Ki Jai"}, {"channel": "Zee TV", "date": "23 November 2026", "episode": null, "guid": "878e721973064661", "link": "https://www.desitashan.su/jagadhatri-23rd-november-2026-full-episode-zee-tv/878e721973064661/", "poster": "https://www.desitashan.su/media-cache/48/48f933e68f23efa5935c38ae020d9305.jpg", "pubDate": "Mon, 23 Nov 2026 20:06:01 +0300", "show": "Jagadhatri"}, {"channel": "Zee TV", "date": "23 November 2026", "episode": null, "guid": "974800e86ea08278", "link": "https://www.desitashan.su/dilon-ki-ram-leela-23rd-november-2026-full-episode-zee-tv/974800e86ea08278/", "poster": "https://www.desitashan.su/media-cache/52/52997e81b2d86f2c7370d8343177dd1b.jpg", "pubDate": "Mon, 23 Nov 2026 19:42:02 +0300", "show": "Dilon Ki Ram Leela"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "97bd60cbdee3c7c4", "link": "https://www.desitashan.su/hamari-bhabhi-number-1-23rd-november-2026-full-episode-dangal-tv/97bd60cbdee3c7c4/", "poster": "https://www.desitashan.su/media-cache/e3/e39a735fe573b50633318e291f221685.jpg", "pubDate": "Mon, 23 Nov 2026 19:36:02 +0300", "show": "Hamari Bhabhi Number 1"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "6cffcc568122021b", "link": "https://www.desitashan.su/rimjhim-23rd-november-2026-full-episode-dangal-tv/6cffcc568122021b/", "poster": "https://www.desitashan.su/media-cache/e9/e9f677d53a24f642826fea6e3c8bd0a0.jpg", "pubDate": "Mon, 23 Nov 2026 19:24:01 +0300", "show": "Rimjhim"}, {"channel": "Sab TV", "date": "23 November 2026", "episode": null, "guid": "3f57c40ffdfea167", "link": "https://www.desitashan.su/pushpa-impossible-23rd-november-2026-full-episode-sab-tv/3f57c40ffdfea167/", "poster": "https://www.desitashan.su/media-cache/95/95b368cb4e9ad9e6aa659d4834745970.jpg", "pubDate": "Mon, 23 Nov 2026 19:20:02 +0300", "show": "Pushpa Impossible"}, {"channel": "Zee TV", "date": "23 November 2026", "episode": null, "guid": "20a632dc8ccd9908", "link": "https://www.desitashan.su/vasudha-23rd-november-2026-full-episode-zee-tv/20a632dc8ccd9908/", "poster": "https://www.desitashan.su/media-cache/88/889f03b9b58450a2c2ca3a6cee30ce8f.jpg", "pubDate": "Mon, 23 Nov 2026 19:05:02 +0300", "show": "Vasudha"}, {"channel": "Sab TV", "date": "23 November 2026", "episode": null, "guid": "d34250b79c492adc", "link": "https://www.desitashan.su/hastinapur-ke-veer-23rd-november-2026-full-episode-sab-tv/d34250b79c492adc/", "poster": "https://www.desitashan.su/media-cache/25/251ccdf7e6f97165fbb78ea591e67768.jpg", "pubDate": "Mon, 23 Nov 2026 18:55:02 +0300", "show": "Hastinapur Ke Veer"}, {"channel": "Colors TV", "date": "23 November 2026", "episode": null, "guid": "a79769d00cae0e56", "link": "https://www.desitashan.su/bigg-boss-20-23rd-november-2026-full-episode-colors-tv/a79769d00cae0e56/", "poster": "https://www.desitashan.su/media-cache/21/21dcd1698254fd4f8600b1772c2c9767.jpg", "pubDate": "Mon, 23 Nov 2026 18:48:02 +0300", "show": "Bigg Boss 20"}, {"channel": "Zee TV", "date": "23 November 2026", "episode": null, "guid": "012f860a804715ac", "link": "https://www.desitashan.su/ganga-maiya-ki-betiyan-23rd-november-2026-full-episode-zee-tv/012f860a804715ac/", "poster": "https://www.desitashan.su/media-cache/e7/e79a02f8667421ca92e4f690e85f3e8b.jpg", "pubDate": "Mon, 23 Nov 2026 18:48:02 +0300", "show": "Ganga Maiya Ki Betiyan"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "8738adc097310c64", "link": "https://www.desitashan.su/mann-sundar-23rd-november-2026-full-episode-dangal-tv/8738adc097310c64/", "poster": "https://www.desitashan.su/media-cache/55/55dd12798ede5838c9a4741da8969ba9.jpg", "pubDate": "Mon, 23 Nov 2026 18:20:01 +0300", "show": "Mann Sundar"}, {"channel": "Sab TV", "date": "23 November 2026", "episode": null, "guid": "37580e7577072d39", "link": "https://www.desitashan.su/taarak-mehta-ka-ooltah-chashmah-23rd-november-2026-full-episode-sab-tv/37580e7577072d39/", "poster": "https://www.desitashan.su/media-cache/1a/1aef3ac6f090f11232f0d440b2fdb68a.jpg", "pubDate": "Mon, 23 Nov 2026 18:17:03 +0300", "show": "Taarak Mehta Ka Ooltah Chashmah"}, {"channel": "Zee TV", "date": "23 November 2026", "episode": null, "guid": "7c41beb3d4bbe12d", "link": "https://www.desitashan.su/tumm-se-tumm-tak-23rd-november-2026-full-episode-zee-tv/7c41beb3d4bbe12d/", "poster": "https://www.desitashan.su/media-cache/1c/1cc3f98cac861b1e878f2a52ce2d8bc3.jpg", "pubDate": "Mon, 23 Nov 2026 18:14:02 +0300", "show": "Tumm Se Tumm Tak"}, {"channel": "Sun Neo", "date": "23 November 2026", "episode": null, "guid": "b998f2232e94e0a1", "link": "https://www.desitashan.su/divya-prem-23rd-november-2026-full-episode-sun-neo/b998f2232e94e0a1/", "poster": "https://www.desitashan.su/media-cache/ac/ac334f25b141657a373bd4c379db3309.jpg", "pubDate": "Mon, 23 Nov 2026 18:11:01 +0300", "show": "Divya Prem"}, {"channel": "Sun Neo", "date": "23 November 2026", "episode": null, "guid": "194aa96e5e654467", "link": "https://www.desitashan.su/thodi-si-umeed-thoda-sa-aasman-23rd-november-2026-full-episode-sun-neo/194aa96e5e654467/", "poster": "https://www.desitashan.su/media-cache/54/54aab37fdbd200f8780e9c42ded6faa9.jpg", "pubDate": "Mon, 23 Nov 2026 18:08:03 +0300", "show": "Thodi Si Umeed Thoda Sa Aasman"}, {"channel": "Sab TV", "date": "23 November 2026", "episode": null, "guid": "2503b75658b33936", "link": "https://www.desitashan.su/lo-chudail-chali-sasural-23rd-november-2026-full-episode-sab-tv/2503b75658b33936/", "poster": "https://www.desitashan.su/media-cache/eb/eb3ceb8a56c187791974132877422b6a.jpg", "pubDate": "Mon, 23 Nov 2026 18:02:02 +0300", "show": "Lo Chudail Chali Sasural"}, {"channel": "Sony TV", "date": "23 November 2026", "episode": null, "guid": "f1f4d44235a48675", "link": "https://www.desitashan.su/indian-game-show-season-2-23rd-november-2026-full-episode-sony-tv/f1f4d44235a48675/", "poster": "https://www.desitashan.su/media-cache/af/af4c3ee58c121e3741847dcac32a30d9.jpg", "pubDate": "Mon, 23 Nov 2026 17:59:02 +0300", "show": "Indian Game Show (Season 2)"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "e280f09075bc443e", "link": "https://www.desitashan.su/mann-atisundar-23rd-november-2026-full-episode-dangal-tv/e280f09075bc443e/", "poster": "https://www.desitashan.su/media-cache/92/92fef708fa6a72c1a266a2eac4d256c1.jpg", "pubDate": "Mon, 23 Nov 2026 17:53:01 +0300", "show": "Mann Atisundar"}, {"channel": "Sab TV", "date": "23 November 2026", "episode": null, "guid": "0f7e64ee074af039", "link": "https://www.desitashan.su/kyunki-papa-kehte-hain-23rd-november-2026-full-episode-sab-tv/0f7e64ee074af039/", "poster": "https://www.desitashan.su/media-cache/70/703614ebf53590e7c55d2d96d5d54886.jpg", "pubDate": "Mon, 23 Nov 2026 17:32:01 +0300", "show": "Kyunki Papa Kehte Hain"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "4b0ae9b1f1728496", "link": "https://www.desitashan.su/pati-brahmachari-23rd-november-2026-full-episode-dangal-tv/4b0ae9b1f1728496/", "poster": "https://www.desitashan.su/media-cache/0b/0b77bda7f106ddd43af62d59b3c4d298.jpg", "pubDate": "Mon, 23 Nov 2026 17:29:02 +0300", "show": "Pati Brahmachari"}, {"channel": "Zee TV", "date": "23 November 2026", "episode": null, "guid": "df29305c1134ea59", "link": "https://www.desitashan.su/lakshmi-niwas-23rd-november-2026-full-episode-zee-tv/df29305c1134ea59/", "poster": "https://www.desitashan.su/media-cache/1a/1a9d4c4474a070390df702e81af71077.jpg", "pubDate": "Mon, 23 Nov 2026 17:20:01 +0300", "show": "Lakshmi Niwas"}, {"channel": "Zee TV", "date": "23 November 2026", "episode": null, "guid": "de2c662c06951250", "link": "https://www.desitashan.su/tu-hi-re-dil-mein-23rd-november-2026-full-episode-zee-tv/de2c662c06951250/", "poster": "https://www.desitashan.su/media-cache/c9/c9c0c4f0fa527b8ad019b57857591644.jpg", "pubDate": "Mon, 23 Nov 2026 17:04:02 +0300", "show": "Tu Hi Re Dil Mein"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "0f12b3f399f21e41", "link": "https://www.desitashan.su/kaisi-teri-dillagi-23rd-november-2026-full-episode-dangal-tv/0f12b3f399f21e41/", "poster": "https://www.desitashan.su/media-cache/a8/a84808bc9747241dad165c61efacb8fd.jpg", "pubDate": "Mon, 23 Nov 2026 16:46:02 +0300", "show": "Kaisi Teri Dillagi"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "a6361a9bd9c92dfc", "link": "https://www.desitashan.su/sohni-aur-nahi-koi-honi-23rd-november-2026-full-episode-dangal-tv/a6361a9bd9c92dfc/", "poster": "https://www.desitashan.su/media-cache/3b/3bb9e2d9a444a874a8dabc4cab7c41a3.jpg", "pubDate": "Mon, 23 Nov 2026 16:43:01 +0300", "show": "Sohni – Aur Nahi Koi Honi"}, {"channel": "Dangal TV", "date": "23 November 2026", "episode": null, "guid": "0c6c7c6ccc2d82a2", "link": "https://www.desitashan.su/ishq-junooni-23rd-november-2026-full-episode-dangal-tv/0c6c7c6ccc2d82a2/", "poster": "https://www.desitashan.su/media-cache/97/976bd8ef5927042b0b8358686a872a37.jpg", "pubDate": "Mon, 23 Nov 2026 16:39:01 +0300", "show": "Ishq Junooni"}, {"channel": "Zee TV", "date": "23 November 2026", "episode": null, "guid": "2c42e811d8af5e6d", "link": "https://www.desitashan.su/hamari-radha-23rd-november-2026-full-episode-zee-tv/2c42e811d8af5e6d/", "poster": "https://www.desitashan.su/media-cache/ba/bab89be1216fc53f9c4583b2bf6a0542.jpg", "pubDate": "Mon, 23 Nov 2026 16:27:02 +0300", "show": "Hamari Radha"}, {"channel": "MTV", "date": "23 November 2026", "episode": null, "guid": "14fa5e4d3839bd90", "link": "https://www.desitashan.su/rizz-master-23rd-november-2026-full-episode-mtv/14fa5e4d3839bd90/", "poster": "https://www.desitashan.su/media-cache/21/21c04f3aba94e2a98629b612b50077f5.jpg", "pubDate": "Mon, 23 Nov 2026 05:56:01 +0300", "show": "Rizz Master"}, {"channel": "Colors TV", "date": "23 November 2026", "episode": null, "guid": "ec1f64b53f75d744", "link": "https://www.desitashan.su/queen-23rd-november-2026-full-episode-colors-tv/ec1f64b53f75d744/", "poster": "https://www.desitashan.su/media-cache/15/15ca2453b8d8e6e93712d2ad97542e18.jpg", "pubDate": "Mon, 23 Nov 2026 05:53:02 +0300", "show": "Queen"}], "generated_at": "2026-11-24T09:40:12Z", "source": "https://www.desitashan.su/feed.xml", "source_note": "Snapshot of the 50-item RSS feed, parsed from the live feed on 2026-11-24. Posters come straight from the feed's <media:thumbnail> (50/50 verified live 2026-11-24 09:37 UTC via the live browser; two shows reuse one poster across two days: Rizz Master, Queen). Episode numbers are included only where verified from the episode page; null means 'not fetched yet' — the refresh script fills them in. Never cache resolved stream URLs; episode links are outbound links to Desi Tashan episode pages."};
   var FALLBACK_DOMAINS = SNAPSHOT.domain_fallbacks || ["https://www.desitashan.su/"];
   var EPISODES = SNAPSHOT.episodes || [];
+
+  // Full catalog: every channel + show on Desi Tashan (233 categories,
+  // from the site sitemap 24 Nov 2026). Show display names are derived
+  // from slugs; episodes load on demand via the resolver (?show=).
+  var CATALOG = {"channels":[{"slug":"and-tv","name":"&TV","shows":["bhabiji-ghar-par-hain","happu-ki-ultan-paltan","shubh-mangal-savdhan"]},{"slug":"amazon-mx-player","name":"Amazon MX Player","shows":[]},{"slug":"colors-tv","name":"Colors TV","shows":["laughter-chefs-2","mangal-lakshmi","mannat-har-khushi-paane-ki","meri-bhavya-life","noyontara","parineetii","ram-bhavan","shiv-shakti-tap-tyaag-taandav"]},{"slug":"dangal-tv","name":"Dangal TV","shows":[]},{"slug":"discovery-channel","name":"Discovery","shows":[]},{"slug":"hotstar","name":"Hotstar","shows":[]},{"slug":"jiohotstar","name":"JioHotstar","shows":[]},{"slug":"mtv","name":"MTV","shows":[]},{"slug":"netflix","name":"Netflix","shows":[]},{"slug":"prime-video","name":"Prime Video","shows":[]},{"slug":"sab-tv","name":"SAB TV","shows":["pushpa-impossible","taarak-mehta-ka-ooltah-chashmah","tenali-rama-2","ufffyeh-love-hai-mushkil","veer-hanuman-bolo-bajrang-bali-ki-jai","wagle-ki-duniya-nayi-peedhi-naye-kissey"]},{"slug":"sony-tv","name":"Sony TV","shows":["aami-daakini","bade-achhe-lagte-hain-4","chakravarti-samrat-prithviraj-chauhan","cid-returns","crime-patrol-26-jurm-26-cases","super-dancer-chapter-5","the-great-indian-kapil-show-3"]},{"slug":"sonyliv","name":"SonyLIV","shows":[]},{"slug":"star-bharat","name":"Star Bharat","shows":[]},{"slug":"star-jalsha","name":"Star Jalsha","shows":[]},{"slug":"star-maa","name":"Star Maa","shows":[]},{"slug":"star-plus","name":"Star Plus","shows":["advocate-anjali-awasthi","anupama","ghum-hai-kisikey-pyaar-meiin","ishani","jaadu-teri-nazar-daayan-ka-mausam","jhanak","kabhi-neem-neem-kabhi-shahad-shahad","kyunki-saas-bhi-kabhi-bahu-thi-tulsi-ka-safar","tu-dhadkan-main-dil","udne-ki-aasha","yeh-rishta-kya-kehlata-hai"]},{"slug":"sun-neo","name":"Sun Neo","shows":[]},{"slug":"vijay-television","name":"Vijay TV","shows":[]},{"slug":"zee-tv","name":"Zee TV","shows":["dil-kya-kare","jaane-anjaane-hum-mile","jagriti-ek-nayi-subah","jamai-no-1","kumkum-bhagya","padma-ki-betiya-maa-ka-gaurav","parul","parvati-umeed-zindagi-ki","phulki","prem-pratigya","sang-hoon-tere","saru","tumm-se-tumm-tak","uma-kaali-aag-aur-paani","vasudha"]}],"shows":["108-base-hospital-uri","25th-indian-television-academy-awards","ali-baba-aur-40-bhoot","alliance","apsara","arafta-season-2","bade-ghar-ki-chhoti-bahu","bahu-no-1","bareilly-ke-bachchan","beendani","bhojpuri-bawaal","bigg-boss-19","bigg-boss-20","bigg-boss-agnipareeksha-malayalam","bigg-boss-agnipariksha-telugu","bigg-boss-agniparikshe-kannada","bigg-boss-bangla-season-3","bigg-boss-kannada-season-13","bigg-boss-malayalam-season-8","bigg-boss-marathi-6","bigg-boss-tamil-season-10","bigg-boss-telugu-season-10","bigg-boss-the-common-man-tamil","binddii","chalo-bulawa-aaya-hai","chhoriyan-chali-gaon","crime-patrol-2026","deewangi","dhaakad-beera","dhamaal-with-pati-patni-aur-panga-season-2","dilon-ki-ram-leela","divya-prem","do-duniya-ek-dil","dr-aarambhi","family-full-house-with-rohit-sharma","fashion-ke-rang-rishton-ke-sang","ganesh-kartikeya","ganga-maiya-ki-betiyan","gharwali-pedwali","hamari-bhabhi-number-1","hamari-radha","hastinapur-ke-veer","hui-gumm-yaadein","i-popstar-vol-2","ideabaaz","india-ke-top-1","indian-game-show-season-1","indian-game-show-season-2","indian-idol-16","indian-idol-legends-return","indias-best-dancer-season-5","indias-got-latent-season-2","indias-got-talent-s11","inspector-avinash-season-2","ishq-junooni","itti-si-khushi","jab-zidd-pe-aa-gayi-parvati-devon-ke-dev-mahadev-katha","jagadhatri","jhallee","jinn-ki-raat","juhi-mui","jyotsna-ek-unsuni-paheli","kahani-har-ghar-ki","kahani-pehle-pyaar-ki","kaisi-teri-dillagi","karwachauth-7-janmon-ka-utsav","kaun-banega-crorepati-17","kaun-banega-crorepati-18","khatron-ke-khiladi-15","khatron-ke-khiladi-15-grand-premiere","koffee-with-karan-season-9","kulfi-bachpan-express","kyunki-papa-kehte-hain","kyunki-rishton-ke-bhi-roop-badalte-hai","kyunki-saas-bhi-kabhi-bahu-thi-2","lakshmi-niwas","laughter-chefs-3","lo-chudail-chali-sasural","lock-upp-sach-ya-sazaa-season-2","maana-ke-hum-yaar-nahi","mahabharat-ek-dharmayudh","mahadev-and-sons","main-teri-parchayi","mann-atisundar","mann-sundar","mannat-2","mannat-har-khushi-paane-ki","manpasand-ki-shaadi","masterchef-india-9","million-dollar-listing-india-2","mom-talks-maa-ki-baat-maa-ke-jazbaat","mr-and-mrs-parshuram","mtv-hustle-season-5","mtv-roadies-rebirth","naagin-7","nari-shakti-ka-utsav","navdurga","o-humnava-tum-dena-saath-mera","other-content","paro-sang-dev","part-timers","pati-anadi","pati-brahmachari","pati-patni-aur-panga","playground-season-5","prince-of-mollywood","queen","raja-shivchhatrapati","ramayana-dharma-gatha","rangbaazi-dilon-ki","reality-ranis-of-the-jungle-2","rimjhim","rise-and-fall","rise-and-fall-season-2","rizz-master","roopmati","sa-re-ga-ma-pa-2026","saanche-darbar-ki-jai","sach-subhash-chandra-show","sairaab","sajan-ghar","salaam-bharat","sampoorna","sanam-mere-humraz","satyaa-sachee","sayonee","second-love","seher-hone-ko-hai","shark-tank-india-5","shayad-yahi-hai-pyaar","shehzaadi-hai-tu-dil-ki","shivmay-shravan","shrimati-shukla","sohni-aur-nahi-koi-honi","special-5","splitsvilla-x6-pyaar-ya-paisa","star-parivaar-awards-2025","taara","tees-ke-paar-jab-mila-pyaar","the-50","the-court-season-1","the-great-indian-kapil-show-4","the-great-indian-kapil-show-season-5","the-legend-of-karna","thodi-si-umeed-thoda-sa-aasman","tod-kar-dil-mera","tose-nainaa-milaai-ke-2","tu-hi-re-dil-mein","tu-juliet-jatt-di","tum-ho-naa","tyohar-khana-aur-kahaniyaan","vashikaranam","vasudha","we-got-you-girl","wheel-of-fortune","yeh-diwali-sitaron-wali","yeh-fitoor-tera","zee-cine-awards-2026","zee-cine-awards-2026-nomination-special","zee-cine-awards-2026-viewers-choice-best-film-nomination","zee-rishton-ka-mela","zee-rishton-ka-mela-2025","zee-rishton-ka-mela-2026"]};
 
   var activeChannel = "All";
   var query = "";
@@ -179,7 +214,123 @@
       : "Source: Desi Tashan RSS feed.";
   }
 
-  document.getElementById("search").addEventListener("input", function(ev){ query = ev.target.value; render(); });
+  document.getElementById("search").addEventListener("input", function(ev){ query = ev.target.value; render(); renderShowBrowse(); });
+
+  // ---- all-shows browse (full catalog) ----
+  // EP_MAP lets the player play any episode the page has loaded, whether
+  // from the Latest snapshot or from a show's episode list.
+  var EP_MAP = {};
+  function indexEpisodes(list){
+    list.forEach(function(e){ EP_MAP[e.guid] = e; });
+  }
+  function niceName(slug){
+    var s = slug.replace(/-/g, " ").replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+    return s.replace(/\bTv\b/g, "TV").replace(/\bMx\b/g, "MX").replace(/\bKbc\b/g, "KBC").replace(/\bBbc\b/g, "BBC");
+  }
+  // Flatten the catalog into { slug, name, channel } rows.
+  function allShows(){
+    var rows = [];
+    CATALOG.channels.forEach(function(ch){
+      if (ch.shows.length) {
+        ch.shows.forEach(function(s){
+          rows.push({ slug: ch.slug + "/" + s, name: niceName(s), channel: ch.name });
+        });
+      } else {
+        rows.push({ slug: ch.slug, name: ch.name, channel: ch.name });
+      }
+    });
+    CATALOG.shows.forEach(function(s){
+      rows.push({ slug: s, name: niceName(s), channel: "Other" });
+    });
+    return rows;
+  }
+  var showChannel = "All";
+  function renderShowBrowse(){
+    var rows = allShows();
+    var q = query.trim().toLowerCase();
+    // Channel chips for the show browser.
+    var chs = ["All"].concat(CATALOG.channels.map(function(c){ return c.name; }));
+    var wrap = document.getElementById("showChannels");
+    wrap.innerHTML = chs.map(function(c){
+      return '<button class="chip'+(showChannel===c?" on":"")+'" data-sc="'+esc(c)+'">'+esc(c)+'</button>';
+    }).join("");
+    wrap.querySelectorAll(".chip").forEach(function(b){
+      b.addEventListener("click", function(){ showChannel = b.getAttribute("data-sc"); renderShowBrowse(); });
+    });
+    // Show cards, filtered by channel + search.
+    var list = rows.filter(function(r){
+      if (showChannel !== "All" && r.channel !== showChannel) return false;
+      if (q && r.name.toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    document.getElementById("showEmpty").hidden = list.length > 0;
+    document.getElementById("showGrid").innerHTML = list.map(function(r){
+      return '<button class="showcard" type="button" data-slug="'+esc(r.slug)+'" data-name="'+esc(r.name)+'" data-ch="'+esc(r.channel)+'">' +
+        '<div class="sname">'+esc(r.name)+'</div>' +
+        '<div class="sch">'+esc(r.channel)+'</div>' +
+        '<div class="sgo">See episodes →</div></button>';
+    }).join("");
+    document.getElementById("showGrid").querySelectorAll(".showcard").forEach(function(b){
+      b.addEventListener("click", function(){
+        openShow(b.getAttribute("data-slug"), b.getAttribute("data-name"), b.getAttribute("data-ch"));
+      });
+    });
+  }
+
+  var showState = null; // { slug, name, channel, page, hasMore }
+  function openShow(slug, name, channel){
+    showState = { slug: slug, name: name, channel: channel, page: 1, hasMore: false };
+    document.getElementById("showViewTitle").textContent = name + " — " + channel;
+    document.getElementById("showGrid2").innerHTML = "";
+    document.getElementById("showStatus").textContent = "Loading episodes…";
+    document.getElementById("loadMore").classList.remove("show");
+    document.getElementById("showView").classList.add("open");
+    document.getElementById("showView").scrollIntoView({ behavior: "smooth", block: "start" });
+    loadShowPage();
+  }
+  function loadShowPage(){
+    if (!showState) return;
+    var st = showState;
+    fetch(RESOLVER + "?show=" + encodeURIComponent(st.slug) + "&page=" + st.page, { cache: "no-store" })
+      .then(function(r){ return r.json().then(function(d){ return { ok: r.ok, d: d }; }); })
+      .then(function(res){
+        if (!res.ok || !res.d.episodes) throw new Error((res.d && res.d.error) || "no episodes found");
+        var eps = res.d.episodes;
+        indexEpisodes(eps.map(function(e){
+          return { guid: e.guid, show: st.name, channel: st.channel, date: e.date, episode: e.episode, link: e.url, poster: e.poster };
+        }));
+        var grid = document.getElementById("showGrid2");
+        document.getElementById("showStatus").textContent = "";
+        grid.innerHTML += eps.map(function(e){
+          var img = e.poster
+            ? '<img src="'+esc(e.poster)+'" alt="'+esc(st.name)+' poster" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;noimg&quot;>📺</div>\'">'
+            : '<div class="noimg">📺</div>';
+          var ep = e.episode ? " · Episode " + e.episode : "";
+          return '<article class="card">' + img +
+            '<div class="body"><div class="show">'+esc(st.name)+'</div>' +
+            '<div class="meta">'+esc(st.channel)+ep+'</div>' +
+            '<div class="meta">'+esc(e.date)+'</div>' +
+            '<button class="watch" type="button" onclick="playEpisode(\''+esc(e.guid)+'\', 1)">▶ Watch episode</button>' +
+            '</div></article>';
+        }).join("");
+        st.hasMore = !!res.d.hasMore;
+        document.getElementById("loadMore").classList.toggle("show", st.hasMore);
+        if (!eps.length && st.page === 1) {
+          document.getElementById("showStatus").textContent = "No episodes found for this show.";
+        }
+      })
+      .catch(function(err){
+        document.getElementById("showStatus").textContent = "Could not load episodes (" + err.message + ").";
+      });
+  }
+  document.getElementById("loadMore").addEventListener("click", function(){
+    if (showState && showState.hasMore) { showState.page += 1; loadShowPage(); }
+  });
+  document.getElementById("showBack").addEventListener("click", function(){
+    document.getElementById("showView").classList.remove("open");
+    showState = null;
+    document.getElementById("showGrid").scrollIntoView({ behavior: "smooth", block: "start" });
+  });
 
   // ---- in-site player ----
   // The video host (Yandex Disk) 403s on ANY Referer and only serves the
@@ -223,8 +374,7 @@
 
   function playEpisode(guid, part){
     if (!guid) return;
-    var ep = null;
-    EPISODES.forEach(function(e){ if (e.guid === guid) ep = e; });
+    var ep = EP_MAP[guid] || null;
     if (!ep) return;
     currentEp = ep;
     currentPart = part || 1;
@@ -276,8 +426,8 @@
 
   // Try a fresher episodes.json first; fall back to the embedded snapshot.
   fetch("episodes.json", { cache: "no-store" }).then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(data){ if (data && data.episodes && data.episodes.length) { SNAPSHOT = data; EPISODES = data.episodes; } render(); })
-    .catch(function(){ render(); });
+    .then(function(data){ if (data && data.episodes && data.episodes.length) { SNAPSHOT = data; EPISODES = data.episodes; } indexEpisodes(EPISODES); render(); renderShowBrowse(); })
+    .catch(function(){ indexEpisodes(EPISODES); render(); renderShowBrowse(); });
 </script>
 </body>
 </html>
