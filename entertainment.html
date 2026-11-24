@@ -472,8 +472,31 @@
 
   // Try a fresher episodes.json first; fall back to the embedded snapshot.
   fetch("episodes.json", { cache: "no-store" }).then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(data){ if (data && data.episodes && data.episodes.length) { SNAPSHOT = data; EPISODES = data.episodes; } indexEpisodes(EPISODES); render(); renderShowBrowse(); })
-    .catch(function(){ indexEpisodes(EPISODES); render(); renderShowBrowse(); });
+    .then(function(data){ if (data && data.episodes && data.episodes.length) { SNAPSHOT = data; EPISODES = data.episodes; } indexEpisodes(EPISODES); render(); renderShowBrowse(); refreshLatest(); })
+    .catch(function(){ indexEpisodes(EPISODES); render(); renderShowBrowse(); refreshLatest(); });
+
+  // Auto-update: after the first (fast, cached) render, ask the resolver
+  // for the live RSS feed (?latest=). If it has episodes the cached list
+  // does not, swap them in and re-render, so new episodes appear on
+  // their own without any file update or scheduled job. Skipped while
+  // the player is open, so it never interrupts playback.
+  function refreshLatest(){
+    fetch(RESOLVER + "?latest=1", { cache: "no-store" })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(data){
+        if (!data || !data.episodes || !data.episodes.length) return;
+        var have = {};
+        EPISODES.forEach(function(e){ have[e.guid] = true; });
+        var fresh = data.episodes.filter(function(e){ return !have[e.guid]; });
+        if (!fresh.length) return;
+        if (document.getElementById("playerWrap").classList.contains("open")) return;
+        EPISODES = data.episodes;
+        indexEpisodes(EPISODES);
+        render();
+        renderShowBrowse();
+      })
+      .catch(function(){ /* keep the cached list */ });
+  }
 </script>
 </body>
 </html>
