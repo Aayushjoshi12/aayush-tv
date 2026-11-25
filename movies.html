@@ -2430,6 +2430,12 @@ async function renderCinesrcPlayer(wrap, tmdb, manualPick) {
     if (watchEmbedAlive["cinesrc"] === false && !manualPick) { watchFallback(); return; }
     const f = document.createElement("iframe");
     f.src = watchSourceUrl("cinesrc", tmdb);
+    // Server 3 (CineSrc) embed opens popup ad tabs on Play, like
+    // Server 4 did: sandbox it so window.open (popups) and
+    // top-page navigation are blocked, while scripts + same-origin
+    // keep the player itself working. No allow-popups, no
+    // allow-top-navigation. (25 Nov 2026, same fix as VidRift.)
+    f.sandbox = "allow-scripts allow-same-origin";
     f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
     f.allowFullscreen = true;
     f.title = "Watch " + currentTitle;
