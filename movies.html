@@ -1447,6 +1447,13 @@ function renderWatchPlayer() {
   } else {
     const f = document.createElement("iframe");
     f.src = watchSourceUrl(currentWatchSource, tmdb);
+    if (currentWatchSource === "vidrift") {
+      // Server 4 (VidRift) opens popup ad tabs when Play is tapped:
+      // sandbox it so window.open (popups) and top-page navigation
+      // are blocked, while scripts + same-origin keep the player
+      // itself working. No allow-popups, no allow-top-navigation.
+      f.sandbox = "allow-scripts allow-same-origin";
+    }
     f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
     f.allowFullscreen = true;
     f.title = "Watch " + currentTitle;
@@ -1677,6 +1684,12 @@ async function raceNativePlayers(wrap, tmdb) {
     embedRaceIds.push(s.id);
     const f = document.createElement("iframe");
     f.src = watchSourceUrl(s.id, tmdb);
+    if (s.id === "vidrift") {
+      // Server 4 (VidRift) opens popup ad tabs on Play: same
+      // sandbox as the single-player path — blocks popups and
+      // top-page navigation, player itself keeps working.
+      f.sandbox = "allow-scripts allow-same-origin";
+    }
     f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
     f.allowFullscreen = true;
     f.title = "Watch " + currentTitle;
