@@ -335,6 +335,15 @@ const MOVIE_RESOLVER = "https://aayush-tv-minter.vercel.app/api/resolve-movie";
 // 21 Nov 2026 (systemd nexus-resolver on 127.0.0.1:8801, Caddy
 // /nexus-api/ on mret.aayushlife.live).
 const NEXUS_RESOLVER = "https://mret.aayushlife.live/nexus-api";
+// 25 Nov 2026: the CineSrc minter on the VM (systemd cinesrc-minter
+// on 127.0.0.1:8805, Caddy /cinesrc-api/). It resolves a TMDB id to
+// the direct master.m3u8 behind Server 3 (nebula.bright67.online,
+// CORS *, no auth) — the URL is stable per title, so it is minted
+// once through his Chrome and cached forever. Cached titles answer
+// at once; a new title mints in ~20-40s while his Chrome is open.
+// If the minter is down or Chrome is closed, Server 3 falls back
+// to its embed (see renderCinesrcPlayer).
+const CINESRC_MINTER = "https://mret.aayushlife.live/cinesrc-api";
 const MOVIE_RESOLVER_FALLBACK = "https://aayush-tv-movies-geesc6d8g6fchvfk.koreacentral-01.azurewebsites.net/api/resolve-movie";
 const $ = (id) => document.getElementById(id);
 
@@ -910,7 +919,14 @@ const WATCH_SOURCES = [
   // Loading CineSrc straight drops the wrapper. Its TV URL takes
   // season/episode as query params (?s=&e=), so tvQuery is set
   // (see watchSourceUrl); movies take no params.
-  { id: "cinesrc", label: "Server 3", base: "https://cinesrc.st/embed", tvQuery: true, tvSuffix: "&color=FF1493&autoplay=true&autonext=true", movieSuffix: "" },
+  // 25 Nov 2026: Server 3 is NATIVE now — the cinesrc-minter
+  // resolves the title to the direct master.m3u8 (1080p, CORS *),
+  // so it races with the other natives and gets subtitles + Skip
+  // Intro. The embed (base) stays as the fallback when the minter
+  // has no link yet or Chrome is closed (see renderCinesrcPlayer);
+  // the race skips its embed iframe so the slow embed cannot win
+  // the race on 'load' while the native is still resolving.
+  { id: "cinesrc", label: "Server 3", native: true, cinesrc: true, base: "https://cinesrc.st/embed", tvQuery: true, tvSuffix: "&color=FF1493&autoplay=true&autonext=true", movieSuffix: "" },
   { id: "vidrift", label: "Server 4", base: "https://embed.vidrift.net/embed" },
   // Skyflix's other three servers (21 Nov 2026): same /movie|tv/
   // pattern as Nexus, different backends — added so a title Nexus
@@ -981,11 +997,11 @@ function prefetchWatch() {
     };
   }
   // Race prefetch (24 Nov 2026): once the TMDB id is known, start
-  // the probes AND fetch the two native manifests (Nexus + Astra)
-  // while the user reads the detail panel. Watch then opens on a
-  // winner that is already resolved instead of starting from zero.
-  // Keyed by season/episode, so a picker change after the detail
-  // opens simply ignores the stale prefetch.
+  // the probes AND fetch the native manifests (Nexus + Astra +
+  // CineSrc, 25 Nov 2026) while the user reads the detail panel.
+  // Watch then opens on a winner that is already resolved instead
+  // of starting from zero. Keyed by season/episode, so a picker
+  // change after the detail opens simply ignores the stale prefetch.
   watchPrefetch.promise.then((tmdb) => {
     if (!tmdb) return;
     startWatchProbes(tmdb);
@@ -1000,6 +1016,7 @@ function prefetchWatch() {
         } catch { return ""; }
       })(),
       nova: fetchAstraManifest(tmdb).catch(() => ""),
+      cinesrc: fetchCinesrcManifest(tmdb).catch(() => ""),
     };
   }).catch(() => {});
 }
@@ -1436,6 +1453,8 @@ function renderWatchPlayer() {
     renderNexusPlayer(wrap, tmdb);
   } else if (src.astra) {
     renderAstraPlayer(wrap, tmdb);
+  } else if (src.cinesrc) {
+    renderCinesrcPlayer(wrap, tmdb, manualPick);
   } else if (src.native) {
     renderDirectPlayer(wrap, tmdb);
   } else if (watchEmbedAlive[currentWatchSource] === false && !manualPick) {
@@ -1504,7 +1523,7 @@ function watchFallback() {
 // Astra's ?astra= fetch, which are not probed. If the race has a
 // bug, the worst case is it loses and the normal sequential
 // fallback takes over — the old renderers below are untouched.
-const RACE_SOURCES = ["direct", "skyflix", "netmirror", "nova"];
+const RACE_SOURCES = ["direct", "skyflix", "netmirror", "nova", "cinesrc"];
 function raceLabel(id) {
   const s = WATCH_SOURCES.find((x) => x.id === id);
   return s ? s.label : id;
@@ -1574,6 +1593,16 @@ async function raceResolve(id, tmdb, gen) {
       text = await watchNativePrefetch.nova; // prefetched with the detail panel
     } else {
       text = await fetchAstraManifest(tmdb);
+    }
+    if (stale()) return null;
+    return text.startsWith("#EXTM3U") ? { kind: "hls", text } : null;
+  }
+  if (id === "cinesrc") {
+    let text = "";
+    if (watchNativePrefetch && watchNativePrefetch.key === watchProbeKey(tmdb)) {
+      text = await watchNativePrefetch.cinesrc; // prefetched with the detail panel
+    } else {
+      text = await fetchCinesrcManifest(tmdb);
     }
     if (stale()) return null;
     return text.startsWith("#EXTM3U") ? { kind: "hls", text } : null;
@@ -1680,7 +1709,11 @@ async function raceNativePlayers(wrap, tmdb) {
   // instead of winning on a 404 page.
   const embedRaceIds = [];
   WATCH_SOURCES.forEach((s) => {
-    if (!s.base || watchEmbedAlive[s.id] === false) return;
+    // Server 3 (25 Nov 2026) races native-only: its embed iframe
+    // would win on 'load' while the native is still resolving,
+    // and the video inside it takes 45-60s to start. Its embed
+    // stays as the manual fallback (see renderCinesrcPlayer).
+    if (!s.base || s.id === "cinesrc" || watchEmbedAlive[s.id] === false) return;
     embedRaceIds.push(s.id);
     const f = document.createElement("iframe");
     f.src = watchSourceUrl(s.id, tmdb);
@@ -2083,6 +2116,31 @@ function pickAstraSource(sources, tmdb) {
   cands.sort((a, b) => res(b) - res(a) || langRank(a) - langRank(b));
   return cands[0];
 }
+// CineSrc direct manifest (25 Nov 2026): ask the cinesrc-minter
+// for the title's direct master.m3u8 URL, fetch it, and absolutize
+// its relative variant lines — the master lists variants as
+// "1080p/playlist.jpg" (relative), and the text is handed to
+// hls.js as a blob URL, which has no base to resolve them against.
+// The variant playlists themselves are fetched by URL, so their
+// relative segment lines resolve fine. Returns "" when the minter
+// has no link (Chrome closed / mint failed) or the title has no
+// copy — the caller falls back to the embed.
+async function fetchCinesrcManifest(tmdb) {
+  const type = currentIsSeries ? "tv" : "movie";
+  try {
+    const r = await fetch(CINESRC_MINTER + "/cinesrc?tmdb=" + tmdb + "&type=" + type + "&se=" + currentWatchSeason + "&ep=" + currentWatchEpisode);
+    const d = await r.json();
+    if (!d || !d.url) return "";
+    const m = await (await fetch(d.url)).text();
+    if (!m.startsWith("#EXTM3U")) return "";
+    const base = d.url.slice(0, d.url.lastIndexOf("/") + 1);
+    return m.split("\n").map((l) => {
+      const t = l.trim();
+      return (t && !t.startsWith("#") && t.indexOf("://") === -1) ? base + t : l;
+    }).join("\n");
+  } catch { return ""; }
+}
+
 async function fetchAstraManifest(tmdb) {
   const best = pickAstraSource(await fetchAstraSources(tmdb), tmdb);
   if (!best) return "";
@@ -2328,6 +2386,74 @@ async function renderNexusPlayer(wrap, tmdb) {
     video.play().catch(() => {});
     return;
   }
+  watchBlobUrl = URL.createObjectURL(
+    new Blob([text], { type: "application/vnd.apple.mpegurl" })
+  );
+  if (window.Hls && Hls.isSupported()) {
+    watchHls = new Hls({ manifestLoadingMaxRetry: 1, manifestLoadingRetryDelay: 500, levelLoadingMaxRetry: 1, fragLoadingMaxRetry: 1, maxBufferLength: 60 });
+    watchHls.loadSource(watchBlobUrl);
+    watchHls.attachMedia(video);
+    watchHls.on(Hls.Events.MANIFEST_PARSED, () => { video.play().catch(() => {}); });
+    watchHls.on(Hls.Events.ERROR, (_, data) => {
+      if (!data.fatal) return;
+      watchFallback();
+    });
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = watchBlobUrl;
+    video.addEventListener("error", () => watchFallback(), { once: true });
+    video.play().catch(() => {});
+  } else {
+    watchFallback();
+  }
+}
+
+// CineSrc player (25 Nov 2026): play the direct master.m3u8 from
+// the minter natively like Server 2 — no iframe, no ads, with
+// subtitles + Skip Intro. Same 20s watchdog + fallback as the
+// other natives. When the minter has no link (a new title while
+// his Chrome is closed, or the mint failed), fall back to the
+// CineSrc embed itself instead of the next server — the embed
+// still plays, just slowly. (A probe-dead title skips the embed
+// too, unless the user tapped Server 3 by hand.)
+async function renderCinesrcPlayer(wrap, tmdb, manualPick) {
+  const type = currentIsSeries ? "tv" : "movie";
+  const loading = el("div", "watch-note", "Loading Server 3…");
+  wrap.appendChild(loading);
+  let text = "";
+  if (watchNativePrefetch && watchNativePrefetch.key === watchProbeKey(tmdb)) {
+    text = await watchNativePrefetch.cinesrc; // prefetched with the detail panel
+  } else {
+    text = await fetchCinesrcManifest(tmdb);
+  }
+  if (!text.startsWith("#EXTM3U")) {
+    if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+    if (watchEmbedAlive["cinesrc"] === false && !manualPick) { watchFallback(); return; }
+    const f = document.createElement("iframe");
+    f.src = watchSourceUrl("cinesrc", tmdb);
+    f.allow = "autoplay; encrypted-media; fullscreen; picture-in-picture";
+    f.allowFullscreen = true;
+    f.title = "Watch " + currentTitle;
+    wrap.appendChild(f);
+    return;
+  }
+  if (loading && loading.parentNode) loading.parentNode.removeChild(loading);
+  const video = document.createElement("video");
+  video.controls = true;
+  video.playsInline = true;
+  video.preload = "metadata";
+  video.muted = true; // muted autoplay is allowed; tap the speaker for sound
+  video.title = "Watch " + currentTitle;
+  wrap.appendChild(video);
+  loadWatchSubtitles(video);
+  attachSkipButtons(video);
+  // Watchdog: if the video has not started playing within 20s,
+  // fall back to the next source instead of buffering forever.
+  // Cleared on first 'playing' and whenever the player is
+  // re-rendered.
+  watchWatchdog = setTimeout(() => { watchFallback(); }, 20000);
+  video.addEventListener("playing", () => {
+    if (watchWatchdog) { clearTimeout(watchWatchdog); watchWatchdog = null; }
+  }, { once: true });
   watchBlobUrl = URL.createObjectURL(
     new Blob([text], { type: "application/vnd.apple.mpegurl" })
   );
