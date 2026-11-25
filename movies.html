@@ -115,12 +115,25 @@
   .row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: thin; }
   .row::-webkit-scrollbar { height: 6px; }
   .row::-webkit-scrollbar-thumb { background: #2a3040; border-radius: 3px; }
-  /* New-on-the-sites is a wrapping grid, not a horizontal scroller:
-     every new title is visible at once, nothing is cut off at the
-     right edge. Search results keep the scrolling .row. */
+  /* Wrapping grid (Featured row, and the fallback layout).
+     The New row + Browse grid are horizontal scrollers instead
+     (Netflix/JioHotstar-style, 25 Nov 2026) — see the scoped
+     #new-row-wrap / #browse-grid-wrap rules below. Search
+     results keep the scrolling .row. */
   .grid-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; }
   .grid-row .card { width: auto; }
   .grid-row .card .poster { width: 100%; }
+  /* Netflix-style horizontal scroll rows (25 Nov 2026): the New
+     row and the Browse grid scroll sideways — one flex row of
+     2:3 posters, hidden scrollbar, snap-to-card, hover scale +
+     red glow. Tabs, genre chips and "Show more" are untouched
+     (they re-render the same .grid-row; only its layout changes).
+     The Featured row (#featured-row-wrap) keeps the grid above. */
+  #new-row-wrap .grid-row, #browse-grid-wrap .grid-row { display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden; padding: 6px 2px 20px; scroll-snap-type: x proximity; scrollbar-width: none; -ms-overflow-style: none; }
+  #new-row-wrap .grid-row::-webkit-scrollbar, #browse-grid-wrap .grid-row::-webkit-scrollbar { display: none; }
+  #new-row-wrap .grid-row .card, #browse-grid-wrap .grid-row .card { flex: 0 0 auto; width: 160px; scroll-snap-align: start; }
+  #new-row-wrap .grid-row .card .poster, #browse-grid-wrap .grid-row .card .poster { width: 160px; }
+  #new-row-wrap .card:hover .poster, #browse-grid-wrap .card:hover .poster { transform: translateY(-4px) scale(1.05); border-color: rgba(255,59,59,.85); box-shadow: 0 18px 38px rgba(0,0,0,.6), 0 0 0 1px rgba(255,59,59,.45), 0 0 24px rgba(255,59,59,.25); }
   .card { flex: 0 0 auto; width: 150px; cursor: pointer; }
   .card .poster { position: relative; width: 150px; aspect-ratio: 2 / 3; border-radius: 16px; overflow: hidden; background: radial-gradient(120px 90px at 50% 40%, #232a42, #161b2c); border: 1px solid #262d42; transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease; }
   .card:hover .poster { transform: translateY(-4px); border-color: rgba(255,59,59,.7); box-shadow: 0 16px 34px rgba(0,0,0,.55), 0 0 0 1px rgba(255,59,59,.3); }
@@ -163,6 +176,40 @@
   .made-by { display: flex; align-items: center; gap: 8px; }
   .made-by .mini-photo { width: 36px; height: 36px; border-radius: 50%; border: 2px solid #ff3b3b; flex: 0 0 auto; }
   .made-by b { color: #f2f4fa; }
+  /* ---- Netflix / JioHotstar-style hero (25 Nov 2026) ---- */
+  /* Full-width banner for the Featured title (Dhindora 2). The
+     backdrop is the title's poster until Cinemeta's landscape
+     background arrives (populateHero, end of file). A left-to-right
+     dark gradient + a bottom fade keep the text readable. Play
+     reuses the exact featured-card tap flow (openDhindora2);
+     More Info opens the detail panel (openMoviesMod). NOTE: this
+     uses the id #hero, NOT the old .hero class above (different
+     layout, kept for the page head). */
+  #hero { position: relative; display: flex; align-items: flex-end; min-height: 520px; margin: 2px 0 10px; border-radius: 20px; overflow: hidden; background: #141a2e; isolation: isolate; }
+  #hero .hero-bg { position: absolute; inset: 0; z-index: -2; background-size: cover; background-position: center 22%; background-repeat: no-repeat; }
+  #hero .hero-shade { position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(9,12,18,.97) 0%, rgba(9,12,18,.82) 38%, rgba(9,12,18,.28) 68%, rgba(9,12,18,.08) 100%), linear-gradient(0deg, rgba(9,12,18,.96) 0%, rgba(9,12,18,0) 55%); }
+  #hero .hero-content { padding: 40px 36px; max-width: 640px; }
+  #hero .hero-kicker { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: 1.2px; text-transform: uppercase; color: #ff8a8a; margin-bottom: 10px; }
+  #hero .hero-title { font-size: 54px; font-weight: 900; line-height: 1.05; letter-spacing: -1px; color: #fff; text-shadow: 0 2px 18px rgba(0,0,0,.6); }
+  #hero .hero-meta { margin: 12px 0 10px; font-size: 14px; font-weight: 700; color: #fbbf24; }
+  #hero .hero-desc { font-size: 15px; line-height: 1.6; color: #d7dbe5; margin-bottom: 20px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+  #hero .hero-desc:empty { display: none; }
+  #hero .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  #hero .hero-play, #hero .hero-info { padding: 12px 26px; border-radius: 8px; border: 0; cursor: pointer; font-size: 15px; font-weight: 800; font-family: inherit; transition: filter .15s, transform .15s; }
+  #hero .hero-play { background: #fff; color: #000; }
+  #hero .hero-play:hover { background: rgba(255,255,255,.82); }
+  #hero .hero-info { background: rgba(109,109,110,.65); color: #fff; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+  #hero .hero-info:hover { background: rgba(109,109,110,.45); }
+  #hero .hero-play:active, #hero .hero-info:active { transform: scale(.97); }
+  @media (max-width: 640px) {
+    #hero { min-height: 380px; border-radius: 14px; }
+    #hero .hero-content { padding: 26px 20px; }
+    #hero .hero-title { font-size: 32px; letter-spacing: -.5px; }
+    #hero .hero-desc { font-size: 14px; }
+    #hero .hero-play, #hero .hero-info { padding: 11px 20px; font-size: 14px; }
+    #new-row-wrap .grid-row .card, #browse-grid-wrap .grid-row .card { width: 140px; }
+    #new-row-wrap .grid-row .card .poster, #browse-grid-wrap .grid-row .card .poster { width: 140px; }
+  }
 </style>
 </head>
 <body>
@@ -193,6 +240,26 @@
 
 <main id="main">
   <div id="home-hint">
+    <!-- Netflix / JioHotstar-style hero (25 Nov 2026): banner for the
+         Featured title. Title/meta/description are filled by
+         populateHero() (end of file) from the same featured data
+         loadFeaturedRow() uses; the static text below is only the
+         first-paint fallback. Inside #home-hint so search hides it
+         with the rest of the home content. -->
+    <section id="hero" aria-label="Featured">
+      <div class="hero-bg" id="hero-bg"></div>
+      <div class="hero-shade"></div>
+      <div class="hero-content">
+        <div class="hero-kicker">🔥 Featured</div>
+        <h2 class="hero-title" id="hero-title">Dhindora 2</h2>
+        <div class="hero-meta" id="hero-meta">Season 2 • Netflix • 2026</div>
+        <p class="hero-desc" id="hero-desc"></p>
+        <div class="hero-actions">
+          <button type="button" class="hero-play" id="hero-play">▶ Play</button>
+          <button type="button" class="hero-info" id="hero-info">ⓘ More Info</button>
+        </div>
+      </div>
+    </section>
     <div class="page-head">
       <div class="hero-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div>
       <div>
@@ -2584,6 +2651,47 @@ function loadFeaturedRow() {
   wrap.appendChild(row);
 }
 loadFeaturedRow();
+
+/* ---------- Netflix-style hero (25 Nov 2026) ---------- */
+// Banner for the Featured title — the SAME data loadFeaturedRow()
+// uses (Dhindora 2, DHINDORA_POSTER). Play taps the card's exact
+// flow (openDhindora2: detail panel + Watch at Season 2); More
+// Info opens the detail panel only (openMoviesMod). The banner
+// renders at once with the poster + static meta; the Cinemeta
+// meta (cached — the detail panel reuses this same fetch) then
+// upgrades the backdrop to the landscape background and fills
+// the ★ rating • genres • year • runtime line + description.
+// A failed Cinemeta fetch leaves the static fallback in place.
+const FEATURED_ITEM = { title: "Dhindora", year: "2021", series: true, poster: DHINDORA_POSTER };
+function populateHero() {
+  const hero = $("hero");
+  if (!hero) return;
+  const bg = $("hero-bg");
+  const titleEl = $("hero-title");
+  const metaEl = $("hero-meta");
+  const descEl = $("hero-desc");
+  if (bg) bg.style.backgroundImage = "url(\"" + DHINDORA_POSTER + "\")";
+  if (titleEl) titleEl.textContent = "Dhindora 2";
+  if (metaEl) metaEl.textContent = "Season 2 • Netflix • 2026";
+  const playBtn = $("hero-play");
+  if (playBtn) playBtn.addEventListener("click", () => openDhindora2());
+  const infoBtn = $("hero-info");
+  if (infoBtn) infoBtn.addEventListener("click", () => openMoviesMod(FEATURED_ITEM));
+  cinemetaMetaCached("Dhindora", "2021", true).then((m) => {
+    if (!m) return;
+    if (bg && m.background) bg.style.backgroundImage = "url(\"" + m.background + "\")";
+    if (metaEl) {
+      const bits = [];
+      if (m.imdbRating) bits.push("★ " + m.imdbRating);
+      if (Array.isArray(m.genres) && m.genres.length) bits.push(m.genres.slice(0, 3).join(", "));
+      bits.push("2026");
+      if (m.runtime) bits.push(m.runtime);
+      metaEl.textContent = bits.join(" • ");
+    }
+    if (descEl && m.description) descEl.textContent = m.description;
+  }).catch(() => {});
+}
+populateHero();
 
 /* ---------- 🆕 New on the sites (home row) ---------- */
 // The newest titles across the whole modlist network, rebuilt

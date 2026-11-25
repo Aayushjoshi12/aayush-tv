@@ -80,6 +80,37 @@
   .foot-inner b { color: #f2f4fa; }
   .foot-inner nav a { color: #cfd3dd; text-decoration: none; margin-right: 16px; }
   .foot-inner nav a:hover { color: #fff; }
+  html, body { overflow-x: clip; }
+  /* ---- Netflix / JioHotstar-style hero ---- */
+  #hero { position: relative; width: 100vw; margin: -24px calc(50% - 50vw) 30px; min-height: 520px; display: flex; align-items: flex-end; overflow: hidden; border-bottom: 1px solid #232838; background: #131a28; }
+  .hero-bg { position: absolute; inset: 0; background-size: cover; background-position: center 22%; background-repeat: no-repeat; }
+  .hero-shade { position: absolute; inset: 0; background: linear-gradient(90deg, rgba(9,12,18,.97) 0%, rgba(9,12,18,.72) 42%, rgba(9,12,18,.18) 78%), linear-gradient(0deg, #090c12 2%, rgba(9,12,18,0) 42%), linear-gradient(180deg, rgba(9,12,18,.5) 0%, rgba(9,12,18,0) 22%); }
+  .hero-inner { position: relative; z-index: 1; width: 100%; max-width: 1100px; margin: 0 auto; padding: 0 16px 56px; }
+  .hero-kicker { color: #ff5a5a; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; font-size: .8rem; margin-bottom: 10px; }
+  .hero-title { font-size: clamp(2rem, 5.2vw, 3.4rem); font-weight: 900; line-height: 1.05; margin: 0 0 10px; text-shadow: 0 2px 18px rgba(0,0,0,.65); }
+  .hero-title::before { content: none; }
+  .hero-meta { color: #d5dae6; font-size: 1rem; margin-bottom: 18px; text-shadow: 0 1px 10px rgba(0,0,0,.7); }
+  .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+  .hero-btn { border: 0; border-radius: 8px; padding: 11px 22px; font-size: 1rem; font-weight: 800; font-family: inherit; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, background .15s ease; }
+  .hero-btn:hover { transform: translateY(-1px); }
+  .hero-play { background: #fff; color: #111; }
+  .hero-play:hover { background: #e8e8e8; box-shadow: 0 8px 24px rgba(0,0,0,.45); }
+  .hero-info { background: rgba(109,109,110,.65); color: #fff; }
+  .hero-info:hover { background: rgba(109,109,110,.85); }
+  /* ---- Netflix-style horizontal rows ---- */
+  .row { display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; padding: 10px 8px 16px; scrollbar-width: none; -ms-overflow-style: none; }
+  .row::-webkit-scrollbar { display: none; }
+  .row .card { flex: 0 0 250px; scroll-snap-align: start; }
+  .row .card:hover { transform: scale(1.05); border-color: rgba(255,59,59,.85); box-shadow: 0 14px 34px rgba(0,0,0,.55), 0 0 22px rgba(255,59,59,.28); }
+  .row .showcard { flex: 0 0 220px; scroll-snap-align: start; }
+  .row .showcard:hover { transform: scale(1.04); border-color: rgba(255,59,59,.85); box-shadow: 0 10px 26px rgba(0,0,0,.5), 0 0 18px rgba(255,59,59,.25); }
+  @media (max-width: 640px) {
+    #hero { min-height: 380px; }
+    .hero-inner { padding-bottom: 40px; }
+    .hero-btn { padding: 10px 16px; font-size: .95rem; }
+    .row .card { flex-basis: 200px; }
+    .row .showcard { flex-basis: 180px; }
+  }
 </style>
 </head>
 <body>
@@ -97,6 +128,20 @@
   </div>
 </header>
 <main>
+  <section id="hero" aria-label="Featured episode">
+    <div class="hero-bg" id="heroBg"></div>
+    <div class="hero-shade"></div>
+    <div class="hero-inner">
+      <div class="hero-kicker">▶ Latest episode</div>
+      <h2 class="hero-title" id="heroTitle">TV Serials</h2>
+      <p class="hero-meta" id="heroMeta">Fresh episodes every day</p>
+      <div class="hero-actions">
+        <button id="heroPlay" type="button" class="hero-btn hero-play">▶ Play</button>
+        <button id="heroInfo" type="button" class="hero-btn hero-info">ⓘ More Info</button>
+      </div>
+    </div>
+  </section>
+
   <h1>📺 TV <em>Serials</em></h1>
   <p class="sub">Daily full episodes of Indian Hindi TV serials &amp; reality shows — fresh episodes every day, one tap to watch.</p>
 
@@ -120,7 +165,7 @@
   <h2>All shows</h2>
   <p class="sub" style="margin-bottom:12px">Every channel and show on Desi Tashan — pick one to see its episodes.</p>
   <div id="showChannels" class="channels" style="margin-bottom:14px"></div>
-  <div id="showGrid" class="showgrid"></div>
+  <div id="showGrid" class="showgrid row"></div>
   <p id="showEmpty" class="empty" hidden>No shows match that search.</p>
 
   <section id="showView" aria-label="Show episodes">
@@ -132,7 +177,7 @@
   </section>
 
   <h2>Latest episodes</h2>
-  <div id="grid" class="grid"></div>
+  <div id="grid" class="grid row"></div>
   <p id="empty" class="empty" hidden>No episodes match that search.</p>
 
   <p id="updated" class="updated"></p>
@@ -212,7 +257,37 @@
     document.getElementById("updated").textContent = stamp
       ? "Listings updated " + stamp.toLocaleString() + " · source: Desi Tashan RSS feed (50 latest episodes)."
       : "Source: Desi Tashan RSS feed.";
+    renderHero();
   }
+
+  // ---- Netflix-style hero: features the newest Latest episode ----
+  // Populated from the already-loaded EPISODES list (snapshot first,
+  // then the live ?latest= swap-in). renderHero() is called from
+  // render(), so it refreshes whenever the list does; it only touches
+  // the DOM when the featured episode actually changes.
+  var heroEp = null;
+  function heroShowSlug(ep){
+    var m = ep.link.match(/\/([^\/]+?)-\d+(?:st|nd|rd|th)-[a-z]+-\d{4}-full-episode-/i);
+    if (m) return m[1];
+    return ep.show.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  }
+  function renderHero(){
+    var ep = (EPISODES && EPISODES.length) ? EPISODES[0] : null;
+    if (!ep) return;
+    if (heroEp && heroEp.guid === ep.guid) return;
+    heroEp = ep;
+    if (ep.poster) document.getElementById("heroBg").style.backgroundImage = 'url("' + ep.poster + '")';
+    document.getElementById("heroTitle").textContent = ep.show;
+    document.getElementById("heroMeta").textContent = ep.channel + (ep.episode ? " · Episode " + ep.episode : "") + " · " + ep.date;
+  }
+  document.getElementById("heroPlay").addEventListener("click", function(){ if (heroEp) playEpisode(heroEp.guid, 1); });
+  document.getElementById("heroInfo").addEventListener("click", function(){
+    if (!heroEp) return;
+    var match = null;
+    allShows().forEach(function(r){ if (r.name.toLowerCase() === heroEp.show.toLowerCase()) match = r; });
+    if (match) openShow(match.slug, match.name, match.channel);
+    else openShow(heroShowSlug(heroEp), heroEp.show, heroEp.channel);
+  });
 
   document.getElementById("search").addEventListener("input", function(ev){ query = ev.target.value; render(); renderShowBrowse(); });
 
