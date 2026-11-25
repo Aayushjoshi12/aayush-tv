@@ -487,7 +487,7 @@ async function runSearch(q) {
     // and is not in the modlist index, so searching for it finds
     // nothing. Show it anyway — one tap opens Watch at S2 E1.
     if (/dhindora/i.test(q)) {
-      items.unshift({ title: "Dhindora 2", year: "2026", series: true, poster: DHINDORA_POSTER, siteName: "Season 2 • Netflix", dhindora2: true });
+      items.unshift({ title: "Dhindora 2", year: "2026", series: true, poster: DHINDORA_POSTER, siteName: "Season 2 • Netflix", rating: "8.8", dhindora2: true });
     }
     // Cinemeta enrichment + fallback (24 Nov 2026): the modlist
     // only covers what the download sites list, and its items
@@ -495,7 +495,8 @@ async function runSearch(q) {
     // endpoint returns light metas — no `year` (use releaseInfo)
     // and no `imdbRating` — so the rating comes from the full
     // meta (/meta/{type}/{imdb_id}.json), fetched once per unique
-    // title, in parallel, capped at 8.
+    // title, in parallel, capped at 24 (25 Nov 2026: was 8 — the
+    // 9th+ title never got a rating).
     if (!/dhindora/i.test(q)) {
       try {
         const [cm, cs] = await Promise.all([
@@ -531,7 +532,7 @@ async function runSearch(q) {
         const ratingByKey = {};
         if (need.length) {
           const fullMetas = await Promise.all(
-            need.slice(0, 8).map((m) =>
+            need.slice(0, 24).map((m) =>
               getJSON(CINEMETA + "/meta/" + (m.type || "movie") + "/" + m.imdb_id + ".json")
                 .then((d) => d && d.meta).catch(() => null)
             )
@@ -2789,11 +2790,19 @@ function loadFeaturedRow() {
   wrap.appendChild(el("div", "row-title", "🔥 Featured"));
   const row = el("div", "grid-row");
   const poster = DHINDORA_POSTER;
-  row.appendChild(makeCard(
+  const card = makeCard(
     { title: "Dhindora 2", year: "2026", series: true, poster, siteName: "Season 2 • Netflix" },
     () => openDhindora2()
-  ));
+  );
+  row.appendChild(card);
   wrap.appendChild(row);
+  // IMDb rating (25 Nov 2026): same Cinemeta fetch the hero uses
+  // (cached — no extra request), ★ 8.8.
+  cinemetaMetaCached("Dhindora", "2021", true).then((m) => {
+    if (!m || !m.imdbRating) return;
+    const y = card.querySelector(".year");
+    if (y && !y.querySelector(".rating")) y.appendChild(el("span", "rating", "★ " + m.imdbRating));
+  }).catch(() => {});
 }
 loadFeaturedRow();
 
@@ -2853,6 +2862,28 @@ async function loadNewRow() {
     const items = await getJSON(NEW_FEED_URL);
     wrap.innerHTML = "";
     if (!Array.isArray(items) || !items.length) return;
+    // IMDb ratings (25 Nov 2026): the feed carries none, so enrich
+    // from Cinemeta the same way search does — full meta per title,
+    // in parallel, one wave (24 titles max). The rating is only
+    // kept when the returned meta's name matches the title, so a
+    // wrong search hit never mislabels a card. A failure just
+    // leaves the row unrated — the cards still render.
+    try {
+      await Promise.all(items.map(async (it) => {
+        const base = baseTitle(it.title);
+        const m = await cinemetaMetaCached(base, it.year, isSeries(it)).catch(() => null);
+        if (!m || !m.imdbRating) return;
+        // Accept only the same title (punctuation-insensitive, so
+        // "Rob Lowe the Outsider" matches "Rob Lowe: The Outsider")
+        // or its full title ("Pushpa 2" -> "Pushpa 2: The Rule") —
+        // never an unrelated first search hit.
+        const norm = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const bn = norm(m.name), bl = norm(base);
+        if (bn === bl || bn.indexOf(bl) === 0) {
+          it.rating = m.imdbRating;
+        }
+      }));
+    } catch { /* unrated row still renders */ }
     wrap.appendChild(el("div", "row-title", "🆕 New on the sites"));
     const row = el("div", "grid-row");
     items.forEach((it) => {

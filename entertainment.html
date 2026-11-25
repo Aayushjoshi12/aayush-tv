@@ -42,6 +42,7 @@
   .card .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
   .card .show { font-weight: 700; font-size: .98rem; }
   .card .meta { color: #9aa7bd; font-size: .85rem; }
+  .card .meta.rating { color: #f5c518; font-weight: 700; }
   .card .watch { margin-top: auto; padding-top: 8px; font-weight: 700; font-size: .92rem; background: none; border: 0; color: #ff5252; cursor: pointer; text-align: left; font-family: inherit; padding-left: 0; padding-right: 0; }
   .card .watch:hover { text-decoration: underline; }
   .note { margin-top: 34px; padding: 14px 16px; background: #141a26; border: 1px solid #232d42; border-radius: 10px; color: #9aa7bd; font-size: .88rem; }
@@ -54,6 +55,7 @@
   .showcard .sname { font-weight: 700; font-size: .95rem; }
   .showcard .sch { color: #9aa7bd; font-size: .82rem; margin-top: 2px; }
   .showcard .sgo { color: #ff5252; font-size: .85rem; font-weight: 700; margin-top: 6px; }
+  .showcard .srating { color: #f5c518; font-size: .82rem; font-weight: 700; margin-top: 2px; }
   #showView { display: none; }
   #showView.open { display: block; }
   #showBack { background: #182134; border: 1px solid #2a3448; border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: .9rem; font-weight: 700; color: #dbe4f2; font-family: inherit; margin-bottom: 12px; }
@@ -207,6 +209,92 @@
   var FALLBACK_DOMAINS = SNAPSHOT.domain_fallbacks || ["https://www.desitashan.su/"];
   var EPISODES = SNAPSHOT.episodes || [];
 
+  // IMDb ratings via Cinemeta (free, no key, CORS *) — same source
+  // as movies.html. Shows have no IMDb ids stored, so: search the
+  // series catalog by name, then fetch the full meta for
+  // imdbRating. Results (including misses) are cached per show
+  // name and in-flight lookups are shared, so re-renders, search
+  // keystrokes and Load-more never re-fetch. Many daily soaps
+  // have no IMDb entry — those simply show no rating.
+  var CINEMETA = "https://v3-cinemeta.strem.io";
+  var showRatingCache = {}; // lowercase name -> Promise<string> ("" = no rating)
+  function showRating(name){
+    var key = String(name || "").trim().toLowerCase();
+    if (!key) return Promise.resolve("");
+    if (showRatingCache[key]) return showRatingCache[key];
+    var p = fetch(CINEMETA + "/catalog/series/top/search=" + encodeURIComponent(name) + ".json")
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(d){
+        var metas = (d && d.metas) || [];
+        // Title match, punctuation-insensitive ("Rob Lowe the
+        // Outsider" = "Rob Lowe: The Outsider"). Three passes:
+        // 1. exact title; 2. closest longer title ("Anupama" ->
+        // "Anupamaa", NOT the "Anupama: Namaste America" spin-off
+        // — shortest wins); 3. parent show for a season
+        // ("Bigg Boss 20" -> "Bigg Boss" — most specific wins).
+        var norm = function(s){ return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, ""); };
+        var nk = norm(name);
+        var m = null;
+        var i, j, k;
+        for (i = 0; i < metas.length; i++) {
+          if (norm(metas[i].name) === nk) { m = metas[i]; break; }
+        }
+        if (!m) {
+          var bestLen = Infinity;
+          for (j = 0; j < metas.length; j++) {
+            var n = norm(metas[j].name);
+            if (n && n.indexOf(nk) === 0 && n.length < bestLen) { m = metas[j]; bestLen = n.length; }
+          }
+        }
+        if (!m) {
+          var bestLen3 = -1;
+          for (k = 0; k < metas.length; k++) {
+            var n3 = norm(metas[k].name);
+            if (n3 && nk.indexOf(n3) === 0 && n3.length > bestLen3) { m = metas[k]; bestLen3 = n3.length; }
+          }
+        }
+        if (!m || !m.imdb_id) return "";
+        return fetch(CINEMETA + "/meta/series/" + m.imdb_id + ".json")
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(fd){ return (fd && fd.meta && fd.meta.imdbRating) ? String(fd.meta.imdbRating) : ""; });
+      })
+      .catch(function(){ return ""; });
+    showRatingCache[key] = p;
+    return p;
+  }
+
+  // Append a gold "★ rating" line under the show name on episode
+  // cards in gridEl (max 30 lookups per call; already-rated cards
+  // are skipped). showName forces one lookup for the whole grid
+  // (show view — every episode is the same show); otherwise each
+  // card looks up its own show. Stale cards (re-rendered away)
+  // are never touched.
+  function addRatingsToCards(gridEl, showName){
+    var cards = gridEl.querySelectorAll(".card");
+    var cap = 0;
+    cards.forEach(function(card){
+      if (card.querySelector(".meta.rating")) return;
+      if (cap >= 30) return;
+      cap++;
+      var nm = showName;
+      if (!nm) {
+        var showEl = card.querySelector(".show");
+        if (!showEl) return;
+        nm = showEl.textContent;
+      }
+      showRating(nm).then(function(r){
+        if (!r || !card.isConnected) return;
+        if (card.querySelector(".meta.rating")) return;
+        var s2 = card.querySelector(".show");
+        if (!s2) return;
+        var d = document.createElement("div");
+        d.className = "meta rating";
+        d.textContent = "★ " + r;
+        s2.insertAdjacentElement("afterend", d);
+      });
+    });
+  }
+
   // Full catalog: every channel + show on Desi Tashan (233 categories,
   // from the site sitemap 24 Nov 2026). Show display names are derived
   // from slugs; episodes load on demand via the resolver (?show=).
@@ -253,6 +341,7 @@
         '<button class="watch" type="button" onclick="playEpisode(\''+esc(e.guid)+'\', 1)">▶ Watch episode</button>' +
         '</div></article>';
     }).join("");
+    addRatingsToCards(grid); // IMDb ★ per show (25 Nov 2026)
     var stamp = SNAPSHOT.generated_at ? new Date(SNAPSHOT.generated_at) : null;
     document.getElementById("updated").textContent = stamp
       ? "Listings updated " + stamp.toLocaleString() + " · source: Desi Tashan RSS feed (50 latest episodes)."
@@ -279,6 +368,14 @@
     if (ep.poster) document.getElementById("heroBg").style.backgroundImage = 'url("' + ep.poster + '")';
     document.getElementById("heroTitle").textContent = ep.show;
     document.getElementById("heroMeta").textContent = ep.channel + (ep.episode ? " · Episode " + ep.episode : "") + " · " + ep.date;
+    // IMDb ★ for the featured show (25 Nov 2026); the guid guard
+    // keeps a slow lookup from labelling a newer hero episode.
+    var heroGuid = ep.guid;
+    showRating(ep.show).then(function(r){
+      if (!r || !heroEp || heroEp.guid !== heroGuid) return;
+      var hm = document.getElementById("heroMeta");
+      if (hm && hm.textContent.indexOf("★") === -1) hm.textContent += " · ★ " + r;
+    });
   }
   document.getElementById("heroPlay").addEventListener("click", function(){ if (heroEp) playEpisode(heroEp.guid, 1); });
   document.getElementById("heroInfo").addEventListener("click", function(){
@@ -350,6 +447,23 @@
         openShow(b.getAttribute("data-slug"), b.getAttribute("data-name"), b.getAttribute("data-ch"));
       });
     });
+    // IMDb ★ on show cards (25 Nov 2026): first 40 visible cards,
+    // in place; the cache makes re-renders free.
+    var scards = document.getElementById("showGrid").querySelectorAll(".showcard");
+    var scap = 0;
+    scards.forEach(function(b){
+      if (scap >= 40) return;
+      scap++;
+      showRating(b.getAttribute("data-name")).then(function(r){
+        if (!r || !b.isConnected) return;
+        if (b.querySelector(".srating")) return;
+        var d = document.createElement("div");
+        d.className = "srating";
+        d.textContent = "★ " + r;
+        var go = b.querySelector(".sgo");
+        if (go) b.insertBefore(d, go); else b.appendChild(d);
+      });
+    });
   }
 
   var showState = null; // { slug, name, channel, page, hasMore }
@@ -388,6 +502,7 @@
             '<button class="watch" type="button" onclick="playEpisode(\''+esc(e.guid)+'\', 1)">▶ Watch episode</button>' +
             '</div></article>';
         }).join("");
+        addRatingsToCards(grid, st.name); // IMDb ★ — one lookup, same show (25 Nov 2026)
         st.hasMore = !!res.d.hasMore;
         document.getElementById("loadMore").classList.toggle("show", st.hasMore);
         if (!eps.length && st.page === 1) {
