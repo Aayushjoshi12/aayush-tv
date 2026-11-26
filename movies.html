@@ -201,6 +201,19 @@
   #hero .hero-info { background: rgba(109,109,110,.65); color: #fff; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
   #hero .hero-info:hover { background: rgba(109,109,110,.45); }
   #hero .hero-play:active, #hero .hero-info:active { transform: scale(.97); }
+  /* Rotating hero (26 Nov 2026): crossfade between slides, dots + arrows. */
+  #hero .hero-bg, #hero .hero-content { transition: opacity .45s ease; }
+  #hero.fading .hero-bg, #hero.fading .hero-content { opacity: 0; }
+  #hero .hero-arrow { position: absolute; top: 50%; transform: translateY(-50%); z-index: 2; width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255,255,255,.35); background: rgba(9,12,18,.45); color: #fff; font-size: 26px; line-height: 1; cursor: pointer; display: none; backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); font-family: inherit; }
+  #hero .hero-arrow:hover { background: rgba(255,59,59,.75); border-color: rgba(255,59,59,.9); }
+  #hero .hero-prev { left: 14px; }
+  #hero .hero-next { right: 14px; }
+  #hero.has-slides .hero-arrow { display: block; }
+  #hero .hero-dots { position: absolute; right: 22px; bottom: 16px; z-index: 2; display: none; gap: 7px; }
+  #hero.has-slides .hero-dots { display: flex; }
+  #hero .hero-dot { width: 9px; height: 9px; border-radius: 999px; border: 0; padding: 0; background: rgba(255,255,255,.45); cursor: pointer; transition: width .2s, background .2s; }
+  #hero .hero-dot:hover { background: rgba(255,255,255,.8); }
+  #hero .hero-dot.on { width: 26px; background: #fff; }
   @media (max-width: 640px) {
     #hero { min-height: 380px; border-radius: 14px; }
     #hero .hero-content { padding: 26px 20px; }
@@ -248,8 +261,10 @@
     <section id="hero" aria-label="Featured">
       <div class="hero-bg" id="hero-bg"></div>
       <div class="hero-shade"></div>
+      <button type="button" class="hero-arrow hero-prev" id="hero-prev" aria-label="Previous title">‹</button>
+      <button type="button" class="hero-arrow hero-next" id="hero-next" aria-label="Next title">›</button>
       <div class="hero-content">
-        <div class="hero-kicker">Featured</div>
+        <div class="hero-kicker" id="hero-kicker">Featured</div>
         <h2 class="hero-title" id="hero-title">Dhindora 2</h2>
         <div class="hero-meta" id="hero-meta">Season 2 • Netflix • 2026</div>
         <p class="hero-desc" id="hero-desc"></p>
@@ -258,6 +273,7 @@
           <button type="button" class="hero-info" id="hero-info">ⓘ More Info</button>
         </div>
       </div>
+      <div class="hero-dots" id="hero-dots"></div>
     </section>
     <div class="page-head">
       <div class="hero-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div>
@@ -2847,44 +2863,146 @@ function fillCardRating(card, item) {
   }).catch(() => {});
 }
 
-/* ---------- Netflix-style hero (25 Nov 2026) ---------- */
-// Banner for the Featured title — Dhindora 2 (DHINDORA_POSTER).
-// Play taps the card's exact
-// flow (openDhindora2: detail panel + Watch at Season 2); More
-// Info opens the detail panel only (openMoviesMod). The banner
-// renders at once with the poster + static meta; the Cinemeta
-// meta (cached — the detail panel reuses this same fetch) then
-// upgrades the backdrop to the landscape background and fills
-// the ★ rating • genres • year • runtime line + description.
-// A failed Cinemeta fetch leaves the static fallback in place.
-const FEATURED_ITEM = { title: "Dhindora", year: "2021", series: true, poster: DHINDORA_POSTER };
+/* ---------- Netflix-style rotating hero (26 Nov 2026) ---------- */
+// The hero cycles on its own through the highest IMDb-rated movies
+// + TV shows (the two top-12 lists loadBrowse already fetched,
+// merged and sorted best-first), Dhindora 2 first. Play opens
+// that title's detail + Watch flow; More Info opens its detail
+// panel. Dots/arrows jump manually and reset the timer; hovering
+// pauses it. If the catalogs fail, the hero stays on Dhindora 2
+// alone (no rotation, no controls).
+const FEATURED_ITEM = { title: "Dhindora", year: "2021", series: true, poster: DHINDORA_POSTER, rating: "8.8" };
+const HERO_ROTATE_MS = 8000;
+const HERO_DESC_FALLBACK = "One of the highest-rated titles on IMDb — tap Play to watch it now.";
+let heroSlides = [];   // { item, display, kicker, rating, yearLabel }
+let heroIndex = 0;
+let heroTimer = null;
+let heroToken = 0;    // guards async meta fills against slide changes
+let heroPaused = false;
+
+function heroSlideFor(item, display, kicker, yearLabel) {
+  return { item: item, display: display, kicker: kicker, rating: item.rating || "", yearLabel: yearLabel || item.year || "" };
+}
+function dhindoraSlide() {
+  // Display year is 2026 (Season 2); the lookup year stays 2021.
+  return heroSlideFor(FEATURED_ITEM, "Dhindora 2", "Featured", "2026");
+}
+function heroMetaLine(slide, m) {
+  const bits = [];
+  if (slide.rating) bits.push("★ " + slide.rating);
+  else if (m && m.imdbRating) bits.push("★ " + m.imdbRating);
+  if (m && Array.isArray(m.genres) && m.genres.length) bits.push(m.genres.slice(0, 3).join(", "));
+  if (slide.yearLabel) bits.push(slide.yearLabel);
+  if (m && m.runtime) bits.push(m.runtime);
+  return bits.join(" • ");
+}
+function renderHeroSlide(i, animate) {
+  const hero = $("hero");
+  if (!hero || !heroSlides.length) return;
+  heroIndex = ((i % heroSlides.length) + heroSlides.length) % heroSlides.length;
+  const slide = heroSlides[heroIndex];
+  const token = ++heroToken;
+  const apply = () => {
+    if (token !== heroToken) return; // a newer slide took over
+    const bg = $("hero-bg");
+    const titleEl = $("hero-title");
+    const kickerEl = $("hero-kicker");
+    const metaEl = $("hero-meta");
+    const descEl = $("hero-desc");
+    if (kickerEl) kickerEl.textContent = slide.kicker;
+    if (titleEl) titleEl.textContent = slide.display;
+    // Catalog rating/year first, so the line is never the stale
+    // static fallback; the full meta then upgrades it.
+    if (metaEl) metaEl.textContent = heroMetaLine(slide, null);
+    if (bg && slide.item.poster) bg.style.backgroundImage = "url(\"" + slide.item.poster + "\")";
+    if (descEl) descEl.textContent = "";
+    hero.querySelectorAll(".hero-dot").forEach((d, di) => d.classList.toggle("on", di === heroIndex));
+    cinemetaMetaCached(slide.item.title, slide.item.year, !!slide.item.series).then((m) => {
+      if (token !== heroToken) return;
+      if (bg && m && m.background) bg.style.backgroundImage = "url(\"" + m.background + "\")";
+      if (metaEl) metaEl.textContent = heroMetaLine(slide, m);
+      if (descEl) descEl.textContent = (m && m.description) || HERO_DESC_FALLBACK;
+    }).catch(() => {
+      if (token === heroToken && descEl && !descEl.textContent) descEl.textContent = HERO_DESC_FALLBACK;
+    });
+  };
+  if (animate) {
+    hero.classList.add("fading");
+    setTimeout(() => { apply(); hero.classList.remove("fading"); }, 450);
+  } else {
+    apply();
+  }
+}
+function heroNext() { renderHeroSlide(heroIndex + 1, true); }
+function heroGo(i) { renderHeroSlide(i, true); resetHeroTimer(); }
+function startHeroTimer() {
+  stopHeroTimer();
+  if (heroSlides.length < 2 || heroPaused) return;
+  heroTimer = setInterval(heroNext, HERO_ROTATE_MS);
+}
+function stopHeroTimer() { if (heroTimer) { clearInterval(heroTimer); heroTimer = null; } }
+function resetHeroTimer() { startHeroTimer(); }
+function buildHeroSlides() {
+  // Merge the two top-12 lists (movies + series), best first.
+  const merged = [...topRated(browseTop, 12), ...topRated(browseSeries, 12)]
+    .filter((m) => m && m.name && parseFloat(m.imdbRating) > 0)
+    .sort((a, b) => parseFloat(b.imdbRating) - parseFloat(a.imdbRating))
+    .slice(0, 8);
+  if (!merged.length) return; // catalogs failed — Dhindora only
+  const slides = [dhindoraSlide()];
+  merged.forEach((m) => {
+    const it = browseItem(m);
+    it.year = String(m.releaseInfo || m.year || "").slice(0, 4);
+    slides.push(heroSlideFor(it, m.name, "Top Rated • " + (it.series ? "TV Show" : "Movie")));
+  });
+  heroSlides = slides;
+  const hero = $("hero");
+  if (hero) hero.classList.add("has-slides");
+  const dots = $("hero-dots");
+  if (dots) {
+    dots.innerHTML = "";
+    slides.forEach((s, si) => {
+      const d = document.createElement("button");
+      d.type = "button";
+      d.className = "hero-dot" + (si === heroIndex ? " on" : "");
+      d.setAttribute("aria-label", "Show " + s.display);
+      d.addEventListener("click", () => heroGo(si));
+      dots.appendChild(d);
+    });
+  }
+  startHeroTimer();
+}
+function heroPlayCurrent() {
+  const slide = heroSlides[heroIndex];
+  if (!slide) return;
+  if (slide.item === FEATURED_ITEM) { openDhindora2(); return; }
+  openMoviesMod(slide.item);
+  watchTitle();
+}
+function heroInfoCurrent() {
+  const slide = heroSlides[heroIndex];
+  if (!slide) return;
+  openMoviesMod(slide.item);
+}
 function populateHero() {
   const hero = $("hero");
   if (!hero) return;
-  const bg = $("hero-bg");
-  const titleEl = $("hero-title");
-  const metaEl = $("hero-meta");
-  const descEl = $("hero-desc");
-  if (bg) bg.style.backgroundImage = "url(\"" + DHINDORA_POSTER + "\")";
-  if (titleEl) titleEl.textContent = "Dhindora 2";
-  if (metaEl) metaEl.textContent = "Season 2 • Netflix • 2026";
+  heroSlides = [dhindoraSlide()];
+  renderHeroSlide(0, false);
   const playBtn = $("hero-play");
-  if (playBtn) playBtn.addEventListener("click", () => openDhindora2());
+  if (playBtn) playBtn.addEventListener("click", heroPlayCurrent);
   const infoBtn = $("hero-info");
-  if (infoBtn) infoBtn.addEventListener("click", () => openMoviesMod(FEATURED_ITEM));
-  cinemetaMetaCached("Dhindora", "2021", true).then((m) => {
-    if (!m) return;
-    if (bg && m.background) bg.style.backgroundImage = "url(\"" + m.background + "\")";
-    if (metaEl) {
-      const bits = [];
-      if (m.imdbRating) bits.push("★ " + m.imdbRating);
-      if (Array.isArray(m.genres) && m.genres.length) bits.push(m.genres.slice(0, 3).join(", "));
-      bits.push("2026");
-      if (m.runtime) bits.push(m.runtime);
-      metaEl.textContent = bits.join(" • ");
-    }
-    if (descEl && m.description) descEl.textContent = m.description;
-  }).catch(() => {});
+  if (infoBtn) infoBtn.addEventListener("click", heroInfoCurrent);
+  const prev = $("hero-prev");
+  if (prev) prev.addEventListener("click", () => heroGo(heroIndex - 1));
+  const next = $("hero-next");
+  if (next) next.addEventListener("click", () => heroGo(heroIndex + 1));
+  hero.addEventListener("mouseenter", () => { heroPaused = true; stopHeroTimer(); });
+  hero.addEventListener("mouseleave", () => { heroPaused = false; startHeroTimer(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) stopHeroTimer();
+    else if (!heroPaused) startHeroTimer();
+  });
 }
 populateHero();
 
@@ -3064,6 +3182,7 @@ async function loadBrowse() {
     renderBrowseRows();
     renderRecommendedRow();
     renderTopShowsRow();
+    buildHeroSlides(); // rotating hero: top-rated movies + shows (26 Nov 2026)
   } catch {
     wrap.innerHTML = "";
   }
