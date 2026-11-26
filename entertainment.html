@@ -65,6 +65,31 @@
   #loadMore { display: none; margin: 18px auto 0; background: #182134; border: 1px solid #2a3448; border-radius: 999px; padding: 10px 22px; cursor: pointer; font-size: .95rem; font-weight: 700; color: #e8eaf0; font-family: inherit; }
   #loadMore:hover { border-color: #ff5a5a; }
   #loadMore.show { display: block; }
+  /* ---- show page (opened serial): header + episode list ---- */
+  body.show-open #hero, body.show-open .search, body.show-open #channels, body.show-open #grid, body.show-open #empty, body.show-open #showChannels, body.show-open #showGrid, body.show-open #showEmpty, body.show-open #updated, body.show-open .note { display: none; }
+  body.show-open main > h2, body.show-open main > .sub { display: none; }
+  #showHeader { display: flex; gap: 22px; margin: 6px 0 22px; align-items: flex-start; }
+  #showPoster { width: 240px; flex: 0 0 240px; aspect-ratio: 16/9; object-fit: cover; border-radius: 14px; background: #1c2536; border: 1px solid #232d42; }
+  .show-info { flex: 1; min-width: 0; }
+  #showViewTitle { margin: 0 0 8px; font-size: 1.7rem; }
+  #showViewTitle::before { content: none; }
+  .show-meta { color: #d5dae6; font-size: .98rem; margin-bottom: 10px; }
+  .show-meta .rating { color: #f5c518; font-weight: 700; }
+  .show-desc { color: #9aa7bd; font-size: .95rem; max-width: 640px; margin-bottom: 14px; }
+  .show-actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  #showPlayLatest:disabled { opacity: .45; cursor: default; }
+  .show-count { color: #9aa7bd; font-size: .92rem; }
+  .ep-heading { font-size: 1.15rem; margin: 6px 0 12px; font-weight: 800; }
+  .eplist { display: flex; flex-direction: column; gap: 10px; }
+  .ep-row { display: flex; gap: 14px; align-items: center; background: #131a28; border: 1px solid #232d42; border-radius: 12px; padding: 10px; transition: border-color .15s ease; }
+  .ep-row:hover { border-color: rgba(255,59,59,.6); }
+  .ep-row img { width: 150px; flex: 0 0 150px; aspect-ratio: 16/9; object-fit: cover; border-radius: 8px; background: #1c2536; }
+  .ep-row .noimg { width: 150px; flex: 0 0 150px; aspect-ratio: 16/9; background: linear-gradient(135deg, #1c2536, #2a1e33); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; border-radius: 8px; }
+  .ep-info { flex: 1; min-width: 0; }
+  .ep-title { font-weight: 700; font-size: 1rem; }
+  .ep-date { color: #9aa7bd; font-size: .88rem; margin-top: 2px; }
+  .ep-watch { background: #ff5a5a; border: 0; border-radius: 999px; padding: 9px 18px; cursor: pointer; font-size: .92rem; font-weight: 700; color: #fff; font-family: inherit; white-space: nowrap; }
+  .ep-watch:hover { background: #ff6b6b; }
   /* ---- in-site player ---- */
   #playerWrap { display: none; margin: 0 0 26px; background: #0d1119; border: 1px solid #2a3448; border-radius: 16px; overflow: hidden; }
   #playerWrap.open { display: block; }
@@ -114,6 +139,10 @@
     .hero-btn { padding: 10px 16px; font-size: .95rem; }
     .row .card { flex-basis: 200px; }
     .row .showcard { flex-basis: 180px; }
+    #showHeader { flex-direction: column; gap: 14px; }
+    #showPoster { width: 100%; flex-basis: auto; }
+    .ep-row img, .ep-row .noimg { width: 110px; flex-basis: 110px; }
+    .ep-watch { padding: 8px 14px; }
   }
 </style>
 </head>
@@ -172,9 +201,21 @@
   <p id="showEmpty" class="empty" hidden>No shows match that search.</p>
 
   <section id="showView" aria-label="Show episodes">
-    <h2 id="showViewTitle">Show</h2>
     <button id="showBack" type="button">← All shows</button>
-    <div id="showGrid2" class="grid"></div>
+    <div id="showHeader">
+      <img id="showPoster" alt="" loading="lazy">
+      <div class="show-info">
+        <h2 id="showViewTitle">Show</h2>
+        <div id="showMeta" class="show-meta"></div>
+        <p id="showDesc" class="show-desc" hidden></p>
+        <div class="show-actions">
+          <button id="showPlayLatest" type="button" class="hero-btn hero-play" disabled>▶ Play latest episode</button>
+          <span id="showCount" class="show-count"></span>
+        </div>
+      </div>
+    </div>
+    <h3 class="ep-heading">Episodes</h3>
+    <div id="showGrid2" class="eplist"></div>
     <p id="showStatus" class="empty"></p>
     <button id="loadMore" type="button">Load more episodes</button>
   </section>
@@ -259,7 +300,11 @@
         if (!m.imdb_id) return { rating: "", poster: poster };
         return fetch(CINEMETA + "/meta/series/" + m.imdb_id + ".json")
           .then(function(r){ return r.ok ? r.json() : null; })
-          .then(function(fd){ return { rating: (fd && fd.meta && fd.meta.imdbRating) ? String(fd.meta.imdbRating) : "", poster: poster }; });
+          .then(function(fd){
+            var mm = (fd && fd.meta) || {};
+            return { rating: mm.imdbRating ? String(mm.imdbRating) : "", poster: poster,
+                     description: mm.description || "", genres: mm.genres || [], year: mm.year || "" };
+          });
       })
       .catch(function(){ return { rating: "", poster: "" }; });
     showMetaCache[key] = p;
@@ -513,15 +558,43 @@
     }
   }
 
-  var showState = null; // { slug, name, channel, page, hasMore }
+  var showState = null; // { slug, name, channel, page, hasMore, latestGuid, loaded }
   function openShow(slug, name, channel){
-    showState = { slug: slug, name: name, channel: channel, page: 1, hasMore: false };
-    document.getElementById("showViewTitle").textContent = name + " — " + channel;
+    showState = { slug: slug, name: name, channel: channel, page: 1, hasMore: false, latestGuid: null, loaded: 0 };
+    document.getElementById("showViewTitle").textContent = name;
+    document.getElementById("showMeta").innerHTML = "";
+    var desc = document.getElementById("showDesc");
+    desc.textContent = ""; desc.hidden = true;
+    document.getElementById("showCount").textContent = "";
+    var playBtn = document.getElementById("showPlayLatest");
+    playBtn.disabled = true;
+    playBtn.onclick = function(){ if (showState && showState.latestGuid) playEpisode(showState.latestGuid, 1); };
+    // Poster: the latest episode poster we already have; the
+    // Cinemeta poster fills in below if we have none yet.
+    var posterEl = document.getElementById("showPoster");
+    var local = null;
+    for (var i = 0; i < EPISODES.length; i++) { if (EPISODES[i].show === name) { local = EPISODES[i]; break; } }
+    if (local && local.poster) { posterEl.src = local.poster; posterEl.style.display = ""; }
+    else { posterEl.removeAttribute("src"); posterEl.style.display = "none"; }
     document.getElementById("showGrid2").innerHTML = "";
     document.getElementById("showStatus").textContent = "Loading episodes…";
     document.getElementById("loadMore").classList.remove("show");
+    document.body.classList.add("show-open");
     document.getElementById("showView").classList.add("open");
     document.getElementById("showView").scrollIntoView({ behavior: "smooth", block: "start" });
+    // Header details (★ rating, year, genres, description) from
+    // the same Cinemeta lookup the cards use (26 Nov 2026).
+    showMeta(name).then(function(m){
+      if (!showState || showState.name !== name) return;
+      var bits = [];
+      if (m && m.rating) bits.push('<span class="rating">★ ' + esc(m.rating) + '</span>');
+      bits.push(esc(channel));
+      if (m && m.year) bits.push(esc(String(m.year).slice(0, 4)));
+      if (m && m.genres && m.genres.length) bits.push(esc(m.genres.slice(0, 3).join(", ")));
+      document.getElementById("showMeta").innerHTML = bits.join(" • ");
+      if (m && m.description) { desc.textContent = m.description; desc.hidden = false; }
+      if (m && m.poster && posterEl.style.display === "none") { posterEl.src = m.poster; posterEl.style.display = ""; }
+    });
     loadShowPage();
   }
   function loadShowPage(){
@@ -537,19 +610,23 @@
         }));
         var grid = document.getElementById("showGrid2");
         document.getElementById("showStatus").textContent = "";
+        if (st.page === 1 && eps.length) {
+          st.latestGuid = eps[0].guid;
+          document.getElementById("showPlayLatest").disabled = false;
+        }
+        st.loaded += eps.length;
+        document.getElementById("showCount").textContent = st.loaded + " episode" + (st.loaded === 1 ? "" : "s") + (st.page === 1 && eps.length ? " • Latest " + eps[0].date : "");
         grid.innerHTML += eps.map(function(e){
           var img = e.poster
-            ? '<img src="'+esc(e.poster)+'" alt="'+esc(st.name)+' poster" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;noimg&quot;>📺</div>\'">'
+            ? '<img src="'+esc(e.poster)+'" alt="" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;noimg&quot;>📺</div>\'">'
             : '<div class="noimg">📺</div>';
-          var ep = e.episode ? " · Episode " + e.episode : "";
-          return '<article class="card">' + img +
-            '<div class="body"><div class="show">'+esc(st.name)+'</div>' +
-            '<div class="meta">'+esc(st.channel)+ep+'</div>' +
-            '<div class="meta">'+esc(e.date)+'</div>' +
-            '<button class="watch" type="button" onclick="playEpisode(\''+esc(e.guid)+'\', 1)">▶ Watch episode</button>' +
-            '</div></article>';
+          var title = e.episode ? "Episode " + e.episode : "Full episode";
+          return '<article class="ep-row">' + img +
+            '<div class="ep-info"><div class="ep-title">'+esc(title)+'</div>' +
+            '<div class="ep-date">'+esc(e.date)+'</div></div>' +
+            '<button class="ep-watch" type="button" onclick="playEpisode(\''+esc(e.guid)+'\', 1)">▶ Watch</button>' +
+            '</article>';
         }).join("");
-        addRatingsToCards(grid, st.name); // IMDb ★ — one lookup, same show (25 Nov 2026)
         st.hasMore = !!res.d.hasMore;
         document.getElementById("loadMore").classList.toggle("show", st.hasMore);
         if (!eps.length && st.page === 1) {
@@ -565,6 +642,7 @@
   });
   document.getElementById("showBack").addEventListener("click", function(){
     document.getElementById("showView").classList.remove("open");
+    document.body.classList.remove("show-open");
     showState = null;
     document.getElementById("showGrid").scrollIntoView({ behavior: "smooth", block: "start" });
   });
