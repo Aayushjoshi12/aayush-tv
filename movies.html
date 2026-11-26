@@ -504,6 +504,11 @@ async function runSearch(q) {
     // nothing. Show it anyway — one tap opens Watch at S2 E1.
     if (/dhindora/i.test(q)) {
       items.unshift({ title: "Dhindora 2", year: "2026", series: true, poster: DHINDORA_POSTER, siteName: "Season 2 • Netflix", rating: "8.8", dhindora2: true });
+      // Live IMDb rating (26 Nov 2026) when the browse fetch has
+      // already run — otherwise the hardcoded 8.8 stands until
+      // the detail panel corrects it on tap.
+      const dhLive = liveRating("tt14650074");
+      if (dhLive !== null) items[0].rating = String(dhLive);
     }
     // Cinemeta enrichment + fallback (24 Nov 2026): the modlist
     // only covers what the download sites list, and its items
@@ -557,6 +562,13 @@ async function runSearch(q) {
             if (!fm || !fm.imdbRating) return;
             const m = need[i];
             ratingByKey[(m.name || "").toLowerCase() + "|" + yearOf(m)] = fm.imdbRating;
+          });
+          // Live IMDb ratings (26 Nov 2026): override the Cinemeta
+          // rating where our service has one.
+          await fetchLiveRatings(need.slice(0, 24).map((m) => m.imdb_id));
+          need.forEach((m) => {
+            const lr = liveRating(m.imdb_id);
+            if (lr !== null) ratingByKey[(m.name || "").toLowerCase() + "|" + yearOf(m)] = String(lr);
           });
         }
         // Fill in ratings on the modlist entries Cinemeta knows.
@@ -781,15 +793,29 @@ function openMoviesMod(item) {
   );
   // Rating • genres • runtime (24 Nov 2026): filled in once the
   // Cinemeta meta arrives (same fetch Watch uses, cached).
+  // Live IMDb rating wins where our service has one (26 Nov 2026);
+  // if this title was never batch-fetched, fetch it on demand
+  // and re-render the line when it lands.
   const metaLine = el("div", "meta d-meta2", "");
   info.appendChild(metaLine);
-  cinemetaMetaCached(currentTitle, currentYear, series).then((m) => {
-    if (!m || currentTitle !== (item.title || "")) return;
+  const renderDetailMeta = (m) => {
     const parts = [];
-    if (m.imdbRating) parts.push("★ " + m.imdbRating);
+    const lr = liveRating(m.imdb_id || m.id);
+    if (lr !== null) parts.push("★ " + lr);
+    else if (m.imdbRating) parts.push("★ " + m.imdbRating);
     if (Array.isArray(m.genres) && m.genres.length) parts.push(m.genres.slice(0, 3).join(", "));
     if (m.runtime) parts.push(m.runtime);
     if (parts.length) metaLine.textContent = parts.join("  •  ");
+  };
+  cinemetaMetaCached(currentTitle, currentYear, series).then((m) => {
+    if (!m || currentTitle !== (item.title || "")) return;
+    renderDetailMeta(m);
+    const id = m.imdb_id || m.id;
+    if (id && liveRatings[id] === undefined) {
+      fetchLiveRatings([id]).then(() => {
+        if (currentTitle === (item.title || "")) renderDetailMeta(m);
+      }).catch(() => {});
+    }
   }).catch(() => {});
   info.appendChild(
     el("div", "desc", series
@@ -2802,6 +2828,44 @@ function openDhindora2() {
   watchStartSeason = 2;
   watchTitle();
 }
+/* ---------- Live IMDb ratings (26 Nov 2026) ---------- */
+// Ratings come from our own VM service (daily IMDb file —
+// https://mret.aayushlife.live/imdb-api), NOT from Cinemeta.
+// One batch call per page load covers the browse/hero ids; the
+// live rating wins wherever one exists, Cinemeta stays the
+// fallback when the service has no value or can't be reached
+// (5s cap, so a dead service never stalls the page).
+const IMDB_API = "https://mret.aayushlife.live/imdb-api";
+const liveRatings = {}; // tt... -> rating number, or null when the service has none
+async function fetchLiveRatings(ids) {
+  const want = [...new Set((ids || []).filter(Boolean))]
+    .filter((id) => /^tt\d+$/.test(id) && liveRatings[id] === undefined);
+  if (!want.length) return liveRatings;
+  // Request at most 100 at a time — and mark ONLY the ids actually
+  // requested. Ids past the cap stay unfetched (undefined) so a
+  // later call can still get them, instead of wrongly reading as
+  // "the service has no rating for this title".
+  const batch = want.slice(0, 100);
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 5000);
+    const r = await fetch(IMDB_API + "/ratings?ids=" + batch.join(","), { signal: ctrl.signal });
+    clearTimeout(to);
+    const d = await r.json();
+    for (const id of batch) liveRatings[id] = (d && d.ratings && d.ratings[id]) ? d.ratings[id].rating : null;
+  } catch (_) { for (const id of batch) liveRatings[id] = null; }
+  return liveRatings;
+}
+function liveRating(id) {
+  return (id && liveRatings[id] !== undefined && liveRatings[id] !== null) ? liveRatings[id] : null;
+}
+// Effective rating for a catalog meta: live first, Cinemeta fallback.
+function metaRating(m) {
+  const lr = liveRating(m && (m.imdb_id || m.id));
+  if (lr !== null) return lr;
+  return (m && m.imdbRating) ? m.imdbRating : "";
+}
+
 /* ---------- Netflix-style recommendation rows (IMDb) ---------- */
 // The hero already features Dhindora 2, so the old single-card
 // "Featured" row (a second Dhindora) is gone. In its place:
@@ -2813,8 +2877,8 @@ function openDhindora2() {
 function topRated(list, n) {
   const clean = (list || []).filter((m) => m && m.name && !/dhindora/i.test(m.name));
   const rated = clean
-    .filter((m) => parseFloat(m.imdbRating) > 0)
-    .sort((a, b) => parseFloat(b.imdbRating) - parseFloat(a.imdbRating));
+    .filter((m) => parseFloat(metaRating(m)) > 0)
+    .sort((a, b) => parseFloat(metaRating(b)) - parseFloat(metaRating(a)));
   return (rated.length ? rated : clean).slice(0, n);
 }
 function renderRecommendedRow() {
@@ -2854,6 +2918,15 @@ function renderTopShowsRow() {
 // the New row uses — patched in place so the card never waits.
 function fillCardRating(card, item) {
   if (!card || item.rating) return;
+  // Live IMDb rating first (26 Nov 2026) when this card's title
+  // has one; Cinemeta full meta stays the fallback.
+  const lr = liveRating(item.imdb);
+  if (lr !== null) {
+    let y = card.querySelector(".year");
+    if (!y) { y = el("div", "year", item.year || ""); card.appendChild(y); }
+    y.appendChild(el("span", "rating", "★ " + lr));
+    return;
+  }
   cinemetaMetaCached(baseTitle(item.title), item.year, isSeries(item)).then((m) => {
     if (!m || !m.imdbRating || !card.isConnected) return;
     if (card.querySelector(".rating")) return;
@@ -2871,7 +2944,7 @@ function fillCardRating(card, item) {
 // panel. Dots/arrows jump manually and reset the timer; hovering
 // pauses it. If the catalogs fail, the hero stays on Dhindora 2
 // alone (no rotation, no controls).
-const FEATURED_ITEM = { title: "Dhindora", year: "2021", series: true, poster: DHINDORA_POSTER, rating: "8.8" };
+const FEATURED_ITEM = { title: "Dhindora", year: "2021", series: true, poster: DHINDORA_POSTER, rating: "8.8", imdb: "tt14650074" };
 const HERO_ROTATE_MS = 8000;
 const HERO_DESC_FALLBACK = "One of the highest-rated titles on IMDb — tap Play to watch it now.";
 let heroSlides = [];   // { item, display, kicker, rating, yearLabel }
@@ -2944,9 +3017,11 @@ function stopHeroTimer() { if (heroTimer) { clearInterval(heroTimer); heroTimer 
 function resetHeroTimer() { startHeroTimer(); }
 function buildHeroSlides() {
   // Merge the two top-12 lists (movies + series), best first.
+  // Sorted by the live IMDb rating where our service has one
+  // (26 Nov 2026), Cinemeta otherwise.
   const merged = [...topRated(browseTop, 12), ...topRated(browseSeries, 12)]
-    .filter((m) => m && m.name && parseFloat(m.imdbRating) > 0)
-    .sort((a, b) => parseFloat(b.imdbRating) - parseFloat(a.imdbRating))
+    .filter((m) => m && m.name && parseFloat(metaRating(m)) > 0)
+    .sort((a, b) => parseFloat(metaRating(b)) - parseFloat(metaRating(a)))
     .slice(0, 8);
   if (!merged.length) return; // catalogs failed — Dhindora only
   const slides = [dhindoraSlide()];
@@ -2970,6 +3045,11 @@ function buildHeroSlides() {
       dots.appendChild(d);
     });
   }
+  // Re-render the current slide now (26 Nov 2026): the slides
+  // were just rebuilt with the live ratings, but the display
+  // still shows the load-time Dhindora render (8.8) until the
+  // first 8s timer tick — this puts the live 8.7 up at once.
+  renderHeroSlide(heroIndex, false);
   startHeroTimer();
 }
 function heroPlayCurrent() {
@@ -3040,9 +3120,20 @@ async function loadNewRow() {
         const bn = norm(m.name), bl = norm(base);
         if (bn === bl || bn.indexOf(bl) === 0) {
           it.rating = m.imdbRating;
+          it.imdb = m.imdb_id || m.id || "";
         }
       }));
     } catch { /* unrated row still renders */ }
+    // Live IMDb ratings (26 Nov 2026): override the Cinemeta rating
+    // where our service has one (same batch call, one per page load).
+    try {
+      const ids = items.map((it) => it.imdb).filter(Boolean);
+      await fetchLiveRatings(ids);
+      items.forEach((it) => {
+        const lr = liveRating(it.imdb);
+        if (lr !== null) it.rating = String(lr);
+      });
+    } catch { /* Cinemeta ratings stand */ }
     wrap.appendChild(el("div", "row-title", "New on Aayush TV"));
     const row = el("div", "grid-row");
     items.forEach((it) => {
@@ -3083,7 +3174,8 @@ function browseItem(meta) {
     series: meta.type === "series",
     site: "",
     slug: "",
-    rating: meta.imdbRating || "",
+    imdb: meta.imdb_id || meta.id || "",
+    rating: metaRating(meta) || "",
   };
 }
 
@@ -3176,6 +3268,16 @@ async function loadBrowse() {
     browseMovies = movies;
     browseSeries = series;
     browseTop = top;
+    // Live IMDb ratings (26 Nov 2026): one batch call for every
+    // catalog id + Dhindora, before the rows/hero render — the
+    // live rating then wins everywhere, Cinemeta stays fallback.
+    // Dhindora goes FIRST: the catalogs hold ~100 ids and the
+    // service caps a batch at 100, so the hero title must never
+    // be the one cut off.
+    const liveIds = ["tt14650074", ...[...movies, ...series, ...top].map((m) => m.imdb_id || m.id)];
+    await fetchLiveRatings(liveIds);
+    const dhLive = liveRating("tt14650074");
+    if (dhLive !== null) FEATURED_ITEM.rating = String(dhLive);
     const loading = $("browse-loading");
     if (loading) loading.remove();
     renderBrowseGenres();
