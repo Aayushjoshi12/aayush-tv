@@ -7,26 +7,6 @@
   "episodes": [
     {
       "show": "Dil Ki Bewafaiyaan",
-      "date": "24 November 2026",
-      "channel": "Star Plus",
-      "link": "https://www.desitashan.su/dil-ki-bewafaiyaan-24th-november-2026-full-episode-star-plus/0af7717a318046bc/",
-      "guid": "0af7717a318046bc",
-      "pubDate": "Thu, 26 Nov 2026 06:02:29 +0300",
-      "episode": null,
-      "poster": "https://www.desitashan.su/media-cache/d5/d522795660e1033db2ae15aeaa809030.jpg"
-    },
-    {
-      "show": "Dil Ki Bewafaiyaan",
-      "date": "25 November 2026",
-      "channel": "Star Plus",
-      "link": "https://www.desitashan.su/dil-ki-bewafaiyaan-25th-november-2026-full-episode-star-plus/9fb09b5211fa3b94/",
-      "guid": "9fb09b5211fa3b94",
-      "pubDate": "Thu, 26 Nov 2026 05:57:03 +0300",
-      "episode": null,
-      "poster": "https://www.desitashan.su/media-cache/d5/d522795660e1033db2ae15aeaa809030.jpg"
-    },
-    {
-      "show": "Dil Ki Bewafaiyaan",
       "date": "26 November 2026",
       "channel": "Star Plus",
       "link": "https://www.desitashan.su/dil-ki-bewafaiyaan-26th-november-2026-full-episode-star-plus/0a8ff98270b731ea/",
@@ -184,6 +164,16 @@
       "pubDate": "Thu, 26 Nov 2026 02:00:02 +0300",
       "episode": null,
       "poster": "https://www.desitashan.su/media-cache/0c/0cf2611893caa0215a0aba9f6ba5a404.jpg"
+    },
+    {
+      "show": "Dil Ki Bewafaiyaan",
+      "date": "25 November 2026",
+      "channel": "Star Plus",
+      "link": "https://www.desitashan.su/dil-ki-bewafaiyaan-25th-november-2026-full-episode-star-plus/9fb09b5211fa3b94/",
+      "guid": "9fb09b5211fa3b94",
+      "pubDate": "Thu, 26 Nov 2026 05:57:03 +0300",
+      "episode": null,
+      "poster": "https://www.desitashan.su/media-cache/d5/d522795660e1033db2ae15aeaa809030.jpg"
     },
     {
       "show": "Bigg Boss (Malayalam) Season 8",
@@ -504,9 +494,19 @@
       "pubDate": "Wed, 25 Nov 2026 16:57:02 +0300",
       "episode": null,
       "poster": "https://www.desitashan.su/media-cache/07/0708b561bffc8f57b325db5fe8670a79.jpg"
+    },
+    {
+      "show": "Dil Ki Bewafaiyaan",
+      "date": "24 November 2026",
+      "channel": "Star Plus",
+      "link": "https://www.desitashan.su/dil-ki-bewafaiyaan-24th-november-2026-full-episode-star-plus/0af7717a318046bc/",
+      "guid": "0af7717a318046bc",
+      "pubDate": "Thu, 26 Nov 2026 06:02:29 +0300",
+      "episode": null,
+      "poster": "https://www.desitashan.su/media-cache/d5/d522795660e1033db2ae15aeaa809030.jpg"
     }
   ],
-  "generated_at": "2026-11-26T05:12:50Z",
+  "generated_at": "2026-11-26T05:25:39Z",
   "source": "https://www.desitashan.su/feed.xml",
   "source_note": "Snapshot of the 50-item RSS feed, refreshed automatically by scripts/update-episodes.py (GitHub Actions). Posters come from the feed's <media:thumbnail>. Episode numbers are taken from the homepage's episode cards (guid -> number); null means not found. Never cache resolved stream URLs; episode links are outbound links to Desi Tashan episode pages."
 }
