@@ -2132,7 +2132,7 @@ async function fetchCinesrcManifest(tmdb) {
     const r = await fetch(CINESRC_MINTER + "/cinesrc?tmdb=" + tmdb + "&type=" + type + "&season=" + currentWatchSeason + "&episode=" + currentWatchEpisode);
     const d = await r.json();
     if (!d || !d.url) return "";
-    const m = await (await fetch(d.url)).text();
+    const m = await (await fetch(d.url, { referrerPolicy: "no-referrer" })).text();
     if (!m.startsWith("#EXTM3U")) return "";
     const base = d.url.slice(0, d.url.lastIndexOf("/") + 1);
     return m.split("\n").map((l) => {
