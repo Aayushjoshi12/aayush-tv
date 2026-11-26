@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🎬 Movies — Aayush TV</title>
+<title>Movies — Aayush TV</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -217,12 +217,12 @@
   <div class="head-inner">
     <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
     <nav class="main-nav">
-      <a href="index.html">🏏 NPL Live</a>
-      <a href="channels.html">📺 Channels</a>
-      <a href="movies.html" class="active">🎬 Movies</a>
-      <a href="entertainment.html">📺 TV Serials</a>
-      <a href="biggboss.html">🏠 Bigg Boss</a>
-      <a href="india.html">🇮🇳 India's Got Latent</a>
+      <a href="index.html">NPL Live</a>
+      <a href="channels.html">Channels</a>
+      <a href="movies.html" class="active">Movies</a>
+      <a href="entertainment.html">TV Serials</a>
+      <a href="biggboss.html">Bigg Boss</a>
+      <a href="india.html">India's Got Latent</a>
     </nav>
   </div>
   <div class="search-row">
@@ -250,7 +250,7 @@
       <div class="hero-bg" id="hero-bg"></div>
       <div class="hero-shade"></div>
       <div class="hero-content">
-        <div class="hero-kicker">🔥 Featured</div>
+        <div class="hero-kicker">Featured</div>
         <h2 class="hero-title" id="hero-title">Dhindora 2</h2>
         <div class="hero-meta" id="hero-meta">Season 2 • Netflix • 2026</div>
         <p class="hero-desc" id="hero-desc"></p>
@@ -264,17 +264,17 @@
       <div class="hero-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div>
       <div>
         <h2>Movies &amp; TV shows</h2>
-        <p>Search 31,000+ titles, or browse below. Tap a poster to watch or download.</p>
+        <p>Tap a poster to watch or download.</p>
       </div>
     </div>
     <div id="featured-row-wrap"></div>
-    <div id="new-row-wrap"><div class="row-title" id="new-loading">🆕 New on the sites — loading…</div></div>
+    <div id="new-row-wrap"><div class="row-title" id="new-loading">New on Aayush TV — loading…</div></div>
     <div id="browse-wrap">
-      <div class="row-title" id="browse-loading">🎬 Trending — loading…</div>
+      <div class="row-title" id="browse-loading">Trending Now — loading…</div>
       <div class="tabs" id="browse-tabs" role="tablist">
-        <button type="button" class="tab active" data-tab="movies">🎬 Movies</button>
-        <button type="button" class="tab" data-tab="series">📺 TV Shows</button>
-        <button type="button" class="tab" data-tab="top">⭐ Top Rated</button>
+        <button type="button" class="tab active" data-tab="movies">Movies</button>
+        <button type="button" class="tab" data-tab="series">TV Shows</button>
+        <button type="button" class="tab" data-tab="top">Top Rated</button>
       </div>
       <div class="chips" id="browse-genres"></div>
       <div id="browse-grid-wrap"></div>
@@ -441,7 +441,7 @@ function makeCard(item, onTap) {
       }
     });
   }
-  poster.appendChild(el("div", "badge" + (series ? "" : " movie"), series ? "📺 SERIES" : "🎬 MOVIE"));
+  poster.appendChild(el("div", "badge" + (series ? "" : " movie"), series ? "SERIES" : "MOVIE"));
   const overlay = el("div", "watch-overlay");
   overlay.appendChild(el("span", "", "▶"));
   poster.appendChild(overlay);
@@ -757,7 +757,7 @@ function openMoviesMod(item) {
   }
   top.appendChild(poster);
   const info = el("div", "");
-  info.appendChild(el("div", "tag" + (series ? " series" : ""), series ? "📺 TV SERIES" : "🎬 MOVIE"));
+  info.appendChild(el("div", "tag" + (series ? " series" : ""), series ? "TV SERIES" : "MOVIE"));
   info.appendChild(el("h2", "", currentTitle));
   info.appendChild(
     el("div", "meta", currentYear || "")
@@ -2787,7 +2787,7 @@ function openDhindora2() {
 function loadFeaturedRow() {
   const wrap = $("featured-row-wrap");
   if (!wrap) return;
-  wrap.appendChild(el("div", "row-title", "🔥 Featured"));
+  wrap.appendChild(el("div", "row-title", "Featured"));
   const row = el("div", "grid-row");
   const poster = DHINDORA_POSTER;
   const card = makeCard(
@@ -2884,7 +2884,7 @@ async function loadNewRow() {
         }
       }));
     } catch { /* unrated row still renders */ }
-    wrap.appendChild(el("div", "row-title", "🆕 New on the sites"));
+    wrap.appendChild(el("div", "row-title", "New on Aayush TV"));
     const row = el("div", "grid-row");
     items.forEach((it) => {
       row.appendChild(makeCard(it, (item) => openMoviesMod(item)));

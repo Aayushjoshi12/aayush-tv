@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>📺 TV Serials — Aayush TV</title>
+<title>TV Serials — Aayush TV</title>
 <link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -50,11 +50,13 @@
   .empty { color: #9aa7bd; padding: 20px 0; }
   /* ---- all-shows browse ---- */
   .showgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-  .showcard { background: #131a28; border: 1px solid #232d42; border-radius: 12px; padding: 12px 14px; cursor: pointer; text-align: left; font-family: inherit; color: #e8eaf0; transition: transform .15s ease, border-color .15s ease; }
+  .showcard { background: #131a28; border: 1px solid #232d42; border-radius: 12px; padding: 0; overflow: hidden; cursor: pointer; text-align: left; font-family: inherit; color: #e8eaf0; transition: transform .15s ease, border-color .15s ease; }
   .showcard:hover { transform: translateY(-2px); border-color: rgba(255,59,59,.7); }
+  .showcard img { width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block; background: #1c2536; }
+  .showcard .noimg { width: 100%; aspect-ratio: 16/9; background: linear-gradient(135deg, #1c2536, #2a1e33); display: flex; align-items: center; justify-content: center; font-size: 2rem; }
+  .showcard .sbody { padding: 10px 12px 12px; }
   .showcard .sname { font-weight: 700; font-size: .95rem; }
   .showcard .sch { color: #9aa7bd; font-size: .82rem; margin-top: 2px; }
-  .showcard .sgo { color: #ff5252; font-size: .85rem; font-weight: 700; margin-top: 6px; }
   .showcard .srating { color: #f5c518; font-size: .82rem; font-weight: 700; margin-top: 2px; }
   #showView { display: none; }
   #showView.open { display: block; }
@@ -120,12 +122,12 @@
   <div class="head-inner">
     <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
     <nav class="main-nav">
-      <a href="index.html">🏠 Home</a>
-      <a href="channels.html">📺 Channels</a>
-      <a href="movies.html">🎬 Movies</a>
-      <a href="entertainment.html" class="active">📺 TV Serials</a>
-      <a href="biggboss.html">🏠 Bigg Boss</a>
-      <a href="india.html">🇮🇳 India's Got Latent</a>
+      <a href="index.html">Home</a>
+      <a href="channels.html">Channels</a>
+      <a href="movies.html">Movies</a>
+      <a href="entertainment.html" class="active">TV Serials</a>
+      <a href="biggboss.html">Bigg Boss</a>
+      <a href="india.html">India's Got Latent</a>
     </nav>
   </div>
 </header>
@@ -144,9 +146,6 @@
     </div>
   </section>
 
-  <h1>📺 TV <em>Serials</em></h1>
-  <p class="sub">Daily full episodes of Indian Hindi TV serials &amp; reality shows — fresh episodes every day, one tap to watch.</p>
-
   <section id="playerWrap" aria-label="Episode player">
     <div id="playerHead">
       <div id="playerTitle">Episode</div>
@@ -161,8 +160,10 @@
 
   <input id="search" class="search" type="search" placeholder="Search shows, e.g. Anupama, Bigg Boss…" aria-label="Search shows">
 
-  <h2>Browse by channel</h2>
+  <h2>Latest episodes</h2>
   <div id="channels" class="channels"></div>
+  <div id="grid" class="grid row"></div>
+  <p id="empty" class="empty" hidden>No episodes match that search.</p>
 
   <h2>All shows</h2>
   <p class="sub" style="margin-bottom:12px">Every channel and show on Desi Tashan — pick one to see its episodes.</p>
@@ -177,10 +178,6 @@
     <p id="showStatus" class="empty"></p>
     <button id="loadMore" type="button">Load more episodes</button>
   </section>
-
-  <h2>Latest episodes</h2>
-  <div id="grid" class="grid row"></div>
-  <p id="empty" class="empty" hidden>No episodes match that search.</p>
 
   <p id="updated" class="updated"></p>
 
@@ -436,11 +433,21 @@
       return true;
     });
     document.getElementById("showEmpty").hidden = list.length > 0;
+    // Poster per show, from the latest episode of that show (26 Nov 2026
+    // clean-up: show cards are poster cards now, like Netflix rows).
+    var posterByShow = {};
+    EPISODES.forEach(function(e){
+      var k = String(e.show || "").trim().toLowerCase();
+      if (k && e.poster && !posterByShow[k]) posterByShow[k] = e.poster;
+    });
     document.getElementById("showGrid").innerHTML = list.map(function(r){
-      return '<button class="showcard" type="button" data-slug="'+esc(r.slug)+'" data-name="'+esc(r.name)+'" data-ch="'+esc(r.channel)+'">' +
-        '<div class="sname">'+esc(r.name)+'</div>' +
-        '<div class="sch">'+esc(r.channel)+'</div>' +
-        '<div class="sgo">See episodes →</div></button>';
+      var poster = posterByShow[r.name.trim().toLowerCase()] || "";
+      var img = poster
+        ? '<img src="'+esc(poster)+'" alt="'+esc(r.name)+' poster" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;noimg&quot;>📺</div>\'">'
+        : '<div class="noimg">📺</div>';
+      return '<button class="showcard" type="button" data-slug="'+esc(r.slug)+'" data-name="'+esc(r.name)+'" data-ch="'+esc(r.channel)+'">' + img +
+        '<div class="sbody"><div class="sname">'+esc(r.name)+'</div>' +
+        '<div class="sch">'+esc(r.channel)+'</div></div></button>';
     }).join("");
     document.getElementById("showGrid").querySelectorAll(".showcard").forEach(function(b){
       b.addEventListener("click", function(){
@@ -460,8 +467,8 @@
         var d = document.createElement("div");
         d.className = "srating";
         d.textContent = "★ " + r;
-        var go = b.querySelector(".sgo");
-        if (go) b.insertBefore(d, go); else b.appendChild(d);
+        var sb = b.querySelector(".sbody");
+        if (sb) sb.appendChild(d); else b.appendChild(d);
       });
     });
   }
