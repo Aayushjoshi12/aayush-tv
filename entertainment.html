@@ -35,7 +35,7 @@
   .chip small { color: #9aa7bd; margin-left: 4px; }
   .chip.on small { color: #ffe1e1; }
   .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 14px; }
-  .card { background: #131a28; border: 1px solid #232d42; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
+  .card { background: #131a28; border: 1px solid #232d42; border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; cursor: pointer; }
   .card:hover { transform: translateY(-4px); border-color: rgba(255,59,59,.7); box-shadow: 0 18px 44px rgba(0,0,0,.5), 0 0 0 1px rgba(255,59,59,.25); }
   .card img { width: 100%; aspect-ratio: 16/9; object-fit: cover; background: #1c2536; display: block; }
   .card .noimg { width: 100%; aspect-ratio: 16/9; background: linear-gradient(135deg, #1c2536, #2a1e33); display: flex; align-items: center; justify-content: center; font-size: 2rem; }
@@ -386,7 +386,7 @@
         ? '<img src="'+esc(e.poster)+'" alt="'+esc(e.show)+' poster" loading="lazy" onerror="this.outerHTML=\'<div class=&quot;noimg&quot;>📺</div>\'">'
         : '<div class="noimg">📺</div>';
       var ep = e.episode ? " · Episode " + e.episode : "";
-      return '<article class="card">' + img +
+      return '<article class="card" tabindex="0" data-guid="'+esc(e.guid)+'">' + img +
         '<div class="body"><div class="show">'+esc(e.show)+'</div>' +
         '<div class="meta">'+esc(e.channel)+ep+'</div>' +
         '<div class="meta">'+esc(e.date)+'</div>' +
@@ -412,6 +412,25 @@
     if (m) return m[1];
     return ep.show.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   }
+  // Channel display name ("Star Plus") -> catalog slug ("star-plus").
+  function channelSlugFor(chName){
+    var n = String(chName || "").trim().toLowerCase();
+    var found = null;
+    CATALOG.channels.forEach(function(c){ if (c.name.toLowerCase() === n) found = c.slug; });
+    if (found) return found;
+    return n.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "other";
+  }
+  // Open the show page for one Latest episode (by guid): prefer the
+  // catalog/browse row for the name, else build a channel-qualified
+  // slug from the episode link — so feed-only shows get a show page.
+  function openShowForEpisode(guid){
+    var ep = EP_MAP[guid];
+    if (!ep) return;
+    var match = null;
+    allShows().forEach(function(r){ if (r.name.toLowerCase() === String(ep.show).toLowerCase()) match = r; });
+    if (match) openShow(match.slug, match.name, match.channel);
+    else openShow(channelSlugFor(ep.channel) + "/" + heroShowSlug(ep), ep.show, ep.channel);
+  }
   function renderHero(){
     var ep = (EPISODES && EPISODES.length) ? EPISODES[0] : null;
     if (!ep) return;
@@ -432,10 +451,21 @@
   document.getElementById("heroPlay").addEventListener("click", function(){ if (heroEp) playEpisode(heroEp.guid, 1); });
   document.getElementById("heroInfo").addEventListener("click", function(){
     if (!heroEp) return;
-    var match = null;
-    allShows().forEach(function(r){ if (r.name.toLowerCase() === heroEp.show.toLowerCase()) match = r; });
-    if (match) openShow(match.slug, match.name, match.channel);
-    else openShow(heroShowSlug(heroEp), heroEp.show, heroEp.channel);
+    openShowForEpisode(heroEp.guid);
+  });
+  // Latest cards open their show page (tap the poster/title); the
+  // Watch button plays that episode directly and stops the click
+  // reaching the card. Keyboard: Enter/Space on a focused card.
+  document.getElementById("grid").addEventListener("click", function(ev){
+    if (ev.target.closest(".watch")) return;
+    var card = ev.target.closest(".card");
+    if (card) openShowForEpisode(card.getAttribute("data-guid"));
+  });
+  document.getElementById("grid").addEventListener("keydown", function(ev){
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    if (ev.target.closest(".watch")) return;
+    var card = ev.target.closest(".card");
+    if (card) { ev.preventDefault(); openShowForEpisode(card.getAttribute("data-guid")); }
   });
 
   document.getElementById("search").addEventListener("input", function(ev){ query = ev.target.value; render(); renderShowBrowse(); });
@@ -465,6 +495,27 @@
     });
     CATALOG.shows.forEach(function(s){
       rows.push({ slug: s, name: niceName(s), channel: "Other" });
+    });
+    // Shows that only appear in the live RSS feed (new shows not yet
+    // in the static catalog snapshot, e.g. Dil Ki Bewafaiyaan) —
+    // give them a browse card too, with a channel-qualified slug
+    // so ?show= works for them as well. A catalog-only show whose
+    // real channel the feed knows (flat-list rows say "Other")
+    // gets its real channel and qualified slug instead.
+    var seen = {};
+    rows.forEach(function(r){ seen[r.name.toLowerCase()] = r; });
+    EPISODES.forEach(function(e){
+      var nm = String(e.show || "").trim();
+      if (!nm) return;
+      var key = nm.toLowerCase();
+      var slug = channelSlugFor(e.channel) + "/" + heroShowSlug(e);
+      if (seen[key]) {
+        if (seen[key].channel === "Other") { seen[key].channel = e.channel; seen[key].slug = slug; }
+        return;
+      }
+      var row = { slug: slug, name: nm, channel: e.channel };
+      seen[key] = row;
+      rows.push(row);
     });
     return rows;
   }
