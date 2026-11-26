@@ -129,7 +129,7 @@
      red glow. Tabs, genre chips and "Show more" are untouched
      (they re-render the same .grid-row; only its layout changes).
      The Featured row (#featured-row-wrap) keeps the grid above. */
-  #new-row-wrap .grid-row, #browse-grid-wrap .grid-row { display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden; padding: 6px 2px 20px; scroll-snap-type: x proximity; scrollbar-width: none; -ms-overflow-style: none; }
+  #new-row-wrap .grid-row, #browse-grid-wrap .grid-row, #featured-row-wrap .grid-row, #topshows-row-wrap .grid-row { display: flex; gap: 14px; overflow-x: auto; overflow-y: hidden; padding: 6px 2px 20px; scroll-snap-type: x proximity; scrollbar-width: none; -ms-overflow-style: none; }
   #new-row-wrap .grid-row::-webkit-scrollbar, #browse-grid-wrap .grid-row::-webkit-scrollbar { display: none; }
   #new-row-wrap .grid-row .card, #browse-grid-wrap .grid-row .card { flex: 0 0 auto; width: 160px; scroll-snap-align: start; }
   #new-row-wrap .grid-row .card .poster, #browse-grid-wrap .grid-row .card .poster { width: 160px; }
@@ -207,8 +207,8 @@
     #hero .hero-title { font-size: 32px; letter-spacing: -.5px; }
     #hero .hero-desc { font-size: 14px; }
     #hero .hero-play, #hero .hero-info { padding: 11px 20px; font-size: 14px; }
-    #new-row-wrap .grid-row .card, #browse-grid-wrap .grid-row .card { width: 140px; }
-    #new-row-wrap .grid-row .card .poster, #browse-grid-wrap .grid-row .card .poster { width: 140px; }
+    #new-row-wrap .grid-row .card, #browse-grid-wrap .grid-row .card, #featured-row-wrap .grid-row .card, #topshows-row-wrap .grid-row .card { width: 140px; }
+    #new-row-wrap .grid-row .card .poster, #browse-grid-wrap .grid-row .card .poster, #featured-row-wrap .grid-row .card .poster, #topshows-row-wrap .grid-row .card .poster { width: 140px; }
   }
 </style>
 </head>
@@ -217,7 +217,6 @@
   <div class="head-inner">
     <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
     <nav class="main-nav">
-      <a href="index.html">NPL Live</a>
       <a href="channels.html">Channels</a>
       <a href="movies.html" class="active">Movies</a>
       <a href="entertainment.html">TV Serials</a>
@@ -242,8 +241,8 @@
   <div id="home-hint">
     <!-- Netflix / JioHotstar-style hero (25 Nov 2026): banner for the
          Featured title. Title/meta/description are filled by
-         populateHero() (end of file) from the same featured data
-         loadFeaturedRow() uses; the static text below is only the
+         populateHero() (end of file) from the featured data
+         (Dhindora 2, DHINDORA_POSTER); the static text below is only the
          first-paint fallback. Inside #home-hint so search hides it
          with the rest of the home content. -->
     <section id="hero" aria-label="Featured">
@@ -269,6 +268,7 @@
     </div>
     <div id="featured-row-wrap"></div>
     <div id="new-row-wrap"><div class="row-title" id="new-loading">New on Aayush TV — loading…</div></div>
+    <div id="topshows-row-wrap"></div>
     <div id="browse-wrap">
       <div class="row-title" id="browse-loading">Trending Now — loading…</div>
       <div class="tabs" id="browse-tabs" role="tablist">
@@ -285,7 +285,7 @@
 <footer>
   <div class="foot-inner">
     <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
-    <nav><a href="index.html">NPL Live</a><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="entertainment.html">TV Serials</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
+    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="entertainment.html">TV Serials</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
     <div class="made-by"><div class="mini-photo aayush-photo" role="img" aria-label="Aayush Joshi"></div><span>Made by <b>Aayush Joshi</b></span></div>
     <div>© 2026 Aayush TV</div>
   </div>
@@ -591,6 +591,7 @@ async function runSearch(q) {
       items.forEach((it) => {
         const card = makeCard(it, (item) => (item.dhindora2 ? openDhindora2() : openMoviesMod(item)));
         rowEl.appendChild(card);
+        fillCardRating(card, it);
       });
       resEl.appendChild(rowEl);
     }
@@ -2768,13 +2769,14 @@ async function loadSeasonEpisodes(seasonNum, btn, title) {
     holder.appendChild(row);
   });
 }
-/* ---------- 🔥 Featured: Dhindora 2 ---------- */
+/* ---------- Featured: Dhindora 2 (hero) ---------- */
 // Dhindora Season 2 premiered on Netflix 20 Nov 2026. One tap
 // opens the show and jumps Watch straight to Season 2 Episode 1
 // (the picker gets S2 from the override in watchEpisodeList,
-// since Cinemeta still lists S1 only). The card shows "Dhindora
-// 2" but the lookup uses the show's real title/year (2021), so
-// the TMDB id resolves. Poster is Cinemeta's (metahub) poster.
+// since Cinemeta still lists S1 only). The lookup uses the show's
+// real title/year (2021), so the TMDB id resolves. Poster is
+// Cinemeta's (metahub) poster. Dhindora lives in the hero only —
+// it is filtered out of every row below, so it never appears twice.
 const DHINDORA_POSTER = "https://images.metahub.space/poster/small/tt14650074/img";
 // One tap opens Dhindora at Season 2 Episode 1: the detail panel
 // for the show (real title/year, so the TMDB id resolves) with
@@ -2784,31 +2786,70 @@ function openDhindora2() {
   watchStartSeason = 2;
   watchTitle();
 }
-function loadFeaturedRow() {
+/* ---------- Netflix-style recommendation rows (IMDb) ---------- */
+// The hero already features Dhindora 2, so the old single-card
+// "Featured" row (a second Dhindora) is gone. In its place:
+// "Recommended for you" — the highest IMDb-rated movies from the
+// top catalog loadBrowse() already fetched (no extra request),
+// best first — and "Top Rated TV Shows" from the series catalog.
+// Dhindora is filtered out of every row: it lives in the hero
+// only. Search still finds it.
+function topRated(list, n) {
+  const clean = (list || []).filter((m) => m && m.name && !/dhindora/i.test(m.name));
+  const rated = clean
+    .filter((m) => parseFloat(m.imdbRating) > 0)
+    .sort((a, b) => parseFloat(b.imdbRating) - parseFloat(a.imdbRating));
+  return (rated.length ? rated : clean).slice(0, n);
+}
+function renderRecommendedRow() {
   const wrap = $("featured-row-wrap");
   if (!wrap) return;
-  wrap.appendChild(el("div", "row-title", "Featured"));
+  const list = topRated(browseTop, 12);
+  wrap.innerHTML = "";
+  if (!list.length) return;
+  wrap.appendChild(el("div", "row-title", "Recommended for you"));
   const row = el("div", "grid-row");
-  const poster = DHINDORA_POSTER;
-  const card = makeCard(
-    { title: "Dhindora 2", year: "2026", series: true, poster, siteName: "Season 2 • Netflix" },
-    () => openDhindora2()
-  );
-  row.appendChild(card);
+  list.forEach((m) => {
+    const it = browseItem(m);
+    const card = makeCard(it, (item) => openMoviesMod(item));
+    row.appendChild(card);
+    fillCardRating(card, it);
+  });
   wrap.appendChild(row);
-  // IMDb rating (25 Nov 2026): same Cinemeta fetch the hero uses
-  // (cached — no extra request), ★ 8.8.
-  cinemetaMetaCached("Dhindora", "2021", true).then((m) => {
-    if (!m || !m.imdbRating) return;
-    const y = card.querySelector(".year");
-    if (y && !y.querySelector(".rating")) y.appendChild(el("span", "rating", "★ " + m.imdbRating));
+}
+function renderTopShowsRow() {
+  const wrap = $("topshows-row-wrap");
+  if (!wrap) return;
+  const list = topRated(browseSeries, 12);
+  wrap.innerHTML = "";
+  if (!list.length) return;
+  wrap.appendChild(el("div", "row-title", "Top Rated TV Shows"));
+  const row = el("div", "grid-row");
+  list.forEach((m) => {
+    const it = browseItem(m);
+    const card = makeCard(it, (item) => openMoviesMod(item));
+    row.appendChild(card);
+    fillCardRating(card, it);
+  });
+  wrap.appendChild(row);
+}
+// Fill a missing ★ rating on a rendered card from Cinemeta's full
+// meta (cached per title+year, so repeats are free). Same source
+// the New row uses — patched in place so the card never waits.
+function fillCardRating(card, item) {
+  if (!card || item.rating) return;
+  cinemetaMetaCached(baseTitle(item.title), item.year, isSeries(item)).then((m) => {
+    if (!m || !m.imdbRating || !card.isConnected) return;
+    if (card.querySelector(".rating")) return;
+    let y = card.querySelector(".year");
+    if (!y) { y = el("div", "year", item.year || ""); card.appendChild(y); }
+    y.appendChild(el("span", "rating", "★ " + m.imdbRating));
   }).catch(() => {});
 }
-loadFeaturedRow();
 
 /* ---------- Netflix-style hero (25 Nov 2026) ---------- */
-// Banner for the Featured title — the SAME data loadFeaturedRow()
-// uses (Dhindora 2, DHINDORA_POSTER). Play taps the card's exact
+// Banner for the Featured title — Dhindora 2 (DHINDORA_POSTER).
+// Play taps the card's exact
 // flow (openDhindora2: detail panel + Watch at Season 2); More
 // Info opens the detail panel only (openMoviesMod). The banner
 // renders at once with the poster + static meta; the Cinemeta
@@ -2887,6 +2928,7 @@ async function loadNewRow() {
     wrap.appendChild(el("div", "row-title", "New on Aayush TV"));
     const row = el("div", "grid-row");
     items.forEach((it) => {
+      if (/dhindora/i.test(it.title || "")) return; // hero already features it — never twice on the page
       row.appendChild(makeCard(it, (item) => openMoviesMod(item)));
     });
     wrap.appendChild(row);
@@ -2936,14 +2978,19 @@ function renderBrowseRows() {
     browseGenre === "All" || (m.genres || []).includes(browseGenre);
   const list = (browseTab === "series" ? browseSeries
     : browseTab === "top" ? browseTop
-    : browseMovies).filter(match);
+    : browseMovies).filter(match).filter((m) => !/dhindora/i.test(m.name || ""));
   wrap.innerHTML = "";
   if (!list.length) {
     wrap.appendChild(el("div", "row-title", "No titles in this genre yet."));
     return;
   }
   const row = el("div", "grid-row");
-  list.slice(0, browseLimit).forEach((m) => row.appendChild(makeCard(browseItem(m), (it) => openMoviesMod(it))));
+  list.slice(0, browseLimit).forEach((m) => {
+    const it = browseItem(m);
+    const card = makeCard(it, (item) => openMoviesMod(item));
+    row.appendChild(card);
+    fillCardRating(card, it);
+  });
   wrap.appendChild(row);
   if (list.length > browseLimit) {
     const b = el("button", "more-btn", "Show more (" + (list.length - browseLimit) + " more)");
@@ -3015,6 +3062,8 @@ async function loadBrowse() {
     if (loading) loading.remove();
     renderBrowseGenres();
     renderBrowseRows();
+    renderRecommendedRow();
+    renderTopShowsRow();
   } catch {
     wrap.innerHTML = "";
   }

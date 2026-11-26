@@ -270,8 +270,9 @@
   }
 
   // Append a gold "★ rating" line under the show name on episode
-  // cards in gridEl (max 30 lookups per call; already-rated cards
-  // are skipped). showName forces one lookup for the whole grid
+  // cards in gridEl (max 60 lookups per call, so the whole Latest
+  // grid is covered; already-rated cards are skipped). showName
+  // forces one lookup for the whole grid
   // (show view — every episode is the same show); otherwise each
   // card looks up its own show. Stale cards (re-rendered away)
   // are never touched.
@@ -280,7 +281,7 @@
     var cap = 0;
     cards.forEach(function(card){
       if (card.querySelector(".meta.rating")) return;
-      if (cap >= 30) return;
+      if (cap >= 60) return;
       cap++;
       var nm = showName;
       if (!nm) {
@@ -463,14 +464,12 @@
         openShow(b.getAttribute("data-slug"), b.getAttribute("data-name"), b.getAttribute("data-ch"));
       });
     });
-    // IMDb ★ + poster on show cards (25–26 Nov 2026): first 40 visible
-    // cards, in place; the cache makes re-renders free. Cards that
-    // had no episode poster get their Cinemeta poster here.
-    var scards = document.getElementById("showGrid").querySelectorAll(".showcard");
-    var scap = 0;
-    scards.forEach(function(b){
-      if (scap >= 40) return;
-      scap++;
+    // IMDb ★ + poster on show cards (26 Nov 2026): every card gets
+    // its lookup when it scrolls into view — no upfront flood and
+    // no cap, so all 227 shows can show a rating where Cinemeta
+    // has one. The cache makes re-renders free. Cards that had no
+    // episode poster get their Cinemeta poster here.
+    function lookupShowCard(b){
       showMeta(b.getAttribute("data-name")).then(function(m){
         if (!m || !b.isConnected) return;
         if (m.rating && !b.querySelector(".srating")) {
@@ -492,7 +491,26 @@
           }
         }
       });
-    });
+    }
+    var scards = document.getElementById("showGrid").querySelectorAll(".showcard");
+    if (("IntersectionObserver" in window)) {
+      var showMetaObserver = new IntersectionObserver(function(entries){
+        entries.forEach(function(en){
+          if (!en.isIntersecting) return;
+          showMetaObserver.unobserve(en.target);
+          lookupShowCard(en.target);
+        });
+      }, { rootMargin: "200px" });
+      scards.forEach(function(b){ showMetaObserver.observe(b); });
+    } else {
+      // Very old browser: look up the first 40 only.
+      var scap = 0;
+      scards.forEach(function(b){
+        if (scap >= 40) return;
+        scap++;
+        lookupShowCard(b);
+      });
+    }
   }
 
   var showState = null; // { slug, name, channel, page, hasMore }
