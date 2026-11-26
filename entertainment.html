@@ -214,11 +214,15 @@
   // keystrokes and Load-more never re-fetch. Many daily soaps
   // have no IMDb entry — those simply show no rating.
   var CINEMETA = "https://v3-cinemeta.strem.io";
-  var showRatingCache = {}; // lowercase name -> Promise<string> ("" = no rating)
-  function showRating(name){
+  var showMetaCache = {}; // lowercase name -> Promise<{rating, poster}>
+  // One Cinemeta catalog search per show name, shared by the rating
+  // and poster lookups (26 Nov 2026 clean-up). Returns {rating,
+  // poster} ("" when unknown). The poster comes from the search
+  // result; the rating needs the full meta fetch by imdb_id.
+  function showMeta(name){
     var key = String(name || "").trim().toLowerCase();
-    if (!key) return Promise.resolve("");
-    if (showRatingCache[key]) return showRatingCache[key];
+    if (!key) return Promise.resolve({ rating: "", poster: "" });
+    if (showMetaCache[key]) return showMetaCache[key];
     var p = fetch(CINEMETA + "/catalog/series/top/search=" + encodeURIComponent(name) + ".json")
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(d){
@@ -250,14 +254,19 @@
             if (n3 && nk.indexOf(n3) === 0 && n3.length > bestLen3) { m = metas[k]; bestLen3 = n3.length; }
           }
         }
-        if (!m || !m.imdb_id) return "";
+        if (!m) return { rating: "", poster: "" };
+        var poster = m.poster || "";
+        if (!m.imdb_id) return { rating: "", poster: poster };
         return fetch(CINEMETA + "/meta/series/" + m.imdb_id + ".json")
           .then(function(r){ return r.ok ? r.json() : null; })
-          .then(function(fd){ return (fd && fd.meta && fd.meta.imdbRating) ? String(fd.meta.imdbRating) : ""; });
+          .then(function(fd){ return { rating: (fd && fd.meta && fd.meta.imdbRating) ? String(fd.meta.imdbRating) : "", poster: poster }; });
       })
-      .catch(function(){ return ""; });
-    showRatingCache[key] = p;
+      .catch(function(){ return { rating: "", poster: "" }; });
+    showMetaCache[key] = p;
     return p;
+  }
+  function showRating(name){
+    return showMeta(name).then(function(m){ return m ? m.rating : ""; });
   }
 
   // Append a gold "★ rating" line under the show name on episode
@@ -454,21 +463,34 @@
         openShow(b.getAttribute("data-slug"), b.getAttribute("data-name"), b.getAttribute("data-ch"));
       });
     });
-    // IMDb ★ on show cards (25 Nov 2026): first 40 visible cards,
-    // in place; the cache makes re-renders free.
+    // IMDb ★ + poster on show cards (25–26 Nov 2026): first 40 visible
+    // cards, in place; the cache makes re-renders free. Cards that
+    // had no episode poster get their Cinemeta poster here.
     var scards = document.getElementById("showGrid").querySelectorAll(".showcard");
     var scap = 0;
     scards.forEach(function(b){
       if (scap >= 40) return;
       scap++;
-      showRating(b.getAttribute("data-name")).then(function(r){
-        if (!r || !b.isConnected) return;
-        if (b.querySelector(".srating")) return;
-        var d = document.createElement("div");
-        d.className = "srating";
-        d.textContent = "★ " + r;
-        var sb = b.querySelector(".sbody");
-        if (sb) sb.appendChild(d); else b.appendChild(d);
+      showMeta(b.getAttribute("data-name")).then(function(m){
+        if (!m || !b.isConnected) return;
+        if (m.rating && !b.querySelector(".srating")) {
+          var d = document.createElement("div");
+          d.className = "srating";
+          d.textContent = "★ " + m.rating;
+          var sb = b.querySelector(".sbody");
+          if (sb) sb.appendChild(d); else b.appendChild(d);
+        }
+        if (m.poster) {
+          var noimg = b.querySelector(".noimg");
+          if (noimg) {
+            var img = document.createElement("img");
+            img.src = m.poster;
+            img.alt = b.getAttribute("data-name") + " poster";
+            img.loading = "lazy";
+            img.onerror = function(){ if (img.isConnected) img.outerHTML = '<div class="noimg">📺</div>'; };
+            noimg.replaceWith(img);
+          }
+        }
       });
     });
   }
