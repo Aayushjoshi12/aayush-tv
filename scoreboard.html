@@ -167,6 +167,7 @@
 (function(){
   "use strict";
   var API = "https://aayush-tv-minter.vercel.app/api/onexbet";
+  var TVAPP = "https://mret.balenshah.tech/tvapp-api";
   var POLL_MS = 5000, DETAIL_MS = 15000;
   var npl = [], top = [];
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
@@ -358,8 +359,17 @@
       metaRow("Game ID", String(d.id || "") + (d.constId ? " · " + d.constId : ""));
     if (d.hasLineups) h += '<div><div class="k">Line-ups</div>Available</div>';
     h += '</div>';
-    if (d.videoId) {
-      h += '<a class="watch" href="stream.html?videoId=' + encodeURIComponent(d.videoId) + '&name=' + encodeURIComponent(d.home + " vs " + d.away) + '">▶ Watch live</a>';
+    // Watch button: the TVApp stream (highest quality, plays natively) first,
+    // the 1xBet link second as the fallback — stream.html tries them in order.
+    var watchHref = null;
+    if (d.videoId || d.tvappId) {
+      watchHref = "stream.html?" +
+        (d.tvappId ? "tvapp=" + encodeURIComponent(d.tvappId) + "&" : "") +
+        (d.videoId ? "videoId=" + encodeURIComponent(d.videoId) + "&" : "") +
+        "name=" + encodeURIComponent(d.home + " vs " + d.away);
+    }
+    if (watchHref) {
+      h += '<a class="watch" href="' + watchHref + '">▶ Watch live</a>';
     } else if (d.video) {
       h += '<p class="watch-note">Live stream available</p>';
     }
@@ -419,13 +429,22 @@
       if (!d) { closeDetail(); return; }
       fetchedAt = fetchedAt || Date.now();
       showDetail(d);
+      // Look up the same fixture on the TVApp minter so the Watch button
+      // can play the highest-quality stream natively; the 1xBet link stays
+      // as the fallback. Silent when the minter has no match for it.
+      fetchJson(TVAPP + "/find?home=" + encodeURIComponent(d.home || "") + "&away=" + encodeURIComponent(d.away || "")).then(function(f){
+        if (detailId !== id || !f || !f.id || !detailData) return;
+        detailData.tvappId = f.id;
+        $("detail").innerHTML = detailHtml(detailData);
+        $("dClose").addEventListener("click", closeDetail);
+      }).catch(function(){});
       if (detailTimer) clearInterval(detailTimer);
       detailTimer = setInterval(function(){
         if (detailId !== id) return;
         fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).then(function(r2){
           if (detailId !== id) return;
           var d2 = (r2 && r2.detail) || null;
-          if (d2) { detailData = d2; syncClock(d2); $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
+          if (d2) { if (detailData && detailData.tvappId) d2.tvappId = detailData.tvappId; detailData = d2; syncClock(d2); $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
         }).catch(function(){});
       }, DETAIL_MS);
     }).catch(function(){ closeDetail(); });

@@ -32,15 +32,45 @@
 (function(){
   const q = new URLSearchParams(location.search);
   const videoId = q.get('videoId') || q.get('id') || '';
+  const tvappId = q.get('tvapp') || '';
   const directUrl = q.get('url') || '';
   const name = q.get('name') || q.get('title') || '';
+  const TVAPP_API = 'https://mret.balenshah.tech/tvapp-api';
+  // The TVApp segments are TS video disguised as WebP images: a small image
+  // header sits in front of the TS data. This loader strips everything
+  // before the first TS sync byte (0x47 repeating every 188 bytes), the
+  // same trick the source's own player uses. Only fragment loads are
+  // touched; manifests and keys pass through untouched.
+  function StripLoader(){
+    Hls.DefaultConfig.loader.apply(this, arguments);
+  }
+  StripLoader.prototype = Object.create(Hls.DefaultConfig.loader.prototype);
+  StripLoader.prototype.constructor = StripLoader;
+  StripLoader.prototype.load = function(context, config, callbacks){
+    var onSuccess = callbacks.onSuccess;
+    callbacks.onSuccess = function(response, stats, context, networkDetails){
+      try {
+        if (context && context.frag && response && response.data instanceof ArrayBuffer) {
+          var bytes = new Uint8Array(response.data);
+          var off = -1, limit = Math.min(bytes.length - 377, 8192);
+          for (var i = 0; i <= limit; i++) {
+            if (bytes[i] === 0x47 && bytes[i + 188] === 0x47 && bytes[i + 376] === 0x47) { off = i; break; }
+          }
+          if (off > 0) response.data = response.data.slice(off);
+        }
+      } catch (e) {}
+      onSuccess(response, stats, context, networkDetails);
+    };
+    Hls.DefaultConfig.loader.prototype.load.call(this, context, config, callbacks);
+  };
   const video = document.getElementById('v');
   const statusEl = document.getElementById('status');
   const titleEl = document.getElementById('title');
   const subEl = document.getElementById('sub');
   if (name) { titleEl.textContent = name; }
   function setStatus(msg, cls){ statusEl.textContent = msg; statusEl.className = 'status' + (cls ? ' ' + cls : ''); }
-  function playUrl(url){
+  function playUrl(url, opts){
+    opts = opts || {};
     subEl.textContent = videoId ? ('Video: ' + videoId) : 'Direct stream';
     // Prefer hls.js when it is available: Chrome on Windows reports
     // canPlayType('application/vnd.apple.mpegurl') === 'maybe' but
@@ -48,12 +78,17 @@
     // sit at readyState 0 forever. Native playback is only the
     // fallback for Safari, which has real built-in HLS.
     if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({maxBufferLength: 30});
+      var cfg = {maxBufferLength: 30};
+      if (opts.strip) cfg.fLoader = StripLoader;
+      var hls = new Hls(cfg);
       hls.loadSource(url);
       hls.attachMedia(video);
       hls.on(Hls.Events.MANIFEST_PARSED, function(){ video.play().catch(()=>{}); setStatus('Playing.', 'ok'); });
       hls.on(Hls.Events.ERROR, function(ev, data){
-        if (data && data.fatal) setStatus('Stream error: ' + (data.details || data.type || 'unknown'), 'err');
+        if (data && data.fatal) {
+          if (opts.onFatal) { var f = opts.onFatal; opts.onFatal = null; f(); return; }
+          setStatus('Stream error: ' + (data.details || data.type || 'unknown'), 'err');
+        }
       });
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = url;
@@ -65,6 +100,35 @@
     video.addEventListener('playing', function(){ setStatus('Playing.', 'ok'); });
     video.addEventListener('waiting', function(){ setStatus('Buffering…'); });
     video.addEventListener('error', function(){ setStatus('Video error — the stream may have ended or the link expired.', 'err'); });
+  }
+  // Highest-quality stream first: the TVApp minter's native playlist.
+  // Falls back to the 1xBet link when the TVApp stream fails or is gone.
+  function playTvapp(id){
+    setStatus('Getting the stream link…');
+    var api = TVAPP_API + '/stream?id=' + encodeURIComponent(id);
+    fetch(api).then(function(r){
+      if (r.ok) { playUrl(api, {strip: true, onFatal: videoId ? function(){ mint(videoId); } : null}); return; }
+      if (r.status === 503) {
+        return r.json().catch(function(){ return {}; }).then(function(j){
+          var when = '';
+          if (j && j.startsAt) {
+            var t = new Date(j.startsAt > 1e12 ? j.startsAt : j.startsAt * 1000);
+            when = ' — kicks off at ' + t.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+          }
+          setStatus('Stream starts soon' + when + ' — checking again…');
+          subEl.textContent = (j && j.name) ? j.name : '';
+          setTimeout(function(){ playTvapp(id); }, 30000);
+        });
+      }
+      // No TVApp stream for this match (404 or anything else): fall back.
+      if (videoId) { mint(videoId); return; }
+      setStatus('No stream is available for this match right now.', 'err');
+      subEl.textContent = 'No stream is available for this match right now.';
+    }).catch(function(){
+      if (videoId) { mint(videoId); return; }
+      setStatus('Could not reach the stream service — check your connection and try again.', 'err');
+      subEl.textContent = 'No stream is available for this match right now.';
+    });
   }
   async function mint(videoId){
     setStatus('Getting the stream link…');
@@ -86,12 +150,14 @@
     }
     playUrl(j.url);
   }
-  if (directUrl) {
+  if (tvappId) {
+    playTvapp(tvappId);
+  } else if (directUrl) {
     playUrl(directUrl);
   } else if (videoId) {
     mint(videoId);
   } else {
-    setStatus('No match given. Open this page with ?videoId=DR_… or ?url=<m3u8>.', 'err');
+    setStatus('No match given. Open this page with ?tvapp=<id>, ?videoId=DR_… or ?url=<m3u8>.', 'err');
     subEl.textContent = '';
   }
 })();
