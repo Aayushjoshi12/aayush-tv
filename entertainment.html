@@ -354,7 +354,13 @@
             var mm = (fd && fd.meta) || {};
             return { rating: mm.imdbRating ? String(mm.imdbRating) : "", poster: poster,
                      description: mm.description || "", genres: mm.genres || [], year: mm.year || "" };
-          });
+          })
+          // The poster comes from the search result and must not
+          // depend on the rating fetch (27 Nov 2026: a slow or
+          // failed full-meta fetch — Ishani's took 6.5 s — used to
+          // drop the whole lookup, poster included, and the empty
+          // result was then cached for the session).
+          .catch(function(){ return { rating: "", poster: poster }; });
       })
       .catch(function(){ return { rating: "", poster: "" }; });
     showMetaCache[key] = p;
