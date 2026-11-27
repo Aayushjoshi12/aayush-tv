@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAyklEQVR4nM2XSw6DMAxE7agLKrHjMNyjB+09OBFLunIEaaR8PHYyyxAxj8GxHF7WjTK6cosAcbrwcjJO3x9BgqN5DiQCeJo/IEJpl7UCjfl60TVFAkWdn30sgEBYgDT/AjREVw0g01AVIQIEcgo0ELBj2JsGvA+0gpg1oloI005Yk0Y6D0D1/h7FPSYANcYmAC3GUIAeY5G6CDXmRIoEtMbdACjjZgC0sYiXdRs5E84xFf9dlxzFUyRANCYFvgN4Q0Sv9BjKA7fr+Q+z6y+ezHZymQAAAABJRU5ErkJggg==">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Aayush TV</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
@@ -67,7 +67,6 @@
   #status { padding: 8px 20px 20px; color: #9aa1b2; font-size: 14px; text-align: center; }
   #setup-note { display: none; margin: 16px 20px 0; padding: 12px 14px; background: #2a1f0d; border: 1px solid #8a6d1b; border-radius: 8px; font-size: 13px; color: #f0d48a; }
 </style>
-<link rel="stylesheet" href="upgrade.css?v=1">
 </head>
 <body>
 <header>
@@ -80,6 +79,7 @@
       <a href="entertainment.html">📺 TV Serials</a>
       <a href="biggboss.html">🏠 Bigg Boss</a>
       <a href="india.html">🇮🇳 India's Got Latent</a>
+      <a href="scoreboard.html">🏏 Scoreboard</a>
     </nav>
     <button id="premium-top" type="button" style="margin-left:auto">⭐ Premium</button>
   </div>
@@ -105,7 +105,7 @@
 <footer>
   <div class="foot-inner">
     <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
-    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="entertainment.html">TV Serials</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a></nav>
+    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="entertainment.html">TV Serials</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a><a href="scoreboard.html">Scoreboard</a></nav>
     <div>© 2026 Aayush TV</div>
   </div>
 </footer>
@@ -305,35 +305,35 @@ const PREMIUM_CHANNELS = [
   { id: "premium-unite8-sports-1-zee-caf", key: "unite8-sports-1-zee-caf", name: "Unite8 Sports 1 / ZEE CAFÉ", logo: "https://exchange4media.gumlet.io/news-photo/155155-Z1.jpg", path: "tnxwmkhb-3003", watch: "https://bintv-cc.pages.dev/?src=ch_f424a8fab24d&t=Unite8%20Sports%201%20/%20ZEE%20CAF%C3%89", source: "premium" },
   { id: "premium-willow-cricket", key: "willow-cricket", name: "Willow Cricket", logo: "https://mgpindia.com/wp-content/uploads/2021/10/willow-logo.jpg", path: "spd8gpoh-6586", watch: "https://bintv-cc.pages.dev/?src=ch_97127a13cdb7&t=Willow%20Cricket", source: "premium" },
   { id: "premium-willow-cricket-2", key: "willow-cricket-2", name: "Willow Cricket 2", logo: "https://d229kpbsb5jevy.cloudfront.net/tv/1920/1080/languages/WILLOW-2.jpg", path: "14quawd5-8819", watch: "https://bintv-cc.pages.dev/?src=ch_9282b9d0e267&t=Willow%20Cricket%202", source: "premium" },
-  { id: "premium-eurosport-1", key: "eurosport-1", name: "Eurosport 1", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Eurosport_Logo_%282011-2015%29.svg/500px-Eurosport_Logo_%282011-2015%29.svg.png", path: "", watch: "https://matchora.st/embed/channel/1913128", source: "premium" },
-  { id: "premium-eurosport-2", key: "eurosport-2", name: "Eurosport 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Eurosport_Logo_%282011-2015%29.svg/500px-Eurosport_Logo_%282011-2015%29.svg.png", path: "", watch: "https://matchora.st/embed/channel/1913126", source: "premium" },
-  { id: "premium-espn-3", key: "espn-3", name: "ESPN 3", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "", watch: "https://matchora.st/embed/channel/890657", source: "premium" },
+  { id: "premium-eurosport-1", key: "eurosport-1", name: "Eurosport 1", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Eurosport_Logo_%282011-2015%29.svg/500px-Eurosport_Logo_%282011-2015%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/1913128", source: "premium" },
+  { id: "premium-eurosport-2", key: "eurosport-2", name: "Eurosport 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/c/c6/Eurosport_Logo_%282011-2015%29.svg/500px-Eurosport_Logo_%282011-2015%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/1913126", source: "premium" },
+  { id: "premium-espn-3", key: "espn-3", name: "ESPN 3", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "", watch: "https://matchora.to/embed/channel/890657", source: "premium" },
   { id: "premium-espn-2-latin-america", key: "espn-2-latin-america", name: "ESPN 2 Latin America", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
   { id: "premium-espn-3-latin-america", key: "espn-3-latin-america", name: "ESPN 3 Latin America", logo: "https://a1.espncdn.com/combiner/i?img=%2Fi%2Fespn%2Fespn_logos%2Fespn_red.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
-  { id: "premium-dazn-2", key: "dazn-2", name: "DAZN 2", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.st/embed/channel/317037", source: "premium" },
-  { id: "premium-dazn-3", key: "dazn-3", name: "DAZN 3", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.st/embed/channel/317038", source: "premium" },
-  { id: "premium-dazn-4", key: "dazn-4", name: "DAZN 4", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.st/embed/channel/317039", source: "premium" },
-  { id: "premium-dazn-5", key: "dazn-5", name: "DAZN 5", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.st/embed/channel/317040", source: "premium" },
-  { id: "premium-dazn-combat", key: "dazn-combat", name: "DAZN Combat", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.st/embed/channel/1917694", source: "premium" },
-  { id: "premium-bein-sports-2", key: "bein-sports-2", name: "beIN Sports 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://matchora.st/embed/channel/1660411", source: "premium" },
-  { id: "premium-bein-sports-3", key: "bein-sports-3", name: "beIN Sports 3", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://matchora.st/embed/channel/1660409", source: "premium" },
+  { id: "premium-dazn-2", key: "dazn-2", name: "DAZN 2", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/317037", source: "premium" },
+  { id: "premium-dazn-3", key: "dazn-3", name: "DAZN 3", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/317038", source: "premium" },
+  { id: "premium-dazn-4", key: "dazn-4", name: "DAZN 4", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/317039", source: "premium" },
+  { id: "premium-dazn-5", key: "dazn-5", name: "DAZN 5", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/317040", source: "premium" },
+  { id: "premium-dazn-combat", key: "dazn-combat", name: "DAZN Combat", logo: "https://image.discovery.indazn.com/ca/v2/ca/image?id=1weziux6zy5mb16pev002ax1yu_image-head", path: "", watch: "https://matchora.to/embed/channel/1917694", source: "premium" },
+  { id: "premium-bein-sports-2", key: "bein-sports-2", name: "beIN Sports 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/1660411", source: "premium" },
+  { id: "premium-bein-sports-3", key: "bein-sports-3", name: "beIN Sports 3", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/1660409", source: "premium" },
   { id: "premium-bein-sports-xtra", key: "bein-sports-xtra", name: "beIN SPORTS XTRA", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
   { id: "premium-bein-sports-xtra-en-espanol", key: "bein-sports-xtra-en-espanol", name: "beIN SPORTS XTRA en Espanol", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d6/BeIN_Sports_logo_%28vertical_version%29.svg/500px-BeIN_Sports_logo_%28vertical_version%29.svg.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
   { id: "premium-cbs-sports-golazo-network", key: "cbs-sports-golazo-network", name: "CBS Sports Golazo Network", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/CBS_Eye_%28Didot%29.svg/500px-CBS_Eye_%28Didot%29.svg.png", path: "", watch: "https://tvnow247.top/embed/308/", source: "premium" },
   { id: "premium-cbs-sports-hq", key: "cbs-sports-hq", name: "CBS Sports HQ", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/e/e3/CBS_Eye_%28Didot%29.svg/500px-CBS_Eye_%28Didot%29.svg.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
   { id: "premium-nbc-sports-now", key: "nbc-sports-now", name: "NBC Sports NOW", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/87/NBC_Sports_Group_Logo.png/500px-NBC_Sports_Group_Logo.png", path: "", watch: "https://daddylive.mov/", source: "premium" },
-  { id: "premium-premier-sports-1", key: "premier-sports-1", name: "Premier Sports 1", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b5/Premier_sports_logo_2018.svg/500px-Premier_sports_logo_2018.svg.png", path: "", watch: "https://matchora.st/embed/channel/1032487", source: "premium" },
-  { id: "premium-premier-sports-2", key: "premier-sports-2", name: "Premier Sports 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b5/Premier_sports_logo_2018.svg/500px-Premier_sports_logo_2018.svg.png", path: "", watch: "https://matchora.st/embed/channel/1032486", source: "premium" },
-  { id: "premium-star-sports-1", key: "star-sports-1", name: "Star Sports 1", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.st/embed/channel/282677", source: "premium" },
-  { id: "premium-star-sports-2", key: "star-sports-2", name: "Star Sports 2", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.st/embed/channel/282673", source: "premium" },
-  { id: "premium-star-sports-select-1", key: "star-sports-select-1", name: "Star Sports Select 1", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.st/embed/channel/282675", source: "premium" },
-  { id: "premium-star-sports-select-2", key: "star-sports-select-2", name: "Star Sports Select 2", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.st/embed/channel/282676", source: "premium" },
-  { id: "premium-supersport-premier-league", key: "supersport-premier-league", name: "SuperSport Premier League", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/SuperSport_Albania.svg/500px-SuperSport_Albania.svg.png", path: "", watch: "https://matchora.st/embed/channel/833281", source: "premium" },
-  { id: "premium-supersport-football", key: "supersport-football", name: "SuperSport Football", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/SuperSport_Albania.svg/500px-SuperSport_Albania.svg.png", path: "", watch: "https://matchora.st/embed/channel/144417", source: "premium" },
-  { id: "premium-tsn-2", key: "tsn-2", name: "TSN 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/87/TSN_logo_%28original%29.svg/500px-TSN_logo_%28original%29.svg.png", path: "", watch: "https://matchora.st/embed/channel/177345", source: "premium" },
-  { id: "premium-sportsnet-one", key: "sportsnet-one", name: "Sportsnet ONE", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Logo_Sportsnet_2011.svg/500px-Logo_Sportsnet_2011.svg.png", path: "", watch: "https://matchora.st/embed/channel/1920740", source: "premium" },
-  { id: "premium-sportsnet-360", key: "sportsnet-360", name: "Sportsnet 360", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Logo_Sportsnet_2011.svg/500px-Logo_Sportsnet_2011.svg.png", path: "", watch: "https://matchora.st/embed/channel/1920742", source: "premium" },
-  { id: "premium-tnt-sports-5", key: "tnt-sports-5", name: "TNT Sports 5", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/TNT_Sports_2021_logo.svg/500px-TNT_Sports_2021_logo.svg.png", path: "", watch: "https://matchora.st/embed/channel/1004550", source: "premium" },
+  { id: "premium-premier-sports-1", key: "premier-sports-1", name: "Premier Sports 1", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b5/Premier_sports_logo_2018.svg/500px-Premier_sports_logo_2018.svg.png", path: "", watch: "https://matchora.to/embed/channel/1032487", source: "premium" },
+  { id: "premium-premier-sports-2", key: "premier-sports-2", name: "Premier Sports 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/b/b5/Premier_sports_logo_2018.svg/500px-Premier_sports_logo_2018.svg.png", path: "", watch: "https://matchora.to/embed/channel/1032486", source: "premium" },
+  { id: "premium-star-sports-1", key: "star-sports-1", name: "Star Sports 1", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.to/embed/channel/282677", source: "premium" },
+  { id: "premium-star-sports-2", key: "star-sports-2", name: "Star Sports 2", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.to/embed/channel/282673", source: "premium" },
+  { id: "premium-star-sports-select-1", key: "star-sports-select-1", name: "Star Sports Select 1", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.to/embed/channel/282675", source: "premium" },
+  { id: "premium-star-sports-select-2", key: "star-sports-select-2", name: "Star Sports Select 2", logo: "https://upload.wikimedia.org/wikipedia/commons/7/71/ESPN_Star_Sports_logo.png", path: "", watch: "https://matchora.to/embed/channel/282676", source: "premium" },
+  { id: "premium-supersport-premier-league", key: "supersport-premier-league", name: "SuperSport Premier League", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/SuperSport_Albania.svg/500px-SuperSport_Albania.svg.png", path: "", watch: "https://matchora.to/embed/channel/833281", source: "premium" },
+  { id: "premium-supersport-football", key: "supersport-football", name: "SuperSport Football", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/a/a0/SuperSport_Albania.svg/500px-SuperSport_Albania.svg.png", path: "", watch: "https://matchora.to/embed/channel/144417", source: "premium" },
+  { id: "premium-tsn-2", key: "tsn-2", name: "TSN 2", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/8/87/TSN_logo_%28original%29.svg/500px-TSN_logo_%28original%29.svg.png", path: "", watch: "https://matchora.to/embed/channel/177345", source: "premium" },
+  { id: "premium-sportsnet-one", key: "sportsnet-one", name: "Sportsnet ONE", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Logo_Sportsnet_2011.svg/500px-Logo_Sportsnet_2011.svg.png", path: "", watch: "https://matchora.to/embed/channel/1920740", source: "premium" },
+  { id: "premium-sportsnet-360", key: "sportsnet-360", name: "Sportsnet 360", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/7/7f/Logo_Sportsnet_2011.svg/500px-Logo_Sportsnet_2011.svg.png", path: "", watch: "https://matchora.to/embed/channel/1920742", source: "premium" },
+  { id: "premium-tnt-sports-5", key: "tnt-sports-5", name: "TNT Sports 5", logo: "https://thumb.wikimedia.org/wikipedia/commons/thumb/d/d3/TNT_Sports_2021_logo.svg/500px-TNT_Sports_2021_logo.svg.png", path: "", watch: "https://matchora.to/embed/channel/1004550", source: "premium" },
 ];
 
 // NEW — free direct stream that actually plays (2026-11-11). The premium
@@ -562,7 +562,7 @@ function prefetchStream(id) {
 const premiumInflight = new Map();
 function cachedPremium(id) {
   try {
-    const raw = localStorage.getItem("premium4:" + id);
+    const raw = localStorage.getItem("premium3:" + id);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     // Only a cached answer carrying a sources list is usable. The
@@ -575,15 +575,15 @@ function cachedPremium(id) {
   } catch (e) { return null; }
 }
 function cachePremium(id, resp) {
-  // Cache key "premium4:" — bumped 2026-11-11 because "premium2:"
+  // Cache key "premium3:" — bumped 2026-11-11 because "premium2:"
   // entries can hold a 1-source answer from before a channel
   // gained a second backup; the new key makes every browser fetch
   // a fresh sources list instead of serving the stale one.
-  try { localStorage.setItem("premium4:" + id, JSON.stringify({ ...resp, t: Date.now() })); }
+  try { localStorage.setItem("premium3:" + id, JSON.stringify({ ...resp, t: Date.now() })); }
   catch (e) { /* private mode: caching is only an optimisation */ }
 }
 function clearCachedPremium(id) {
-  try { localStorage.removeItem("premium4:" + id); } catch (e) {}
+  try { localStorage.removeItem("premium3:" + id); } catch (e) {}
 }
 async function fetchPremium(id) {
   const entry = PREMIUM_CHANNELS.find(c => c.id === id);
@@ -1061,6 +1061,5 @@ function cleanName(name) {
 $("search").addEventListener("input", renderGrid);
 init();
 </script>
-<script src="upgrade.js?v=1" defer></script>
 </body>
 </html>

@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Scoreboard — Aayush TV</title>
+<meta name="description" content="Live scores — Nepal Premier League and top matches from around the world, updated every few seconds.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #090c12; color: #e8eaf0; font-family: 'Inter', system-ui, -apple-system, "Segoe UI", sans-serif; background-image: radial-gradient(900px 320px at 50% -80px, rgba(255,59,59,.13), transparent 70%), radial-gradient(700px 300px at 92% 0, rgba(80,120,255,.08), transparent 70%); background-attachment: fixed; }
+  a { color: inherit; }
+  header { position: sticky; top: 0; z-index: 10; background: rgba(9,12,18,.82); backdrop-filter: blur(16px) saturate(1.4); -webkit-backdrop-filter: blur(16px) saturate(1.4); box-shadow: 0 8px 30px rgba(0,0,0,.35); border-bottom: 1px solid #232838; }
+  .head-inner { max-width: 1200px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; gap: 18px; flex-wrap: wrap; }
+  .brand { font-size: 24px; font-weight: 800; letter-spacing: .2px; text-decoration: none; color: #fff; }
+  .brand span { background: linear-gradient(135deg, #ff3b3b, #ff8a5c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  nav.main-nav { display: flex; gap: 4px; flex-wrap: wrap; margin-left: auto; }
+  nav.main-nav a { padding: 8px 14px; border-radius: 20px; font-size: 14px; font-weight: 600; color: #cfd3dd; text-decoration: none; transition: background .15s, color .15s, transform .15s, box-shadow .15s; }
+  nav.main-nav a:hover { background: #1c2338; color: #fff; transform: translateY(-1px); }
+  nav.main-nav a.active { background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; box-shadow: 0 4px 16px rgba(255,59,59,.45); }
+  main { max-width: 900px; margin: 0 auto; padding: 20px 20px 44px; }
+  .hero { padding: 26px 0 4px; text-align: center; }
+  .hero h2 { font-size: clamp(30px, 5vw, 42px); font-weight: 900; letter-spacing: -1px; line-height: 1.08; }
+  .hero h2 em { font-style: normal; background: linear-gradient(90deg, #ff3b3b, #ff8a5c); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { color: #9aa1b2; font-size: 14px; line-height: 1.6; margin: 10px auto 0; max-width: 560px; }
+  .live-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ff3b3b; margin-right: 6px; animation: pulse 1.4s infinite; vertical-align: 1px; }
+  @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255,59,59,.6); } 70% { box-shadow: 0 0 0 7px rgba(255,59,59,0); } 100% { box-shadow: 0 0 0 0 rgba(255,59,59,0); } }
+  /* ---- search ---- */
+  .find { display: flex; gap: 8px; max-width: 560px; margin: 22px auto 0; }
+  .find input { flex: 1; padding: 12px 16px; border-radius: 999px; border: 1px solid #2a3040; background: #12162a; color: #e8eaf0; font-size: 15px; font-family: inherit; outline: none; }
+  .find input:focus { border-color: #ff3b3b; }
+  .find button { padding: 12px 22px; border-radius: 999px; border: none; background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; }
+  .find button:hover { filter: brightness(1.1); }
+  /* ---- sections ---- */
+  section { margin-top: 30px; }
+  section h3 { font-size: 20px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+  section h3 .count { font-size: 12px; font-weight: 700; color: #9aa1b2; background: #1c2338; padding: 3px 9px; border-radius: 999px; }
+  section .sub { color: #9aa1b2; font-size: 13px; margin-bottom: 12px; }
+  .games { display: flex; flex-direction: column; gap: 10px; }
+  .game { background: #12162a; border: 1px solid #262d42; border-radius: 14px; padding: 14px 16px; cursor: pointer; transition: border-color .15s, transform .15s; }
+  .game:hover { border-color: rgba(255,59,59,.7); transform: translateY(-1px); }
+  .g-league { font-size: 12px; color: #9aa1b2; font-weight: 600; display: flex; justify-content: space-between; gap: 8px; }
+  .badge { font-size: 11px; font-weight: 800; letter-spacing: .5px; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+  .badge.live { color: #fff; background: #ff3b3b; }
+  .badge.ft { color: #cfd3dd; background: #2a3040; }
+  .badge.ht { color: #ffd166; background: rgba(255,209,102,.14); }
+  .badge.up { color: #7be495; background: rgba(123,228,149,.12); }
+  .g-main { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .g-team { flex: 1; font-size: 16px; font-weight: 700; line-height: 1.3; }
+  .g-team.away { text-align: right; }
+  .g-score { font-size: 22px; font-weight: 900; white-space: nowrap; color: #fff; }
+  .g-score .vs { font-size: 13px; font-weight: 700; color: #9aa1b2; }
+  .g-clock { margin-top: 6px; font-size: 13px; color: #9aa1b2; font-weight: 600; }
+  .g-clock b { color: #ff5252; }
+  .g-clock .period { color: #cfd3dd; }
+  .empty { text-align: center; color: #9aa1b2; font-size: 15px; padding: 44px 20px; line-height: 1.7; }
+  .empty b { color: #e8eaf0; }
+  .updated { text-align: center; color: #6b7280; font-size: 12px; margin-top: 26px; }
+  .err { text-align: center; color: #ff7a7a; font-size: 14px; margin-top: 18px; display: none; }
+  /* ---- detail overlay ---- */
+  .overlay { position: fixed; inset: 0; background: rgba(4,6,10,.78); backdrop-filter: blur(4px); z-index: 50; display: none; overflow-y: auto; padding: 24px 14px; }
+  .overlay.open { display: block; }
+  .detail { max-width: 640px; margin: 0 auto; background: #12162a; border: 1px solid #2a3040; border-radius: 20px; padding: 22px 22px 26px; }
+  .detail .d-league { font-size: 13px; color: #9aa1b2; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .detail .close { background: #1c2338; color: #e8eaf0; border: none; border-radius: 50%; width: 30px; height: 30px; font-size: 16px; cursor: pointer; flex-shrink: 0; }
+  .detail .close:hover { background: #2a3040; }
+  .detail .d-teams { display: flex; align-items: center; gap: 10px; margin-top: 14px; }
+  .detail .d-teams .g-team { font-size: 19px; }
+  .detail .d-teams .g-score { font-size: 30px; }
+  .detail .d-clock { margin-top: 8px; font-size: 14px; color: #9aa1b2; font-weight: 600; }
+  .detail .d-clock b { color: #ff5252; }
+  .meta { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-top: 18px; }
+  .meta div { font-size: 14px; line-height: 1.5; }
+  .meta .k { color: #9aa1b2; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
+  .watch { display: block; text-align: center; margin-top: 20px; padding: 13px; border-radius: 999px; background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; font-size: 16px; font-weight: 800; text-decoration: none; }
+  .watch:hover { filter: brightness(1.1); }
+  .watch-note { text-align: center; color: #9aa1b2; font-size: 13px; margin-top: 14px; }
+  .detail h4 { font-size: 16px; font-weight: 800; margin: 22px 0 10px; }
+  table.stats { width: 100%; border-collapse: collapse; font-size: 14px; }
+  table.stats th, table.stats td { padding: 7px 4px; border-bottom: 1px solid #232838; text-align: center; }
+  table.stats th:first-child, table.stats td:first-child { text-align: left; color: #cfd3dd; font-weight: 600; }
+  table.stats th { color: #9aa1b2; font-size: 12px; text-transform: uppercase; letter-spacing: .4px; }
+  .sc-line { font-size: 14px; line-height: 1.7; }
+  .sc-line b { color: #fff; }
+  .sc-line .muted { color: #9aa1b2; }
+  table.card { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 6px; }
+  table.card th, table.card td { padding: 6px 4px; border-bottom: 1px solid #232838; text-align: center; }
+  table.card th:first-child, table.card td:first-child { text-align: left; }
+  table.card th { color: #9aa1b2; font-size: 11.5px; text-transform: uppercase; letter-spacing: .4px; }
+  footer { border-top: 1px solid #232838; margin-top: 20px; }
+  .foot-inner { max-width: 1200px; margin: 0 auto; padding: 22px 20px 28px; display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; justify-content: space-between; color: #9aa1b2; font-size: 13px; }
+  .foot-inner b { color: #f2f4fa; }
+  .foot-inner nav a { color: #cfd3dd; text-decoration: none; margin-right: 16px; }
+  .foot-inner nav a:hover { color: #fff; }
+</style>
+</head>
+<body>
+<header>
+  <div class="head-inner">
+    <a class="brand" href="index.html"><span>▶</span> Aayush TV</a>
+    <nav class="main-nav">
+      <a href="index.html">🏠 Home</a>
+      <a href="channels.html">📺 Channels</a>
+      <a href="movies.html">🎬 Movies</a>
+      <a href="entertainment.html">📺 TV Serials</a>
+      <a href="biggboss.html">🏠 Bigg Boss</a>
+      <a href="india.html">🇮🇳 India's Got Latent</a>
+      <a href="scoreboard.html" class="active">🏏 Scoreboard</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero">
+    <h2>Live <em>Scoreboard</em></h2>
+    <p><span class="live-dot"></span><span id="heroLine">Checking live matches…</span></p>
+  </div>
+
+  <div class="find">
+    <input id="q" type="text" placeholder="Find a game — team, league or game ID" autocomplete="off">
+    <button id="findBtn" type="button">Find</button>
+  </div>
+
+  <p class="err" id="err"></p>
+
+  <section id="searchSec" style="display:none">
+    <h3>Search results</h3>
+    <div class="sub" id="searchSub"></div>
+    <div class="games" id="searchGames"></div>
+  </section>
+
+  <section id="nplSec" style="display:none">
+    <h3>🇳🇵 Nepal Premier League <span class="count" id="nplCount"></span></h3>
+    <div class="sub">NPL scores, live first.</div>
+    <div class="games" id="nplGames"></div>
+  </section>
+
+  <section id="topSec" style="display:none">
+    <h3>🔥 Top Games <span class="count" id="topCount"></span></h3>
+    <div class="sub">The biggest live matches right now, all sports.</div>
+    <div class="games" id="topGames"></div>
+  </section>
+
+  <div class="empty" id="emptyState" style="display:none">
+    <b>No live matches right now.</b><br>Check back soon — the board refreshes itself every few seconds.
+  </div>
+
+  <p class="updated" id="updated"></p>
+</main>
+
+<div class="overlay" id="overlay">
+  <div class="detail" id="detail"></div>
+</div>
+
+<footer>
+  <div class="foot-inner">
+    <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
+    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="entertainment.html">TV Serials</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a><a href="scoreboard.html">Scoreboard</a></nav>
+    <div>© 2026 Aayush TV</div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  var API = "https://aayush-tv-minter.vercel.app/api/onexbet";
+  var POLL_MS = 5000, DETAIL_MS = 15000;
+  var npl = [], top = [];
+  var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
+  var detailId = null, detailData = null, detailTimer = null;
+  var $ = function(id){ return document.getElementById(id); };
+
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); }
+  function mmss(sec){ sec = Math.max(0, Math.floor(sec)); return String(Math.floor(sec / 60)).padStart(2, "0") + ":" + String(sec % 60).padStart(2, "0"); }
+
+  // Kickoff time in Nepal time (the device clock may be set to
+  // another zone, so "today / tomorrow" is computed in NPT).
+  function nptParts(d){
+    var f = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kathmandu", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+    var p = {}; f.formatToParts(d).forEach(function(x){ p[x.type] = x.value; });
+    return { ymd: p.year + "-" + p.month + "-" + p.day, time: p.hour + ":" + p.minute };
+  }
+  function kickoff(ts){
+    if (!ts) return "";
+    var d = new Date(ts * 1000), now = new Date();
+    var a = nptParts(d), b = nptParts(now);
+    if (a.ymd === b.ymd) return "Today " + a.time;
+    var tom = new Date(now.getTime() + 86400000);
+    if (a.ymd === nptParts(tom).ymd) return "Tomorrow " + a.time;
+    var m = d.toLocaleDateString("en-GB", { timeZone: "Asia/Kathmandu", day: "numeric", month: "short" });
+    return m + " " + a.time;
+  }
+
+  function badge(g){
+    if (g.status === "live") return '<span class="badge live">● LIVE</span>';
+    if (g.status === "FT") return '<span class="badge ft">FULL-TIME</span>';
+    if (g.status === "HT") return '<span class="badge ht">HALF-TIME</span>';
+    return '<span class="badge up">' + esc(kickoff(g.startTs) || "UPCOMING") + '</span>';
+  }
+  // The clock span carries its own timer so the 1s ticker can
+  // advance it without a re-fetch.
+  function clockHtml(g){
+    if (g.status === "FT") return '<span class="g-clock">Full-time</span>';
+    if (g.status === "HT") return '<span class="g-clock"><b>Half-time</b></span>';
+    if (g.cricket) {
+      if (g.cricket.isBreak) return '<span class="g-clock">Innings break</span>';
+      var oc = g.clock || (g.cricket.overStr ? g.cricket.overStr + " ov" : "");
+      return '<span class="g-clock"><b>' + esc(oc || "Live") + '</b>' + (g.cricket.runRate ? ' · RR ' + esc(g.cricket.runRate) : "") + '</span>';
+    }
+    if (g.status === "live" && typeof g.timerSec === "number") {
+      return '<span class="g-clock"><b class="js-clock" data-timer="' + g.timerSec + '" data-base="' + fetchedAt + '">' + mmss(g.timerSec) + '</b>' + (g.period ? ' · <span class="period">' + esc(g.period) + '</span>' : "") + '</span>';
+    }
+    if (g.status === "live") return '<span class="g-clock"><b>' + esc(g.clock || "Live") + '</b></span>';
+    return '<span class="g-clock">' + esc(kickoff(g.startTs)) + '</span>';
+  }
+  function scoreHtml(g){
+    var hs = g.homeScore, as = g.awayScore;
+    if (hs == null && as == null) return '<span class="g-score"><span class="vs">vs</span></span>';
+    return '<span class="g-score">' + esc(hs == null ? "–" : hs) + " – " + esc(as == null ? "–" : as) + "</span>";
+  }
+  function gameHtml(g){
+    return '<div class="game" data-id="' + esc(g.id) + '">' +
+      '<div class="g-league"><span>' + esc(g.league || "") + '</span>' + badge(g) + '</div>' +
+      '<div class="g-main"><span class="g-team">' + esc(g.home) + '</span>' + scoreHtml(g) + '<span class="g-team away">' + esc(g.away) + '</span></div>' +
+      clockHtml(g) +
+    '</div>';
+  }
+
+  function renderLists(){
+    var key = JSON.stringify([npl, top]);
+    if (key === lastKey) return; // unchanged — clocks keep ticking
+    lastKey = key;
+    var liveCount = 0;
+    npl.concat(top).forEach(function(g){ if (g.status === "live") liveCount++; });
+    $("heroLine").textContent = liveCount ? (liveCount + " live match" + (liveCount === 1 ? "" : "es") + " right now — tap any match for details, stats and the stream.") : "No live matches at the moment — the board updates itself.";
+    if (npl.length) {
+      $("nplSec").style.display = "";
+      $("nplCount").textContent = npl.length;
+      $("nplGames").innerHTML = npl.map(gameHtml).join("");
+    } else {
+      $("nplSec").style.display = "none";
+      $("nplGames").innerHTML = "";
+    }
+    if (top.length) {
+      $("topSec").style.display = "";
+      $("topCount").textContent = top.length;
+      $("topGames").innerHTML = top.map(gameHtml).join("");
+    } else {
+      $("topSec").style.display = "none";
+      $("topGames").innerHTML = "";
+    }
+    $("emptyState").style.display = (!npl.length && !top.length) ? "" : "none";
+    var d = new Date(fetchedAt);
+    $("updated").textContent = "Updated " + d.toLocaleTimeString("en-GB", { timeZone: "Asia/Kathmandu", hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " NPT · refreshes every few seconds";
+  }
+
+  function tick(){
+    var now = Date.now();
+    document.querySelectorAll(".js-clock").forEach(function(el){
+      var t = parseFloat(el.getAttribute("data-timer") || "0");
+      var base = parseFloat(el.getAttribute("data-base") || "0");
+      el.textContent = mmss(t + (now - base) / 1000);
+    });
+  }
+
+  function fetchJson(url){
+    return fetch(url).then(function(r){ return r.json(); });
+  }
+  function refreshLists(){
+    Promise.all([
+      fetchJson(API).catch(function(){ return { games: [] }; }),
+      fetchJson(API + "?mode=featured").catch(function(){ return { games: [] }; })
+    ]).then(function(res){
+      var err = $("err");
+      var n = (res[0] && res[0].games) || [];
+      var t = (res[1] && res[1].games) || [];
+      if (!n.length && !t.length && !npl.length && !top.length) {
+        err.style.display = "";
+        err.textContent = "Could not reach the scores feed — retrying…";
+      } else {
+        err.style.display = "none";
+      }
+      fetchedAt = Date.now();
+      npl = n; top = t;
+      renderLists();
+    }).catch(function(){
+      var err = $("err");
+      err.style.display = "";
+      err.textContent = "Could not reach the scores feed — retrying…";
+    });
+  }
+
+  // ---- detail panel (same fields as the bot's game detail) ----
+  function metaRow(k, v){
+    if (v == null || v === "") return "";
+    return '<div><div class="k">' + k + '</div>' + esc(v) + '</div>';
+  }
+  function detailHtml(d){
+    var h = '<div class="d-league"><span>' + esc(d.league || "") + '</span><button class="close" id="dClose" type="button">✕</button></div>' +
+      '<div class="d-teams"><span class="g-team">' + esc(d.home) + '</span>' + scoreHtml(d) + '<span class="g-team away">' + esc(d.away) + '</span></div>' +
+      '<div class="d-clock">' + clockHtml(d) + '</div>';
+    h += '<div class="meta">' +
+      metaRow("Sport", d.sport) +
+      metaRow("Venue", d.venue) +
+      metaRow("Weather", d.weather) +
+      metaRow("Format", d.format) +
+      metaRow("Kickoff", kickoff(d.startTs)) +
+      metaRow("Game ID", String(d.id || "") + (d.constId ? " · " + d.constId : ""));
+    if (d.hasLineups) h += '<div><div class="k">Line-ups</div>Available</div>';
+    h += '</div>';
+    if (d.videoId) {
+      h += '<a class="watch" href="stream.html?videoId=' + encodeURIComponent(d.videoId) + '&name=' + encodeURIComponent(d.home + " vs " + d.away) + '">▶ Watch live</a>';
+    } else if (d.video) {
+      h += '<p class="watch-note">Live stream available</p>';
+    }
+    if (d.stats && d.stats.length) {
+      h += '<h4>Match stats</h4><table class="stats"><tr><th></th><th>' + esc(d.home) + '</th><th>' + esc(d.away) + '</th></tr>' +
+        d.stats.map(function(s){ return '<tr><td>' + esc(s.name) + '</td><td>' + esc(s.home) + '</td><td>' + esc(s.away) + '</td></tr>'; }).join("") + '</table>';
+    }
+    var c = d.cricket;
+    if (c && c.scorecard) {
+      var sc = c.scorecard;
+      h += '<h4>Scorecard</h4><div class="sc-line">';
+      if (sc.statusText) h += '<div><b>' + esc(sc.statusText) + '</b></div>';
+      if (sc.striker) h += '<div>Striker: <b>' + esc(sc.striker.name) + '</b> ' + esc(sc.striker.runs) + ' (' + esc(sc.striker.balls) + ')</div>';
+      if (sc.nonStriker) h += '<div>Non-striker: <b>' + esc(sc.nonStriker.name) + '</b> ' + esc(sc.nonStriker.runs) + ' (' + esc(sc.nonStriker.balls) + ')</div>';
+      if (sc.bowler) h += '<div>Bowler: <b>' + esc(sc.bowler.name) + '</b> ' + esc(sc.bowler.overs) + ' ov · ' + esc(sc.bowler.runs) + ' runs · ' + esc(sc.bowler.wickets) + ' wkts</div>';
+      if (sc.partnership) h += '<div>Partnership: <b>' + esc(sc.partnership) + '</b></div>';
+      if (sc.crr) h += '<div>Run rate: <b>' + esc(sc.crr) + '</b></div>';
+      if (sc.lastWicket && sc.lastWicket.name) h += '<div class="muted">Last wicket: ' + esc(sc.lastWicket.name) + ' ' + esc(sc.lastWicket.runs) + ' (' + esc(sc.lastWicket.balls) + ') — ' + esc(sc.lastWicket.dismissal) + '</div>';
+      h += '</div>';
+      if (sc.batting && sc.batting.length) {
+        h += '<h4>Batting</h4><table class="card"><tr><th>Batter</th><th>R</th><th>B</th><th>4s</th><th>6s</th><th>SR</th></tr>' +
+          sc.batting.map(function(b){ return '<tr><td>' + esc(b.name) + (b.onStrike ? ' *' : '') + (b.dismissal ? '<br><span class="muted" style="font-size:12px">' + esc(b.dismissal) + '</span>' : '') + '</td><td>' + esc(b.runs) + '</td><td>' + esc(b.balls) + '</td><td>' + esc(b.fours) + '</td><td>' + esc(b.sixes) + '</td><td>' + esc(b.sr) + '</td></tr>'; }).join("") + '</table>';
+      }
+      if (sc.bowling && sc.bowling.length) {
+        h += '<h4>Bowling</h4><table class="card"><tr><th>Bowler</th><th>O</th><th>M</th><th>R</th><th>W</th><th>Econ</th></tr>' +
+          sc.bowling.map(function(b){ return '<tr><td>' + esc(b.name) + '</td><td>' + esc(b.overs) + '</td><td>' + esc(b.maidens) + '</td><td>' + esc(b.runs) + '</td><td>' + esc(b.wickets) + '</td><td>' + esc(b.econ) + '</td></tr>'; }).join("") + '</table>';
+      }
+    } else if (c && (c.target != null || c.need != null)) {
+      h += '<h4>Target</h4><div class="sc-line">Target <b>' + esc(c.target) + '</b> · Need <b>' + esc(c.need) + '</b>' + (c.ballsLeft != null ? ' off ' + esc(c.ballsLeft) + ' balls' : '') + (c.runRate ? ' · RR ' + esc(c.runRate) : '') + '</div>';
+    }
+    return h;
+  }
+  function showDetail(d){
+    detailData = d;
+    $("detail").innerHTML = detailHtml(d);
+    $("overlay").classList.add("open");
+    $("dClose").addEventListener("click", closeDetail);
+    tick();
+  }
+  function closeDetail(){
+    $("overlay").classList.remove("open");
+    detailId = null; detailData = null;
+    if (detailTimer) { clearInterval(detailTimer); detailTimer = null; }
+  }
+  function openDetail(id){
+    detailId = id;
+    fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).then(function(r){
+      if (detailId !== id) return; // a newer tap won
+      var d = (r && r.detail) || null;
+      if (!d) {
+        // Fall back to the list copy (upcoming games are not in
+        // the live list, so the search may return no detail).
+        var all = npl.concat(top);
+        d = all.filter(function(g){ return String(g.id) === String(id); })[0] || null;
+      }
+      if (!d) { closeDetail(); return; }
+      fetchedAt = fetchedAt || Date.now();
+      showDetail(d);
+      if (detailTimer) clearInterval(detailTimer);
+      detailTimer = setInterval(function(){
+        if (detailId !== id) return;
+        fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).then(function(r2){
+          if (detailId !== id) return;
+          var d2 = (r2 && r2.detail) || null;
+          if (d2) { detailData = d2; $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
+        }).catch(function(){});
+      }, DETAIL_MS);
+    }).catch(function(){ closeDetail(); });
+  }
+
+  function doSearch(q){
+    q = String(q || "").trim();
+    if (!q) return;
+    $("searchSec").style.display = "";
+    $("searchGames").innerHTML = '<div class="empty" style="padding:18px">Searching…</div>';
+    $("searchSub").textContent = 'Results for "' + q + '"';
+    fetchJson(API + "?mode=search&q=" + encodeURIComponent(q)).then(function(r){
+      if (r && r.detail) {
+        $("searchSec").style.display = "none";
+        openDetail(r.detail.id);
+        return;
+      }
+      var games = (r && r.games) || [];
+      if (!games.length) {
+        $("searchGames").innerHTML = '<div class="empty" style="padding:18px">No matches found for "' + esc(q) + '". Try a team name, a league, or a game ID.</div>';
+        return;
+      }
+      $("searchGames").innerHTML = games.map(gameHtml).join("");
+      document.getElementById("searchSec").scrollIntoView({ behavior: "smooth", block: "start" });
+    }).catch(function(){
+      $("searchGames").innerHTML = '<div class="empty" style="padding:18px">Search failed — check your connection and try again.</div>';
+    });
+  }
+
+  document.addEventListener("click", function(e){
+    var g = e.target.closest ? e.target.closest(".game") : null;
+    if (g && g.getAttribute("data-id")) openDetail(g.getAttribute("data-id"));
+  });
+  $("overlay").addEventListener("click", function(e){ if (e.target === $("overlay")) closeDetail(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDetail(); });
+  $("findBtn").addEventListener("click", function(){ doSearch($("q").value); });
+  $("q").addEventListener("keydown", function(e){ if (e.key === "Enter") doSearch($("q").value); });
+
+  refreshLists();
+  pollTimer = setInterval(refreshLists, POLL_MS);
+  tickTimer = setInterval(tick, 1000);
+  document.addEventListener("visibilitychange", function(){ if (!document.hidden) refreshLists(); });
+})();
+</script>
+</body>
+</html>
