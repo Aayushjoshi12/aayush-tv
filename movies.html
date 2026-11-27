@@ -224,7 +224,6 @@
     #new-row-wrap .grid-row .card .poster, #browse-grid-wrap .grid-row .card .poster, #featured-row-wrap .grid-row .card .poster, #topshows-row-wrap .grid-row .card .poster { width: 140px; }
   }
 </style>
-<link rel="stylesheet" href="upgrade.css?v=1">
 </head>
 <body>
 <header>
@@ -350,8 +349,8 @@ const MOVIE_RESOLVER = "https://aayush-tv-minter.vercel.app/api/resolve-movie";
 // Nexus resolver on the VM (aayushbot): Vercel is 403-blocked by
 // nxsha.space, so Server 2 resolves here instead. Live since
 // 21 Nov 2026 (systemd nexus-resolver on 127.0.0.1:8801, Caddy
-// /nexus-api/ on mret.aayushlife.live).
-const NEXUS_RESOLVER = "https://mret.aayushlife.live/nexus-api";
+// /nexus-api/ on mret.balenshah.tech).
+const NEXUS_RESOLVER = "https://mret.balenshah.tech/nexus-api";
 // 25 Nov 2026: the CineSrc minter on the VM (systemd cinesrc-minter
 // on 127.0.0.1:8805, Caddy /cinesrc-api/). It resolves a TMDB id to
 // the direct master.m3u8 behind Server 3 (nebula.bright67.online,
@@ -360,7 +359,7 @@ const NEXUS_RESOLVER = "https://mret.aayushlife.live/nexus-api";
 // at once; a new title mints in ~20-40s while his Chrome is open.
 // If the minter is down or Chrome is closed, Server 3 falls back
 // to its embed (see renderCinesrcPlayer).
-const CINESRC_MINTER = "https://mret.aayushlife.live/cinesrc-api";
+const CINESRC_MINTER = "https://mret.balenshah.tech/cinesrc-api";
 const MOVIE_RESOLVER_FALLBACK = "https://aayush-tv-movies-geesc6d8g6fchvfk.koreacentral-01.azurewebsites.net/api/resolve-movie";
 const $ = (id) => document.getElementById(id);
 
@@ -2831,12 +2830,12 @@ function openDhindora2() {
 }
 /* ---------- Live IMDb ratings (26 Nov 2026) ---------- */
 // Ratings come from our own VM service (daily IMDb file —
-// https://mret.aayushlife.live/imdb-api), NOT from Cinemeta.
+// https://mret.balenshah.tech/imdb-api), NOT from Cinemeta.
 // One batch call per page load covers the browse/hero ids; the
 // live rating wins wherever one exists, Cinemeta stays the
 // fallback when the service has no value or can't be reached
 // (5s cap, so a dead service never stalls the page).
-const IMDB_API = "https://mret.aayushlife.live/imdb-api";
+const IMDB_API = "https://mret.balenshah.tech/imdb-api";
 const liveRatings = {}; // tt... -> rating number, or null when the service has none
 async function fetchLiveRatings(ids) {
   const want = [...new Set((ids || []).filter(Boolean))]
@@ -3292,6 +3291,5 @@ async function loadBrowse() {
 }
 loadBrowse();
 </script>
-<script src="upgrade.js?v=1" defer></script>
 </body>
 </html>

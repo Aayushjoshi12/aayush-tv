@@ -67,7 +67,6 @@
   #status { padding: 8px 20px 20px; color: #9aa1b2; font-size: 14px; text-align: center; }
   #setup-note { display: none; margin: 16px 20px 0; padding: 12px 14px; background: #2a1f0d; border: 1px solid #8a6d1b; border-radius: 8px; font-size: 13px; color: #f0d48a; }
 </style>
-<link rel="stylesheet" href="upgrade.css?v=1">
 </head>
 <body>
 <header>
@@ -769,7 +768,7 @@ async function playChannel(id, name) {
         url = altUrl;
         altUrl = null;
       } else if (!NEPAL_PROXY_URL) {
-        $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Play it at <a href="http://aayushlife.live" style="color:#ff5252">http://aayushlife.live</a> over plain http — switch off 'Automatic HTTPS' in your browser settings first, and never open the https version of that address. (abe dalle, yo site http ma khol, https ma chaldaina)`;
+        $("now-playing").innerHTML = `This stream is plain http, which browsers block on https pages. Play it at <a href="http://balenshah.tech" style="color:#ff5252">http://balenshah.tech</a> over plain http — switch off 'Automatic HTTPS' in your browser settings first, and never open the https version of that address. (abe dalle, yo site http ma khol, https ma chaldaina)`;
         return;
       }
       // With NEPAL_PROXY_URL set, fall through: the candidate loop
@@ -1061,6 +1060,5 @@ function cleanName(name) {
 $("search").addEventListener("input", renderGrid);
 init();
 </script>
-<script src="upgrade.js?v=1" defer></script>
 </body>
 </html>
