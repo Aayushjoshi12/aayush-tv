@@ -170,6 +170,12 @@
   var POLL_MS = 5000, DETAIL_MS = 15000;
   var npl = [], top = [];
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
+  // One display clock per live game id, shared by the list and the
+  // detail panel. It only ever moves forward: the feed's timer
+  // can sit still (half-time) or jitter a second backwards, and
+  // the old code re-based the clock on every 5s refresh, so a
+  // match at the start of a half snapped back (45:04 → 45:01).
+  var clockState = {};
   var detailId = null, detailData = null, detailTimer = null;
   var $ = function(id){ return document.getElementById(id); };
 
@@ -200,8 +206,25 @@
     if (g.status === "HT") return '<span class="badge ht">HALF-TIME</span>';
     return '<span class="badge up">' + esc(kickoff(g.startTs) || "UPCOMING") + '</span>';
   }
-  // The clock span carries its own timer so the 1s ticker can
-  // advance it without a re-fetch.
+  // Monotonic display clock: syncClock() folds each fresh feed
+  // value into clockState (never backwards), the 1s ticker
+  // advances it, and the span just shows the shared value — so
+  // the list and the detail panel always agree, and a refresh
+  // never snaps the clock back.
+  function syncClock(g){
+    if (!g || g.status !== "live" || g.cricket || typeof g.timerSec !== "number") return;
+    var s = clockState[g.id];
+    var sec = Math.max(s ? s.sec : 0, g.timerSec);
+    clockState[g.id] = { sec: sec, feed: g.timerSec };
+  }
+  function pruneClocks(){
+    var keep = {};
+    npl.concat(top).forEach(function(g){
+      if (g.status === "live" && !g.cricket && typeof g.timerSec === "number") keep[g.id] = true;
+    });
+    if (detailData && detailData.status === "live" && !detailData.cricket && typeof detailData.timerSec === "number") keep[detailData.id] = true;
+    Object.keys(clockState).forEach(function(id){ if (!keep[id]) delete clockState[id]; });
+  }
   function clockHtml(g){
     if (g.status === "FT") return '<span class="g-clock">Full-time</span>';
     if (g.status === "HT") return '<span class="g-clock"><b>Half-time</b></span>';
@@ -211,7 +234,9 @@
       return '<span class="g-clock"><b>' + esc(oc || "Live") + '</b>' + (g.cricket.runRate ? ' · RR ' + esc(g.cricket.runRate) : "") + '</span>';
     }
     if (g.status === "live" && typeof g.timerSec === "number") {
-      return '<span class="g-clock"><b class="js-clock" data-timer="' + g.timerSec + '" data-base="' + fetchedAt + '">' + mmss(g.timerSec) + '</b>' + (g.period ? ' · <span class="period">' + esc(g.period) + '</span>' : "") + '</span>';
+      var st = clockState[g.id];
+      var sec = st ? st.sec : g.timerSec;
+      return '<span class="g-clock"><b class="js-clock" data-clock-id="' + esc(g.id) + '">' + mmss(sec) + '</b>' + (g.period ? ' · <span class="period">' + esc(g.period) + '</span>' : "") + '</span>';
     }
     if (g.status === "live") return '<span class="g-clock"><b>' + esc(g.clock || "Live") + '</b></span>';
     return '<span class="g-clock">' + esc(kickoff(g.startTs)) + '</span>';
@@ -230,7 +255,13 @@
   }
 
   function renderLists(){
-    var key = JSON.stringify([npl, top]);
+    // The key covers only what the list shows — the clock is
+    // deliberately left out (it ticks from clockState), so the
+    // list re-renders only on a real change: a goal, a status
+    // change, a game added or finished.
+    var key = JSON.stringify([npl, top].map(function(list){
+      return list.map(function(g){ return [g.id, g.league, g.home, g.away, g.homeScore, g.awayScore, g.status, g.period]; });
+    }));
     if (key === lastKey) return; // unchanged — clocks keep ticking
     lastKey = key;
     var liveCount = 0;
@@ -258,11 +289,17 @@
   }
 
   function tick(){
-    var now = Date.now();
+    // Advance each display clock by one second, but never more
+    // than 10s past the feed's last value — if the feed's timer
+    // is frozen (half-time), the display holds instead of
+    // running away from reality.
+    Object.keys(clockState).forEach(function(id){
+      var st = clockState[id];
+      if (st.sec < st.feed + 10) st.sec += 1;
+    });
     document.querySelectorAll(".js-clock").forEach(function(el){
-      var t = parseFloat(el.getAttribute("data-timer") || "0");
-      var base = parseFloat(el.getAttribute("data-base") || "0");
-      el.textContent = mmss(t + (now - base) / 1000);
+      var st = clockState[el.getAttribute("data-clock-id")];
+      if (st) el.textContent = mmss(st.sec);
     });
   }
 
@@ -285,6 +322,8 @@
       }
       fetchedAt = Date.now();
       npl = n; top = t;
+      npl.concat(top).forEach(syncClock);
+      pruneClocks();
       renderLists();
     }).catch(function(){
       var err = $("err");
@@ -347,6 +386,7 @@
   }
   function showDetail(d){
     detailData = d;
+    syncClock(d);
     $("detail").innerHTML = detailHtml(d);
     $("overlay").classList.add("open");
     $("dClose").addEventListener("click", closeDetail);
@@ -377,7 +417,7 @@
         fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).then(function(r2){
           if (detailId !== id) return;
           var d2 = (r2 && r2.detail) || null;
-          if (d2) { detailData = d2; $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
+          if (d2) { detailData = d2; syncClock(d2); $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
         }).catch(function(){});
       }, DETAIL_MS);
     }).catch(function(){ closeDetail(); });
