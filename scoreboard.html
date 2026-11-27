@@ -214,8 +214,15 @@
   function syncClock(g){
     if (!g || g.status !== "live" || g.cricket || typeof g.timerSec !== "number") return;
     var s = clockState[g.id];
+    // Frozen feed: the timer has not moved (within 1s) since
+    // the last poll. A 2nd-half match whose timer sits at 45:00
+    // for 15s is in the half-time break, not playing — show
+    // "Half-time" instead of a frozen 45:10.
+    var moved = s ? Math.abs(g.timerSec - s.lastFeed) : 99;
+    var frozen = (moved <= 1) ? (s.frozen || 0) + 1 : 0;
     var sec = Math.max(s ? s.sec : 0, g.timerSec);
-    clockState[g.id] = { sec: sec, feed: g.timerSec };
+    clockState[g.id] = { sec: sec, feed: Math.max(s ? s.feed : 0, g.timerSec), lastFeed: g.timerSec, frozen: frozen };
+    g._halfTime = (g.period === "2H" && g.timerSec >= 2695 && g.timerSec <= 2715 && frozen >= 3);
   }
   function pruneClocks(){
     var keep = {};
@@ -233,6 +240,7 @@
       var oc = g.clock || (g.cricket.overStr ? g.cricket.overStr + " ov" : "");
       return '<span class="g-clock"><b>' + esc(oc || "Live") + '</b>' + (g.cricket.runRate ? ' · RR ' + esc(g.cricket.runRate) : "") + '</span>';
     }
+    if (g._halfTime) return '<span class="g-clock"><b>Half-time</b></span>';
     if (g.status === "live" && typeof g.timerSec === "number") {
       var st = clockState[g.id];
       var sec = st ? st.sec : g.timerSec;
@@ -260,7 +268,7 @@
     // list re-renders only on a real change: a goal, a status
     // change, a game added or finished.
     var key = JSON.stringify([npl, top].map(function(list){
-      return list.map(function(g){ return [g.id, g.league, g.home, g.away, g.homeScore, g.awayScore, g.status, g.period]; });
+      return list.map(function(g){ return [g.id, g.league, g.home, g.away, g.homeScore, g.awayScore, g.status, g.period, g._halfTime ? 1 : 0]; });
     }));
     if (key === lastKey) return; // unchanged — clocks keep ticking
     lastKey = key;
