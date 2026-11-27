@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"><link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAyklEQVR4nM2XSw6DMAxE7agLKrHjMNyjB+09OBFLunIEaaR8PHYyyxAxj8GxHF7WjTK6cosAcbrwcjJO3x9BgqN5DiQCeJo/IEJpl7UCjfl60TVFAkWdn30sgEBYgDT/AjREVw0g01AVIQIEcgo0ELBj2JsGvA+0gpg1oloI005Yk0Y6D0D1/h7FPSYANcYmAC3GUIAeY5G6CDXmRIoEtMbdACjjZgC0sYiXdRs5E84xFf9dlxzFUyRANCYFvgN4Q0Sv9BjKA7fr+Q+z6y+ezHZymQAAAABJRU5ErkJggg==">
+<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Movies — Aayush TV</title>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.13/dist/hls.min.js"></script>
@@ -24,7 +24,7 @@
   h1 span { -webkit-text-fill-color: #ff3b3b; }
   #search { width: 100%; padding: 12px 12px 12px 42px; border-radius: 999px; border: 1px solid #2a3040; background: #151a26 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%239aa1b2' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='21' y1='21' x2='16.5' y2='16.5'/%3E%3C/svg%3E") no-repeat 14px center; color: #fff; font-size: 15px; outline: none; transition: border-color .15s, box-shadow .15s; }
   #search:focus { border-color: #ff3b3b; box-shadow: 0 0 0 3px rgba(255,59,59,.18); }
-  #detail-wrap { display: none; padding: 16px 20px 0; max-width: 1440px; margin: 0 auto; }
+  #detail-wrap { display: none; padding: 16px 20px 0; max-width: 1440px; margin: 0 auto; scroll-margin-top: 124px; /* 27 Nov 2026: scrollIntoView put the panel title under the sticky header (header is ~110px tall) */ }
   #detail-wrap.open { display: block; }
   #detail-panel { padding: 18px; background: linear-gradient(160deg, #141a2e, #12162a); border: 1px solid #2a3150; border-radius: 16px; box-shadow: 0 12px 32px rgba(0,0,0,.35); }
   #detail-panel .d-top { display: flex; gap: 16px; align-items: flex-start; }
@@ -158,7 +158,7 @@
   .card .poster .noimg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800; color: #ff5c5c; }
   .card .badge { position: absolute; top: 8px; left: 8px; font-size: 10px; font-weight: 800; letter-spacing: .4px; padding: 3px 7px; border-radius: 999px; background: rgba(11,14,20,.82); color: #9db4ff; border: 1px solid rgba(80,120,255,.5); backdrop-filter: blur(4px); }
   .card .badge.movie { color: #ff8a8a; border-color: rgba(255,59,59,.5); }
-  .card .name { font-size: 13px; font-weight: 600; line-height: 1.35; margin-top: 8px; color: #f2f4fa; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .card .name { font-size: 13px; font-weight: 600; line-height: 1.35; margin-top: 8px; color: #f2f4fa; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; text-wrap: balance; /* 27 Nov 2026: "The Blue Road — Season 1" left a lone "1" on line 2 */ }
   .card .year { font-size: 12px; color: #9aa1b2; margin-top: 2px; }
   .card .site { display: inline-block; font-size: 11px; font-weight: 700; color: #7dd3fc; background: rgba(125,211,252,.10); border: 1px solid rgba(125,211,252,.3); padding: 2px 7px; border-radius: 999px; margin-top: 5px; }
   .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
@@ -224,8 +224,6 @@
     #new-row-wrap .grid-row .card .poster, #browse-grid-wrap .grid-row .card .poster, #featured-row-wrap .grid-row .card .poster, #topshows-row-wrap .grid-row .card .poster { width: 140px; }
   }
 </style>
-<link rel="stylesheet" href="upgrade.css?v=1">
-<link rel="stylesheet" href="netflix.css?v=4">
 </head>
 <body>
 <header>
@@ -414,6 +412,26 @@ function isSeries(item) {
 
 /* ---------- cards ---------- */
 
+// Poster load watchdog (27 Nov 2026): a hanging host never fires
+// onerror, so a stuck poster needs a timeout — but a LAZY <img>
+// below the fold has not started loading at all (empty
+// currentSrc) until it scrolls into view, and failing it then
+// kills a good poster: the Cinemeta fallback often has no exact
+// match for the title, so the card stays 🎬 forever (the New row
+// and Top Rated grid showed this — the same titles painted fine
+// after a re-render, once the browser had cached them). Re-arm
+// while the load has not started; fail only once it has started
+// and still shows no pixels.
+function armPosterWatchdog(img, isSettled, onFail) {
+  let checks = 0;
+  const tick = () => setTimeout(() => {
+    if (isSettled()) return;
+    if (!img.currentSrc && checks < 5) { checks++; tick(); return; }
+    if (img.naturalWidth === 0) onFail();
+  }, 4000);
+  tick();
+}
+
 function makeCard(item, onTap) {
   const card = el("div", "card");
   const poster = el("div", "poster");
@@ -441,9 +459,7 @@ function makeCard(item, onTap) {
     img.onerror = onPosterFail;
     img.src = item.poster;
     poster.appendChild(img);
-    setTimeout(() => {
-      if (!posterSettled && img.naturalWidth === 0) onPosterFail();
-    }, 4000);
+    armPosterWatchdog(img, () => posterSettled, onPosterFail);
   } else {
     // No site poster at all — try Cinemeta straight away.
     const img = document.createElement("img");
@@ -479,6 +495,7 @@ function makeCard(item, onTap) {
 /* ---------- search (whole modlist network) ---------- */
 
 let searchTimer = null;
+let searchGen = 0; // 27 Nov 2026: stale-search guard — a slow earlier query must never overwrite a newer one
 $("search").addEventListener("input", () => {
   clearTimeout(searchTimer);
   const q = $("search").value.trim();
@@ -486,6 +503,7 @@ $("search").addEventListener("input", () => {
 });
 
 async function runSearch(q) {
+  const gen = ++searchGen;
   const main = $("main");
   const status = $("status");
   if (!q) {
@@ -500,6 +518,7 @@ async function runSearch(q) {
   status.textContent = "Searching...";
   try {
     const d = await getJSON(MOVIE_RESOLVER + "?dq=" + encodeURIComponent(q));
+    if (gen !== searchGen) return; // a newer search started — drop this one
     const items = d.items || [];
     // Dhindora 2 (21 Nov 2026): Season 2 is a Netflix exclusive
     // and is not in the modlist index, so searching for it finds
@@ -599,6 +618,7 @@ async function runSearch(q) {
       } catch { /* Cinemeta down: modlist results still stand */ }
     }
     // An IMDb code resolves to a title — show what it meant.
+    if (gen !== searchGen) return; // a newer search started while this one enriched
     const shown = d.resolvedTitle
       ? d.resolvedTitle + (d.resolvedYear ? " (" + d.resolvedYear + ")" : "")
       : q;
@@ -769,9 +789,7 @@ function openMoviesMod(item) {
     };
     img.src = item.poster;
     poster.appendChild(img);
-    setTimeout(() => {
-      if (!posterSettled && img.naturalWidth === 0) img.onerror();
-    }, 4000);
+    armPosterWatchdog(img, () => posterSettled, () => img.onerror());
   } else {
     // No site poster — try Cinemeta's before the 🎬 tile.
     const img = document.createElement("img");
@@ -788,7 +806,8 @@ function openMoviesMod(item) {
   }
   top.appendChild(poster);
   const info = el("div", "");
-  info.appendChild(el("div", "tag" + (series ? " series" : ""), series ? "TV SERIES" : "MOVIE"));
+  const tagEl = el("div", "tag" + (series ? " series" : ""), series ? "TV SERIES" : "MOVIE");
+  info.appendChild(tagEl);
   info.appendChild(el("h2", "", currentTitle));
   info.appendChild(
     el("div", "meta", currentYear || "")
@@ -812,6 +831,26 @@ function openMoviesMod(item) {
   cinemetaMetaCached(currentTitle, currentYear, series).then((m) => {
     if (!m || currentTitle !== (item.title || "")) return;
     renderDetailMeta(m);
+    // A download site can mislabel a series as a movie (the
+    // UHDMovies "Visionquest 2026" entry is really the Marvel
+    // series): trust the resolved meta's type so Watch asks the
+    // providers for the right kind (tv vs movie) and the panel
+    // tag + Download label match the content. The Watch
+    // prefetches are keyed by type, so a pre-flip prefetch is
+    // simply ignored and re-fetched at Watch time.
+    if (m.type === "series" && !currentIsSeries) {
+      currentIsSeries = true;
+      tagEl.textContent = "TV SERIES";
+      tagEl.classList.add("series");
+      const dl = $("dl-btn");
+      if (dl) dl.textContent = "⬇ Get season / episodes";
+    } else if (m.type === "movie" && currentIsSeries) {
+      currentIsSeries = false;
+      tagEl.textContent = "MOVIE";
+      tagEl.classList.remove("series");
+      const dl = $("dl-btn");
+      if (dl) dl.textContent = "⬇ Download";
+    }
     const id = m.imdb_id || m.id;
     if (id && liveRatings[id] === undefined) {
       fetchLiveRatings([id]).then(() => {
@@ -1001,7 +1040,13 @@ let currentWatchTmdb = null;
 let currentWatchSource = "direct";
 const CINEMETA = "https://v3-cinemeta.strem.io";
 
-function watchCacheKey(title, year) { return "watch-tmdb|" + title + "|" + year; }
+function watchCacheKey(title, year) {
+  // v2 (27 Nov 2026): the v1 cache holds poisoned TMDB ids from
+  // the old first-hit matcher — Weak Hero's id under
+  // "Visionquest — Season 1", the 1985 film's id under
+  // "Visionquest" 2026. A new key ignores those entries.
+  return "watch-tmdb-v2|" + title + "|" + year;
+}
 function watchCacheGet(key) {
   try {
     const r = JSON.parse(localStorage.getItem(key) || "null");
@@ -1085,18 +1130,42 @@ async function resolveTmdbId(title, year) {
   return tmdb || null;
 }
 
+// Title match, punctuation-insensitive: "Visionquest" must find
+// "Vision Quest", "Rob Lowe the Outsider" must find
+// "Rob Lowe: The Outsider" — the same rule the New row already
+// uses for ratings. Shared by cinemetaMeta + cinemetaPosterMeta.
+function normTitle(s) {
+  return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 // Cinemeta meta for a title (free, no key, CORS *): search the
 // catalog by title, then fetch the full meta. The meta carries
 // both moviedb_id (for Watch) and poster (for the poster
 // fallback). Type-first: series catalog first for series, movie
 // first otherwise; the other catalog is tried as a fallback.
 async function cinemetaMeta(title, year, isSeries) {
+  // Search by the BASE title, and match exactly (normalised) —
+  // never the first search hit. Searching "Visionquest —
+  // Season 1" used to return Weak Hero first, and the old
+  // `|| metas[0]` fallback then played Weak Hero as if it were
+  // the tapped title; searching "Visionquest" returned the 1985
+  // film first and the 2026 series played the 1985 film. A year
+  // must agree when known. No match anywhere returns null, and
+  // Watch shows "not found" instead of playing something else.
+  const query = baseTitle(title);
+  const want = normTitle(query);
+  if (!want) return null;
   const types = isSeries ? ["series", "movie"] : ["movie", "series"];
   for (const type of types) {
-    const s = await getJSON(CINEMETA + "/catalog/" + type + "/top/search=" + encodeURIComponent(title) + ".json").catch(() => null);
+    const s = await getJSON(CINEMETA + "/catalog/" + type + "/top/search=" + encodeURIComponent(query) + ".json").catch(() => null);
     const metas = (s && s.metas) || [];
     if (!metas.length) continue;
-    const m = metas.find((x) => (x.name || "").toLowerCase() === title.toLowerCase() && (!year || String(x.releaseInfo || "").slice(0, 4) === String(year))) || metas[0];
+    const m = metas.find((x) => {
+      const n = normTitle(x.name);
+      if (n !== want && n.indexOf(want) !== 0) return false;
+      if (year && x.releaseInfo && String(x.releaseInfo).slice(0, 4) !== String(year)) return false;
+      return true;
+    });
     if (!m || !m.imdb_id) continue;
     const meta = await getJSON(CINEMETA + "/meta/" + type + "/" + m.imdb_id + ".json").catch(() => null);
     if (meta && meta.meta) return meta.meta;
@@ -1158,15 +1227,19 @@ function baseTitle(title) {
 async function cinemetaPosterMeta(title, year, isSeries) {
   const base = baseTitle(title);
   if (!base) return null;
-  const bl = base.toLowerCase();
+  const bl = normTitle(base);
   const types = isSeries ? ["series", "movie"] : ["movie", "series"];
   for (const type of types) {
     const s = await getJSON(CINEMETA + "/catalog/" + type + "/top/search=" + encodeURIComponent(base) + ".json").catch(() => null);
     const metas = (s && s.metas) || [];
     if (!metas.length) continue;
+    // Same normalised match as cinemetaMeta (27 Nov 2026): the
+    // old exact/prefix checks missed "Visionquest" vs
+    // "Vision Quest" and "Rob Lowe the Outsider" vs
+    // "Rob Lowe: The Outsider", so those cards stayed 🎬.
     const m = metas.find((x) => {
-      const n = (x.name || "").toLowerCase();
-      return n === bl || n.startsWith(bl + " ") || n.startsWith(bl + ":") || n.startsWith(bl + " -");
+      const n = normTitle(x.name);
+      return n === bl || n.indexOf(bl) === 0;
     });
     if (!m || !m.imdb_id) continue;
     if (year && m.releaseInfo && String(m.releaseInfo).slice(0, 4) !== String(year)) continue;
@@ -3219,6 +3292,10 @@ document.querySelectorAll("#browse-tabs .tab").forEach((t) => {
     t.classList.add("active");
     browseTab = t.dataset.tab;
     browseLimit = BROWSE_SHOW;
+    // A genre picked on one tab must not silently filter the
+    // next tab (27 Nov 2026: Top Rated showed one genre only).
+    browseGenre = "All";
+    renderBrowseGenres();
     renderBrowseRows();
   });
 });
@@ -3278,6 +3355,12 @@ async function loadBrowse() {
     // be the one cut off.
     const liveIds = ["tt14650074", ...[...movies, ...series, ...top].map((m) => m.imdb_id || m.id)];
     await fetchLiveRatings(liveIds);
+    // Top Rated tab (27 Nov 2026): the tab grid used the raw
+    // catalog order, so it was not sorted by rating at all
+    // (★6.1 first, then ★8.3...). Sort best-first on the
+    // effective (live-first) rating before rendering. The rows
+    // below re-sort with topRated() anyway, so this is safe.
+    browseTop = top.slice().sort((a, b) => (parseFloat(metaRating(b)) || 0) - (parseFloat(metaRating(a)) || 0));
     const dhLive = liveRating("tt14650074");
     if (dhLive !== null) FEATURED_ITEM.rating = String(dhLive);
     const loading = $("browse-loading");
@@ -3293,7 +3376,5 @@ async function loadBrowse() {
 }
 loadBrowse();
 </script>
-<script src="upgrade.js?v=1" defer></script>
-<script src="netflix.js?v=4" defer></script>
 </body>
 </html>
