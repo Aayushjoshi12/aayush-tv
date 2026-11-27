@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>TV Serials — Aayush TV</title>
-<link rel="icon" type="image/svg+xml" href="favicon.svg"><link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAAyklEQVR4nM2XSw6DMAxE7agLKrHjMNyjB+09OBFLunIEaaR8PHYyyxAxj8GxHF7WjTK6cosAcbrwcjJO3x9BgqN5DiQCeJo/IEJpl7UCjfl60TVFAkWdn30sgEBYgDT/AjREVw0g01AVIQIEcgo0ELBj2JsGvA+0gpg1oloI005Yk0Y6D0D1/h7FPSYANcYmAC3GUIAeY5G6CDXmRIoEtMbdACjjZgC0sYiXdRs5E84xFf9dlxzFUyRANCYFvgN4Q0Sv9BjKA7fr+Q+z6y+ezHZymQAAAABJRU5ErkJggg==">
+<link rel="icon" href="data:,">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -145,7 +145,6 @@
     .ep-watch { padding: 8px 14px; }
   }
 </style>
-<link rel="stylesheet" href="upgrade.css?v=1">
 </head>
 <body>
 <header>
@@ -198,7 +197,7 @@
   <h2>All shows</h2>
   <p class="sub" style="margin-bottom:12px">Every channel and show on Desi Tashan — pick one to see its episodes.</p>
   <div id="showChannels" class="channels" style="margin-bottom:14px"></div>
-  <div id="showGrid" class="showgrid row"></div>
+  <div id="showGrid" class="showgrid"></div>
   <p id="showEmpty" class="empty" hidden>No shows match that search.</p>
 
   <section id="showView" aria-label="Show episodes">
@@ -780,9 +779,12 @@
     document.getElementById("playerTitle").textContent = ep.show + " — " + ep.date;
     wrap.classList.add("open");
     wrap.scrollIntoView({ behavior: "smooth", block: "start" });
+    // Do NOT clear the src / call load() here (27 Nov 2026):
+    // load() with no src makes Chrome show its own "Unable to
+    // play media" overlay for the ~10 s the resolver takes, on
+    // every play. Just pause and keep the old frame until the
+    // new stream is ready.
     v.pause();
-    v.removeAttribute("src");
-    v.load();
     document.getElementById("partBtns").innerHTML = "";
     setStatus("Loading Part " + currentPart + "…", false);
     fetch(RESOLVER + "?url=" + encodeURIComponent(ep.link) + "&part=" + currentPart, { cache: "no-store" })
@@ -852,6 +854,12 @@
       .then(function(r){ return r.ok ? r.json() : null; })
       .then(function(data){
         if (!data || !data.episodes || !data.episodes.length) return;
+        // The live feed answered, so the listings are current as
+        // of now (27 Nov 2026: the footer still showed the
+        // episodes.json build time, a day old, even though the
+        // feed already had today's episodes).
+        var u = document.getElementById("updated");
+        if (u) u.textContent = "Listings updated " + new Date().toLocaleString() + " · source: Desi Tashan RSS feed (50 latest episodes).";
         var have = {};
         EPISODES.forEach(function(e){ have[e.guid] = true; });
         var fresh = data.episodes.filter(function(e){ return !have[e.guid]; });
@@ -865,6 +873,5 @@
       .catch(function(){ /* keep the cached list */ });
   }
 </script>
-<script src="upgrade.js?v=1" defer></script>
 </body>
 </html>
