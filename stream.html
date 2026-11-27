@@ -33,9 +33,11 @@
   const q = new URLSearchParams(location.search);
   const videoId = q.get('videoId') || q.get('id') || '';
   const tvappId = q.get('tvapp') || '';
+  const fbId = q.get('footybite') || '';
   const directUrl = q.get('url') || '';
   const name = q.get('name') || q.get('title') || '';
   const TVAPP_API = 'https://mret.balenshah.tech/tvapp-api';
+  const FB_API = 'https://mret.balenshah.tech/footybite-api';
   // The TVApp segments are TS video disguised as WebP images: a small image
   // header sits in front of the TS data. This loader strips everything
   // before the first TS sync byte (0x47 repeating every 188 bytes), the
@@ -130,6 +132,24 @@
       subEl.textContent = 'No stream is available for this match right now.';
     });
   }
+  // Footybite minter: fresh signed playlist, plain TS segments (no
+  // WebP strip — unlike TVApp, these are ordinary HLS segments).
+  // Falls back to the 1xBet link when there is no Footybite stream
+  // for this match.
+  function playFootybite(id){
+    setStatus('Getting the stream link…');
+    var api = FB_API + '/stream?id=' + encodeURIComponent(id);
+    fetch(api).then(function(r){
+      if (r.ok) { playUrl(api, {onFatal: videoId ? function(){ mint(videoId); } : null}); return; }
+      if (videoId) { mint(videoId); return; }
+      setStatus('No stream is available for this match right now.', 'err');
+      subEl.textContent = 'No stream is available for this match right now.';
+    }).catch(function(){
+      if (videoId) { mint(videoId); return; }
+      setStatus('Could not reach the stream service — check your connection and try again.', 'err');
+      subEl.textContent = 'No stream is available for this match right now.';
+    });
+  }
   async function mint(videoId){
     setStatus('Getting the stream link…');
     const api = 'https://mret.balenshah.tech/cinema-api/stream-chrome?videoId=' + encodeURIComponent(videoId);
@@ -152,12 +172,14 @@
   }
   if (tvappId) {
     playTvapp(tvappId);
+  } else if (fbId) {
+    playFootybite(fbId);
   } else if (directUrl) {
     playUrl(directUrl);
   } else if (videoId) {
     mint(videoId);
   } else {
-    setStatus('No match given. Open this page with ?tvapp=<id>, ?videoId=DR_… or ?url=<m3u8>.', 'err');
+    setStatus('No match given. Open this page with ?tvapp=<id>, ?footybite=<id>, ?videoId=DR_… or ?url=<m3u8>.', 'err');
     subEl.textContent = '';
   }
 })();

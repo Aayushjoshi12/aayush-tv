@@ -178,6 +178,7 @@
   "use strict";
   var API = "https://aayush-tv-minter.vercel.app/api/onexbet";
   var TVAPP = "https://mret.balenshah.tech/tvapp-api";
+  var FB = "https://mret.balenshah.tech/footybite-api";
   var POLL_MS = 5000, DETAIL_MS = 15000;
   var npl = [], top = [];
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
@@ -222,17 +223,30 @@
   // advances it, and the span just shows the shared value — so
   // the list and the detail panel always agree, and a refresh
   // never snaps the clock back.
-  function syncClock(g){
+  // Frozen-feed detection is tracked PER SOURCE (halfState):
+  // the list (topGamesByStat) and the detail (games1x2) report
+  // the same match's timer a couple of seconds apart, so a
+  // single shared "last feed value" bounced between the two and
+  // the frozen counter never reached 3 — the detail said
+  // "Half-time" (its feed reports status HT) while the list kept
+  // ticking to the 45:10 cap. Each source now counts its own
+  // frozen polls, and the list also inherits the open detail's
+  // half-time state for the same game id (see refreshLists).
+  var halfState = {};
+  function syncClock(g, src){
     if (!g || g.status !== "live" || g.cricket || typeof g.timerSec !== "number") return;
     var s = clockState[g.id];
+    var hk = g.id + ":" + (src || "list");
+    var hs = halfState[hk] || { lastFeed: null, frozen: 0 };
     // Frozen feed: the timer has not moved (within 1s) since
-    // the last poll. A 2nd-half match whose timer sits at 45:00
-    // for 15s is in the half-time break, not playing — show
-    // "Half-time" instead of a frozen 45:10.
-    var moved = s ? Math.abs(g.timerSec - s.lastFeed) : 99;
-    var frozen = (moved <= 1) ? (s.frozen || 0) + 1 : 0;
+    // this source's last poll. A 2nd-half match whose timer sits
+    // at 45:00 for 15s is in the half-time break, not playing —
+    // show "Half-time" instead of a frozen 45:10.
+    var moved = hs.lastFeed == null ? 99 : Math.abs(g.timerSec - hs.lastFeed);
+    var frozen = (moved <= 1) ? hs.frozen + 1 : 0;
+    halfState[hk] = { lastFeed: g.timerSec, frozen: frozen };
     var sec = Math.max(s ? s.sec : 0, g.timerSec);
-    clockState[g.id] = { sec: sec, feed: Math.max(s ? s.feed : 0, g.timerSec), lastFeed: g.timerSec, frozen: frozen };
+    clockState[g.id] = { sec: sec, feed: Math.max(s ? s.feed : 0, g.timerSec) };
     g._halfTime = (g.period === "2H" && g.timerSec >= 2695 && g.timerSec <= 2715 && frozen >= 3);
   }
   function pruneClocks(){
@@ -242,6 +256,7 @@
     });
     if (detailData && detailData.status === "live" && !detailData.cricket && typeof detailData.timerSec === "number") keep[detailData.id] = true;
     Object.keys(clockState).forEach(function(id){ if (!keep[id]) delete clockState[id]; });
+    Object.keys(halfState).forEach(function(k){ if (!keep[k.split(":")[0]]) delete halfState[k]; });
   }
   function clockHtml(g){
     if (g.status === "FT") return '<span class="g-clock">Full-time</span>';
@@ -341,7 +356,14 @@
       }
       fetchedAt = Date.now();
       npl = n; top = t;
-      npl.concat(top).forEach(syncClock);
+      npl.concat(top).forEach(function(g){
+        syncClock(g, "list");
+        // Same game as the open detail, which already knows it is
+        // half-time (its feed reports status HT): say so here too
+        // instead of ticking until this source's frozen counter
+        // catches up on its own.
+        if (detailData && detailData.id === g.id && (detailData.status === "HT" || detailData._halfTime)) g._halfTime = true;
+      });
       pruneClocks();
       renderLists();
     }).catch(function(){
@@ -370,14 +392,22 @@
     if (d.hasLineups) h += '<div><div class="k">Line-ups</div>Available</div>';
     h += '</div>';
     // Watch button: shown ONLY when the stream was confirmed available
-    // (openDetail probes the minter). A 1xBet video id alone does not
+    // (openDetail probes the minters). A 1xBet video id alone does not
     // count — that path cannot play right now — and neither does an
-    // unconfirmed TVApp id. If no stream is confirmed, no button and
-    // no note: the option simply is not there.
-    if (d.streamAvailable && d.tvappId) {
-      var watchHref = "stream.html?tvapp=" + encodeURIComponent(d.tvappId) +
-        (d.videoId ? "&videoId=" + encodeURIComponent(d.videoId) : "") +
-        "&name=" + encodeURIComponent(d.home + " vs " + d.away);
+    // unconfirmed TVApp or Footybite id. If no stream is confirmed,
+    // no button and no note: the option simply is not there. TVApp is
+    // preferred when both confirmed; Footybite is the fallback.
+    if (d.streamAvailable && (d.tvappId || d.fbId)) {
+      var watchHref;
+      if (d.tvappId) {
+        watchHref = "stream.html?tvapp=" + encodeURIComponent(d.tvappId) +
+          (d.videoId ? "&videoId=" + encodeURIComponent(d.videoId) : "") +
+          "&name=" + encodeURIComponent(d.home + " vs " + d.away);
+      } else {
+        watchHref = "stream.html?footybite=" + encodeURIComponent(d.fbId) +
+          (d.videoId ? "&videoId=" + encodeURIComponent(d.videoId) : "") +
+          "&name=" + encodeURIComponent(d.home + " vs " + d.away);
+      }
       h += '<a class="watch" href="' + watchHref + '">▶ Watch live</a>';
     }
     if (d.stats && d.stats.length) {
@@ -411,7 +441,7 @@
   }
   function showDetail(d){
     detailData = d;
-    syncClock(d);
+    syncClock(d, "detail");
     $("detail").innerHTML = detailHtml(d);
     $("overlay").classList.add("open");
     $("dClose").addEventListener("click", closeDetail);
@@ -437,6 +467,20 @@
       $("dClose").addEventListener("click", closeDetail);
     });
   }
+  // Same probe for the Footybite minter, used when the TVApp lookup
+  // found nothing for this fixture (or its stream check failed). The
+  // button appears only if the check passes (8s cap).
+  function checkFootybite(id, d){
+    if (!d || !d.fbId) return;
+    var checkP = fetchJson(FB + "/stream-check?id=" + encodeURIComponent(d.fbId)).catch(function(){ return null; });
+    var checkTimeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); });
+    Promise.race([checkP, checkTimeout]).then(function(c){
+      if (detailId !== id || !c || !c.available || !detailData) return;
+      detailData.streamAvailable = true;
+      $("detail").innerHTML = detailHtml(detailData);
+      $("dClose").addEventListener("click", closeDetail);
+    });
+  }
   function openDetail(id){
     detailId = id;
     // Look up the same fixture on the TVApp minter FIRST (it needs only
@@ -447,13 +491,19 @@
     var findP = listCopy
       ? fetchJson(TVAPP + "/find?home=" + encodeURIComponent(listCopy.home || "") + "&away=" + encodeURIComponent(listCopy.away || "")).catch(function(){ return null; })
       : Promise.resolve(null);
+    // Same lookup on the Footybite minter, in parallel — it is the
+    // fallback when TVApp has no stream for this fixture.
+    var fbFindP = listCopy
+      ? fetchJson(FB + "/find?home=" + encodeURIComponent(listCopy.home || "") + "&away=" + encodeURIComponent(listCopy.away || "")).catch(function(){ return null; })
+      : Promise.resolve(null);
     var findTimeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 3000); });
     Promise.all([
       fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)),
-      Promise.race([findP, findTimeout])
+      Promise.race([findP, findTimeout]),
+      Promise.race([fbFindP, findTimeout])
     ]).then(function(res){
       if (detailId !== id) return; // a newer tap won
-      var r = res[0], f = res[1];
+      var r = res[0], f = res[1], fb = res[2];
       var d = (r && r.detail) || null;
       if (!d) {
         // Fall back to the list copy (upcoming games are not in
@@ -462,9 +512,11 @@
       }
       if (!d) { closeDetail(); return; }
       if (f && f.id) d.tvappId = f.id;
+      if (fb && fb.id) d.fbId = fb.id;
       fetchedAt = fetchedAt || Date.now();
       showDetail(d);
       checkStream(id, d);
+      checkFootybite(id, d);
       // If the lookup had nothing to work with yet (opened via search),
       // try once more with the detail's own team names.
       if (!d.tvappId) {
@@ -476,13 +528,22 @@
           checkStream(id, detailData);
         }).catch(function(){});
       }
+      if (!d.fbId) {
+        fetchJson(FB + "/find?home=" + encodeURIComponent(d.home || "") + "&away=" + encodeURIComponent(d.away || "")).then(function(f3){
+          if (detailId !== id || !f3 || !f3.id || !detailData) return;
+          detailData.fbId = f3.id;
+          $("detail").innerHTML = detailHtml(detailData);
+          $("dClose").addEventListener("click", closeDetail);
+          checkFootybite(id, detailData);
+        }).catch(function(){});
+      }
       if (detailTimer) clearInterval(detailTimer);
       detailTimer = setInterval(function(){
         if (detailId !== id) return;
         fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).then(function(r2){
           if (detailId !== id) return;
           var d2 = (r2 && r2.detail) || null;
-          if (d2) { if (detailData && detailData.tvappId) d2.tvappId = detailData.tvappId; if (detailData && detailData.streamAvailable) d2.streamAvailable = true; detailData = d2; syncClock(d2); $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
+          if (d2) { if (detailData && detailData.tvappId) d2.tvappId = detailData.tvappId; if (detailData && detailData.fbId) d2.fbId = detailData.fbId; if (detailData && detailData.streamAvailable) d2.streamAvailable = true; detailData = d2; syncClock(d2, "detail"); $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
         }).catch(function(){});
       }, DETAIL_MS);
     }).catch(function(){ closeDetail(); });
