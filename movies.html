@@ -590,24 +590,23 @@ async function runSearch(q) {
           const y = String(it.year || "").slice(0, 4);
           if (!want) return null;
           const series = isSeries(it);
-          const cands = metas.filter((m) => {
-            const n = normTitle(m.name || "");
-            if (!n) return false;
-            if (!(n === want || n.indexOf(want) === 0 || want.indexOf(n) === 0)) return false;
-            const my = yearOf(m);
-            if (y && my && my !== y) return false;
-            return true;
-          });
-          // Prefer the meta whose type matches the item — the
-          // movie search returns the 1985 "Vision Quest" film
-          // for a "Visionquest — Season 1" query too, and the
-          // name alone cannot tell them apart. Fall back to the
-          // other type only on an exact name match: a prefix
+          // Same-type first, exact name before prefix (27 Nov
+          // 2026): the old first-candidate pick took
+          // "VisionQuest Sound" for the S1 card when it preceded
+          // "VisionQuest" in the results, and that dead-end id
+          // (no rating anywhere) left the card on the Cinemeta
+          // ★7.8 while the panel showed the live ★7.7. Prefix
+          // matches are strict here — they need the year to
+          // agree — because a wrong enrichment match poisons
+          // both the rating and the IMDb id.
+          const same = pickCinemetaMeta(metas.filter((m) => (m.type === "series") === series), want, y, true);
+          if (same) return same;
+          const other = pickCinemetaMeta(metas.filter((m) => (m.type === "series") !== series), want, y, true);
+          // Cross-type only on an exact name match: a prefix
           // match with no year ("Reply" → "Reply All", a movie
           // with no releaseInfo) is not enough evidence.
-          return cands.find((m) => (m.type === "series") === series)
-            || cands.find((m) => normTitle(m.name || "") === want)
-            || null;
+          if (other && normTitle(other.name || "") === want) return other;
+          return null;
         };
         // Unique titles the modlist items match — fetch their
         // full meta once each (deduped, capped) for the rating.
@@ -1204,6 +1203,33 @@ function normTitle(s) {
   return String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+// Best match from a Cinemeta search list (27 Nov 2026): an exact
+// normalised name always beats a prefix match, so "VisionQuest
+// Sound" (whose name merely starts with "VisionQuest") can never
+// win over "VisionQuest" itself no matter what order Cinemeta
+// returns them in — the old first-match pick did exactly that
+// for the Visionquest S1 card (its year is empty, so nothing
+// filtered the wrong pick out), and the card then showed the
+// wrong title's rating. With strictPrefix, a prefix match only
+// counts when the year agrees on both sides; with no year on
+// either side it is a guess, and the enrichment (which poisons
+// both the rating and the IMDb id) refuses it.
+function pickCinemetaMeta(metas, want, year, strictPrefix) {
+  const y = String(year || "");
+  const cands = (metas || []).filter((x) => {
+    const n = normTitle(x.name || "");
+    if (!n) return false;
+    const exact = n === want;
+    const prefix = !exact && (n.indexOf(want) === 0 || want.indexOf(n) === 0);
+    if (!exact && !prefix) return false;
+    const my = String(x.releaseInfo || "").slice(0, 4);
+    if (y && my && my !== y) return false;
+    if (strictPrefix && prefix && !(y && my && my === y)) return false;
+    return true;
+  });
+  return cands.find((x) => normTitle(x.name || "") === want) || cands[0] || null;
+}
+
 // Cinemeta meta for a title (free, no key, CORS *): search the
 // catalog by title, then fetch the full meta. The meta carries
 // both moviedb_id (for Watch) and poster (for the poster
@@ -1226,12 +1252,7 @@ async function cinemetaMeta(title, year, isSeries) {
     const s = await getJSON(CINEMETA + "/catalog/" + type + "/top/search=" + encodeURIComponent(query) + ".json").catch(() => null);
     const metas = (s && s.metas) || [];
     if (!metas.length) continue;
-    const m = metas.find((x) => {
-      const n = normTitle(x.name);
-      if (n !== want && n.indexOf(want) !== 0) return false;
-      if (year && x.releaseInfo && String(x.releaseInfo).slice(0, 4) !== String(year)) return false;
-      return true;
-    });
+    const m = pickCinemetaMeta(metas, want, year, false);
     if (!m || !m.imdb_id) continue;
     const meta = await getJSON(CINEMETA + "/meta/" + type + "/" + m.imdb_id + ".json").catch(() => null);
     if (meta && meta.meta) return meta.meta;
@@ -1303,10 +1324,9 @@ async function cinemetaPosterMeta(title, year, isSeries) {
     // old exact/prefix checks missed "Visionquest" vs
     // "Vision Quest" and "Rob Lowe the Outsider" vs
     // "Rob Lowe: The Outsider", so those cards stayed 🎬.
-    const m = metas.find((x) => {
-      const n = normTitle(x.name);
-      return n === bl || n.indexOf(bl) === 0;
-    });
+    // Exact name wins over a prefix match, whatever order
+    // Cinemeta returns them in.
+    const m = pickCinemetaMeta(metas, bl, year, false);
     if (!m || !m.imdb_id) continue;
     if (year && m.releaseInfo && String(m.releaseInfo).slice(0, 4) !== String(year)) continue;
     const meta = await getJSON(CINEMETA + "/meta/" + type + "/" + m.imdb_id + ".json").catch(() => null);
