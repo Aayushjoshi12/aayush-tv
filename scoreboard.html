@@ -417,27 +417,43 @@
   }
   function openDetail(id){
     detailId = id;
-    fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).then(function(r){
+    // Look up the same fixture on the TVApp minter FIRST (it needs only
+    // the team names, which the list copy already has) so the Watch button
+    // is built with the highest-quality stream from the start — the panel
+    // must never show a videoId-only button while the lookup is still
+    // running. The lookup gives up after 3s so a slow minter never
+    // blocks the panel.
+    var listCopy = (npl.concat(top)).filter(function(g){ return String(g.id) === String(id); })[0] || null;
+    var findP = listCopy
+      ? fetchJson(TVAPP + "/find?home=" + encodeURIComponent(listCopy.home || "") + "&away=" + encodeURIComponent(listCopy.away || "")).catch(function(){ return null; })
+      : Promise.resolve(null);
+    var findTimeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 3000); });
+    Promise.all([
+      fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)),
+      Promise.race([findP, findTimeout])
+    ]).then(function(res){
       if (detailId !== id) return; // a newer tap won
+      var r = res[0], f = res[1];
       var d = (r && r.detail) || null;
       if (!d) {
         // Fall back to the list copy (upcoming games are not in
         // the live list, so the search may return no detail).
-        var all = npl.concat(top);
-        d = all.filter(function(g){ return String(g.id) === String(id); })[0] || null;
+        d = listCopy || null;
       }
       if (!d) { closeDetail(); return; }
+      if (f && f.id) d.tvappId = f.id;
       fetchedAt = fetchedAt || Date.now();
       showDetail(d);
-      // Look up the same fixture on the TVApp minter so the Watch button
-      // can play the highest-quality stream natively; the 1xBet link stays
-      // as the fallback. Silent when the minter has no match for it.
-      fetchJson(TVAPP + "/find?home=" + encodeURIComponent(d.home || "") + "&away=" + encodeURIComponent(d.away || "")).then(function(f){
-        if (detailId !== id || !f || !f.id || !detailData) return;
-        detailData.tvappId = f.id;
-        $("detail").innerHTML = detailHtml(detailData);
-        $("dClose").addEventListener("click", closeDetail);
-      }).catch(function(){});
+      // If the lookup had nothing to work with yet (opened via search),
+      // try once more with the detail's own team names.
+      if (!d.tvappId) {
+        fetchJson(TVAPP + "/find?home=" + encodeURIComponent(d.home || "") + "&away=" + encodeURIComponent(d.away || "")).then(function(f2){
+          if (detailId !== id || !f2 || !f2.id || !detailData) return;
+          detailData.tvappId = f2.id;
+          $("detail").innerHTML = detailHtml(detailData);
+          $("dClose").addEventListener("click", closeDetail);
+        }).catch(function(){});
+      }
       if (detailTimer) clearInterval(detailTimer);
       detailTimer = setInterval(function(){
         if (detailId !== id) return;
