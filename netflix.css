@@ -33,7 +33,7 @@ header.nfx-solid {
    left/transform trick. netflix.js sets --sbw to the scrollbar
    width so the hero is exactly one layout-viewport wide and no
    horizontal scrollbar appears. */
-#hero {
+#hero:has(.hero-content) {
   min-height: min(86vh, 760px);
   left: 50%;
   transform: translateX(-50%);
@@ -42,26 +42,26 @@ header.nfx-solid {
   margin-bottom: 16px;
   border-radius: 0 !important;
 }
-#hero .hero-content {
+#hero:has(.hero-content) .hero-content {
   padding-left: max(36px, 4%);
 }
-#hero .hero-bg {
+#hero:has(.hero-content) .hero-bg {
   background-size: cover;
   background-position: center 18%;
 }
-#hero .hero-shade {
+#hero:has(.hero-content) .hero-shade {
   background:
     linear-gradient(77deg, rgba(0, 0, 0, .62) 18%, rgba(0, 0, 0, 0) 56%),
     linear-gradient(0deg, #141414 1%, rgba(20, 20, 20, 0) 32%),
     linear-gradient(180deg, rgba(20, 20, 20, .42) 0%, rgba(20, 20, 20, 0) 20%) !important;
 }
-#hero .hero-kicker {
+#hero:has(.hero-content) .hero-kicker {
   color: var(--nfx-red);
   font-weight: 700;
   letter-spacing: .22em;
   text-shadow: 1px 1px 4px rgba(0, 0, 0, .6);
 }
-#hero .hero-title {
+#hero:has(.hero-content) .hero-title {
   font-size: clamp(2.3rem, 5.6vw, 4.3rem);
   font-weight: 800;
   line-height: 1.05;
@@ -69,11 +69,11 @@ header.nfx-solid {
   max-width: 660px;
   text-shadow: 2px 2px 8px rgba(0, 0, 0, .55);
 }
-#hero .hero-meta {
+#hero:has(.hero-content) .hero-meta {
   font-weight: 600;
   text-shadow: 1px 1px 4px rgba(0, 0, 0, .6);
 }
-#hero .hero-desc {
+#hero:has(.hero-content) .hero-desc {
   max-width: 540px;
   font-size: 1.06rem;
   line-height: 1.45;
@@ -83,7 +83,7 @@ header.nfx-solid {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-#hero .hero-play {
+#hero:has(.hero-content) .hero-play {
   background: #fff;
   color: #000;
   border: none;
@@ -93,10 +93,10 @@ header.nfx-solid {
   padding: .72rem 2.1rem;
   cursor: pointer;
 }
-#hero .hero-play:hover {
+#hero:has(.hero-content) .hero-play:hover {
   background: rgba(255, 255, 255, .74);
 }
-#hero .hero-info {
+#hero:has(.hero-content) .hero-info {
   background: rgba(109, 109, 110, .7);
   color: #fff;
   border: none;
@@ -106,14 +106,14 @@ header.nfx-solid {
   padding: .72rem 1.7rem;
   cursor: pointer;
 }
-#hero .hero-info:hover {
+#hero:has(.hero-content) .hero-info:hover {
   background: rgba(109, 109, 110, .42);
 }
-#hero .hero-arrow {
+#hero:has(.hero-content) .hero-arrow {
   opacity: 0;
   transition: opacity .25s ease;
 }
-#hero:hover .hero-arrow {
+#hero:has(.hero-content):hover .hero-arrow {
   opacity: 1;
 }
 
