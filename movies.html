@@ -417,16 +417,16 @@ function isSeries(item) {
 // below the fold has not started loading at all (empty
 // currentSrc) until it scrolls into view, and failing it then
 // kills a good poster: the Cinemeta fallback often has no exact
-// match for the title, so the card stays 🎬 forever (the New row
-// and Top Rated grid showed this — the same titles painted fine
-// after a re-render, once the browser had cached them). Re-arm
-// while the load has not started; fail only once it has started
-// and still shows no pixels.
+// match for the title (the New row's Reply / One Last Order /
+// Pooh titles return nothing from Cinemeta), so the card stays
+// 🎬 forever even though its site poster loads fine. So the
+// watchdog NEVER fails an image that has not started loading —
+// it re-arms until the load begins (makeCard also only arms it
+// once the card is near the viewport).
 function armPosterWatchdog(img, isSettled, onFail) {
-  let checks = 0;
   const tick = () => setTimeout(() => {
     if (isSettled()) return;
-    if (!img.currentSrc && checks < 5) { checks++; tick(); return; }
+    if (!img.currentSrc) { tick(); return; }
     if (img.naturalWidth === 0) onFail();
   }, 4000);
   tick();
@@ -459,7 +459,21 @@ function makeCard(item, onTap) {
     img.onerror = onPosterFail;
     img.src = item.poster;
     poster.appendChild(img);
-    armPosterWatchdog(img, () => posterSettled, onPosterFail);
+    // Start the watchdog only once the card is near the viewport
+    // (27 Nov 2026): the New row sits below the fold, and arming
+    // the timer at page load failed its posters before the user
+    // ever scrolled there — they stayed 🎬 even though the
+    // images load fine.
+    if ("IntersectionObserver" in window) {
+      const obs = new IntersectionObserver((entries) => {
+        if (!entries[0] || !entries[0].isIntersecting) return;
+        obs.disconnect();
+        armPosterWatchdog(img, () => posterSettled, onPosterFail);
+      }, { rootMargin: "200px" });
+      obs.observe(img);
+    } else {
+      armPosterWatchdog(img, () => posterSettled, onPosterFail);
+    }
   } else {
     // No site poster at all — try Cinemeta straight away.
     const img = document.createElement("img");
@@ -2992,16 +3006,23 @@ function renderTopShowsRow() {
 // meta (cached per title+year, so repeats are free). Same source
 // the New row uses — patched in place so the card never waits.
 function fillCardRating(card, item) {
-  if (!card || item.rating) return;
+  if (!card) return;
   // Live IMDb rating first (26 Nov 2026) when this card's title
-  // has one; Cinemeta full meta stays the fallback.
+  // has one — and it REPLACES the Cinemeta rating the card was
+  // rendered with, so the card and the detail panel agree
+  // (27 Nov 2026: Visionquest S1 showed ★7.8 on the card but
+  // ★7.7 in the panel, because the old early return below never
+  // let the live rating in).
   const lr = liveRating(item.imdb);
   if (lr !== null) {
+    const r = card.querySelector(".rating");
+    if (r) { r.textContent = "★ " + lr; return; }
     let y = card.querySelector(".year");
     if (!y) { y = el("div", "year", item.year || ""); card.appendChild(y); }
     y.appendChild(el("span", "rating", "★ " + lr));
     return;
   }
+  if (item.rating) return; // no live rating: keep the Cinemeta one
   cinemetaMetaCached(baseTitle(item.title), item.year, isSeries(item)).then((m) => {
     if (!m || !m.imdbRating || !card.isConnected) return;
     if (card.querySelector(".rating")) return;
