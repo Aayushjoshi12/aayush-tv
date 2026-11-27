@@ -18,6 +18,14 @@
     onScroll();
   }
 
+  // Scrollbar width, used by the billboard hero's full-width math.
+  function setSbw() {
+    var sbw = window.innerWidth - document.documentElement.clientWidth;
+    document.documentElement.style.setProperty("--sbw", sbw + "px");
+  }
+  setSbw();
+  window.addEventListener("resize", setSbw);
+
   function attachChevrons(row) {
     if (row.dataset.nfxChev) return;
     var host = row.parentElement;
@@ -56,7 +64,10 @@
   }
 
   function scan() {
-    document.querySelectorAll(".row").forEach(function (row) {
+    // Movies' poster rows scroll on .grid-row elements inside the
+    // row wraps; the plain .row scroller is used for search results
+    // (and on the TV Serials page). Cover both.
+    document.querySelectorAll(".row, .grid-row").forEach(function (row) {
       if (row.children.length) attachChevrons(row);
     });
   }

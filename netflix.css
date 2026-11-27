@@ -29,13 +29,21 @@ header.nfx-solid {
 }
 
 /* ---------- Movies billboard hero ---------- */
-/* Pull the hero out of the page container's padding so it runs
-   edge-to-edge like a Netflix billboard (the page wraps content in
-   a padded <main>: 18px top, 20px sides). */
+/* True Netflix billboard: full window width, centred with the
+   left/transform trick. netflix.js sets --sbw to the scrollbar
+   width so the hero is exactly one layout-viewport wide and no
+   horizontal scrollbar appears. */
 #hero {
   min-height: min(86vh, 760px);
-  margin: -18px -20px 16px !important;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100vw - var(--sbw, 0px));
+  margin-top: -18px;
+  margin-bottom: 16px;
   border-radius: 0 !important;
+}
+#hero .hero-content {
+  padding-left: max(36px, 4%);
 }
 #hero .hero-bg {
   background-size: cover;
@@ -138,10 +146,12 @@ header.nfx-solid {
   border-radius: 3px;
 }
 @media (hover: hover) and (min-width: 761px) {
-  .row .card {
+  .row .card,
+  .grid-row .card {
     transition: transform .38s cubic-bezier(.21, .61, .35, 1), box-shadow .38s ease;
   }
-  .row .card:hover {
+  .row .card:hover,
+  .grid-row .card:hover {
     transform: scale(1.16);
     z-index: 30;
     box-shadow: 0 14px 34px rgba(0, 0, 0, .8);
