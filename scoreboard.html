@@ -369,19 +369,16 @@
       metaRow("Game ID", String(d.id || "") + (d.constId ? " · " + d.constId : ""));
     if (d.hasLineups) h += '<div><div class="k">Line-ups</div>Available</div>';
     h += '</div>';
-    // Watch button: the TVApp stream (highest quality, plays natively) first,
-    // the 1xBet link second as the fallback — stream.html tries them in order.
-    var watchHref = null;
-    if (d.videoId || d.tvappId) {
-      watchHref = "stream.html?" +
-        (d.tvappId ? "tvapp=" + encodeURIComponent(d.tvappId) + "&" : "") +
-        (d.videoId ? "videoId=" + encodeURIComponent(d.videoId) + "&" : "") +
-        "name=" + encodeURIComponent(d.home + " vs " + d.away);
-    }
-    if (watchHref) {
+    // Watch button: shown ONLY when the stream was confirmed available
+    // (openDetail probes the minter). A 1xBet video id alone does not
+    // count — that path cannot play right now — and neither does an
+    // unconfirmed TVApp id. If no stream is confirmed, no button and
+    // no note: the option simply is not there.
+    if (d.streamAvailable && d.tvappId) {
+      var watchHref = "stream.html?tvapp=" + encodeURIComponent(d.tvappId) +
+        (d.videoId ? "&videoId=" + encodeURIComponent(d.videoId) : "") +
+        "&name=" + encodeURIComponent(d.home + " vs " + d.away);
       h += '<a class="watch" href="' + watchHref + '">▶ Watch live</a>';
-    } else if (d.video) {
-      h += '<p class="watch-note">Live stream available</p>';
     }
     if (d.stats && d.stats.length) {
       h += '<h4>Match stats</h4><table class="stats"><tr><th></th><th>' + esc(d.home) + '</th><th>' + esc(d.away) + '</th></tr>' +
@@ -425,14 +422,27 @@
     detailId = null; detailData = null;
     if (detailTimer) { clearInterval(detailTimer); detailTimer = null; }
   }
+  // Ask the minter whether the TVApp stream for this match is actually
+  // playable right now. The panel renders first without a Watch button;
+  // the button appears only if this check passes (8s cap). A failed or
+  // slow check means no button — never a dead one.
+  function checkStream(id, d){
+    if (!d || !d.tvappId) return;
+    var checkP = fetchJson(TVAPP + "/stream-check?id=" + encodeURIComponent(d.tvappId)).catch(function(){ return null; });
+    var checkTimeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); });
+    Promise.race([checkP, checkTimeout]).then(function(c){
+      if (detailId !== id || !c || !c.available || !detailData) return;
+      detailData.streamAvailable = true;
+      $("detail").innerHTML = detailHtml(detailData);
+      $("dClose").addEventListener("click", closeDetail);
+    });
+  }
   function openDetail(id){
     detailId = id;
     // Look up the same fixture on the TVApp minter FIRST (it needs only
-    // the team names, which the list copy already has) so the Watch button
-    // is built with the highest-quality stream from the start — the panel
-    // must never show a videoId-only button while the lookup is still
-    // running. The lookup gives up after 3s so a slow minter never
-    // blocks the panel.
+    // the team names, which the list copy already has) so the stream
+    // check can run as soon as the panel opens. The lookup gives up
+    // after 3s so a slow minter never blocks the panel.
     var listCopy = (npl.concat(top)).filter(function(g){ return String(g.id) === String(id); })[0] || null;
     var findP = listCopy
       ? fetchJson(TVAPP + "/find?home=" + encodeURIComponent(listCopy.home || "") + "&away=" + encodeURIComponent(listCopy.away || "")).catch(function(){ return null; })
@@ -454,6 +464,7 @@
       if (f && f.id) d.tvappId = f.id;
       fetchedAt = fetchedAt || Date.now();
       showDetail(d);
+      checkStream(id, d);
       // If the lookup had nothing to work with yet (opened via search),
       // try once more with the detail's own team names.
       if (!d.tvappId) {
@@ -462,6 +473,7 @@
           detailData.tvappId = f2.id;
           $("detail").innerHTML = detailHtml(detailData);
           $("dClose").addEventListener("click", closeDetail);
+          checkStream(id, detailData);
         }).catch(function(){});
       }
       if (detailTimer) clearInterval(detailTimer);
@@ -470,7 +482,7 @@
         fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).then(function(r2){
           if (detailId !== id) return;
           var d2 = (r2 && r2.detail) || null;
-          if (d2) { if (detailData && detailData.tvappId) d2.tvappId = detailData.tvappId; detailData = d2; syncClock(d2); $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
+          if (d2) { if (detailData && detailData.tvappId) d2.tvappId = detailData.tvappId; if (detailData && detailData.streamAvailable) d2.streamAvailable = true; detailData = d2; syncClock(d2); $("detail").innerHTML = detailHtml(d2); $("dClose").addEventListener("click", closeDetail); tick(); }
         }).catch(function(){});
       }, DETAIL_MS);
     }).catch(function(){ closeDetail(); });
@@ -500,21 +512,6 @@
     });
   }
 
-  function aiKickoff(date){
-    if (!date) return "";
-    var d = new Date(date);
-    return d.toLocaleString("en-GB", { timeZone: "Asia/Kathmandu", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " NPT";
-  }
-
-  function aiCard(r){
-    // No data-id on purpose: these cards link straight to Watch instead
-    // of opening the 1xBet detail panel (the TVApp id is not a 1xBet id).
-    return '<div class="game"><div class="g-league"><span>' + esc(r.category || "Football") + '</span></div>' +
-      '<div class="g-main"><span class="g-team">' + esc(r.title || "") + '</span></div>' +
-      '<div class="sub">Game ID: ' + esc(r.id) + (r.date ? ' · ' + esc(aiKickoff(r.date)) : '') + '</div>' +
-      '<a class="watch" href="stream.html?tvapp=' + encodeURIComponent(r.id) + '">▶ Watch live</a></div>';
-  }
-
   function doAiAsk(q){
     q = String(q || "").trim();
     if (!q) return;
@@ -523,22 +520,35 @@
     $("searchSub").textContent = 'AI — "' + q + '"';
     $("searchGames").innerHTML = '<div class="empty" style="padding:18px">Thinking…</div>';
     document.getElementById("searchSec").scrollIntoView({ behavior: "smooth", block: "start" });
-    fetchJson(TVAPP + "/ai-find?q=" + encodeURIComponent(q)).then(function(r){
-      if (r && r.id) {
-        var understood = (r.home && r.away) ? ("Found: " + r.home + " vs " + r.away) : ("Found: " + (r.title || ""));
-        $("aiNote").textContent = understood + (r.date ? " · " + aiKickoff(r.date) : "") + (r.ai ? " · understood by AI" : "");
-        $("searchGames").innerHTML = aiCard(r);
+    // Parse the words into teams, then search the 1xBet feed — the
+    // Scoreboard shows 1xBet matches only. The parsed teams open the
+    // 1xBet detail panel (which shows the 1xBet game ID); the TVApp
+    // list is never shown here.
+    fetchJson(TVAPP + "/ai-parse?q=" + encodeURIComponent(q)).then(function(p){
+      var home = (p && p.home) || "", away = (p && p.away) || "";
+      var query = (home + " " + away).trim() || q;
+      return fetchJson(API + "?mode=search&q=" + encodeURIComponent(query)).then(function(r){
+        return { parsed: p, result: r };
+      });
+    }).then(function(out){
+      var r = out.result, p = out.parsed;
+      if (r && r.detail) {
+        var understood = (p && p.home && p.away) ? ("Found: " + p.home + " vs " + p.away) : ("Found: " + (r.detail.home || "") + " vs " + (r.detail.away || ""));
+        $("aiNote").textContent = understood;
+        $("searchSec").style.display = "none";
+        openDetail(r.detail.id);
         return;
       }
-      var sug = (r && r.suggestions) || [];
-      if (sug.length) {
-        $("aiNote").textContent = "Couldn't find that match — these are live right now:";
-        $("searchGames").innerHTML = sug.map(aiCard).join("");
-      } else {
-        $("searchGames").innerHTML = '<div class="empty" style="padding:18px">Couldn\'t find that match. Try the team names, e.g. "barca vs madrid".</div>';
+      var games = (r && r.games) || [];
+      if (games.length) {
+        $("aiNote").textContent = "Matches from 1xBet:";
+        $("searchGames").innerHTML = games.map(gameHtml).join("");
+        return;
       }
+      // Nothing in the 1xBet feed for the parsed teams — try the raw words.
+      doSearch(q);
     }).catch(function(){
-      $("searchGames").innerHTML = '<div class="empty" style="padding:18px">The AI lookup failed — check your connection and try again.</div>';
+      doSearch(q);
     });
   }
 
