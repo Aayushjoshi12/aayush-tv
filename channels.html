@@ -562,7 +562,7 @@ function prefetchStream(id) {
 const premiumInflight = new Map();
 function cachedPremium(id) {
   try {
-    const raw = localStorage.getItem("premium3:" + id);
+    const raw = localStorage.getItem("premium4:" + id);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     // Only a cached answer carrying a sources list is usable. The
@@ -575,15 +575,15 @@ function cachedPremium(id) {
   } catch (e) { return null; }
 }
 function cachePremium(id, resp) {
-  // Cache key "premium3:" — bumped 2026-11-11 because "premium2:"
+  // Cache key "premium4:" — bumped 2026-11-11 because "premium2:"
   // entries can hold a 1-source answer from before a channel
   // gained a second backup; the new key makes every browser fetch
   // a fresh sources list instead of serving the stale one.
-  try { localStorage.setItem("premium3:" + id, JSON.stringify({ ...resp, t: Date.now() })); }
+  try { localStorage.setItem("premium4:" + id, JSON.stringify({ ...resp, t: Date.now() })); }
   catch (e) { /* private mode: caching is only an optimisation */ }
 }
 function clearCachedPremium(id) {
-  try { localStorage.removeItem("premium3:" + id); } catch (e) {}
+  try { localStorage.removeItem("premium4:" + id); } catch (e) {}
 }
 async function fetchPremium(id) {
   const entry = PREMIUM_CHANNELS.find(c => c.id === id);
