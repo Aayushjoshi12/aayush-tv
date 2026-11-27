@@ -29,8 +29,13 @@ header.nfx-solid {
 }
 
 /* ---------- Movies billboard hero ---------- */
+/* Pull the hero out of the page container's padding so it runs
+   edge-to-edge like a Netflix billboard (the page wraps content in
+   a padded <main>: 18px top, 20px sides). */
 #hero {
-  min-height: min(84vh, 740px);
+  min-height: min(86vh, 760px);
+  margin: -18px -20px 16px !important;
+  border-radius: 0 !important;
 }
 #hero .hero-bg {
   background-size: cover;

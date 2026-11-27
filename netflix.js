@@ -3,7 +3,9 @@
 //  1. Header turns solid Netflix black once the page is scrolled.
 //  2. Horizontal rows get Netflix-style hover chevron buttons that
 //     scroll the row by most of a screen. Rows are rendered by the
-//     pages' own scripts after load, so this re-scans for a while.
+//     pages' own scripts after load (and re-rendered on searches),
+//     so a MutationObserver keeps watch and attaches buttons to any
+//     row that overflows and does not have them yet.
 (function () {
   "use strict";
 
@@ -18,9 +20,13 @@
 
   function attachChevrons(row) {
     if (row.dataset.nfxChev) return;
-    if (row.scrollWidth <= row.clientWidth + 12) return;
     var host = row.parentElement;
     if (!host) return;
+    if (host.querySelector(":scope > .nfx-chev")) {
+      row.dataset.nfxChev = "1";
+      return;
+    }
+    if (row.scrollWidth <= row.clientWidth + 12) return; // fits: no buttons needed (yet)
     row.dataset.nfxChev = "1";
     if (getComputedStyle(host).position === "static") {
       host.style.position = "relative";
@@ -49,19 +55,34 @@
     host.appendChild(next);
   }
 
-  var scans = 0;
-  var timer = setInterval(function () {
-    scans++;
-    var rows = document.querySelectorAll(".row");
-    var pending = false;
-    rows.forEach(function (row) {
-      if (!row.dataset.nfxChev && row.children.length) {
-        attachChevrons(row);
-        if (!row.dataset.nfxChev) pending = true;
-      }
+  function scan() {
+    document.querySelectorAll(".row").forEach(function (row) {
+      if (row.children.length) attachChevrons(row);
     });
-    if (scans >= 40 || (scans > 6 && !pending && rows.length)) {
-      clearInterval(timer);
-    }
-  }, 1200);
+  }
+
+  var queued = false;
+  function queueScan() {
+    if (queued) return;
+    queued = true;
+    setTimeout(function () {
+      queued = false;
+      scan();
+    }, 350);
+  }
+
+  if (document.body) {
+    new MutationObserver(queueScan).observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  }
+  window.addEventListener("resize", queueScan);
+  scan();
+  // Fallback sweep in case mutations are missed while data loads.
+  var n = 0;
+  var timer = setInterval(function () {
+    scan();
+    if (++n >= 30) clearInterval(timer);
+  }, 1500);
 })();
