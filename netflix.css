@@ -1,0 +1,275 @@
+/* netflix.css — Netflix-style layer for the Movies and TV Serials pages.
+   Loaded after upgrade.css, only on movies.html and entertainment.html.
+   Purely visual: page background, billboard hero, hover-zoom poster rows,
+   Netflix greys/red. No layout or behaviour changes to page logic. */
+
+:root {
+  --nfx-red: #e50914;
+  --nfx-bg: #141414;
+  --nfx-panel: #181818;
+  --nfx-grey: #808080;
+}
+
+body {
+  background: var(--nfx-bg) !important;
+  color: #fff;
+}
+
+/* Header: transparent over the billboard, solid Netflix black on scroll
+   (the .nfx-solid class is toggled by netflix.js). */
+header {
+  background: linear-gradient(180deg, rgba(0, 0, 0, .72) 0%, rgba(0, 0, 0, 0) 100%);
+  transition: background .35s ease;
+}
+header.nfx-solid {
+  background: #141414;
+}
+.brand span {
+  color: var(--nfx-red);
+}
+
+/* ---------- Movies billboard hero ---------- */
+#hero {
+  min-height: min(84vh, 740px);
+}
+#hero .hero-bg {
+  background-size: cover;
+  background-position: center 18%;
+}
+#hero .hero-shade {
+  background:
+    linear-gradient(77deg, rgba(0, 0, 0, .62) 18%, rgba(0, 0, 0, 0) 56%),
+    linear-gradient(0deg, #141414 1%, rgba(20, 20, 20, 0) 32%),
+    linear-gradient(180deg, rgba(20, 20, 20, .42) 0%, rgba(20, 20, 20, 0) 20%) !important;
+}
+#hero .hero-kicker {
+  color: var(--nfx-red);
+  font-weight: 700;
+  letter-spacing: .22em;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, .6);
+}
+#hero .hero-title {
+  font-size: clamp(2.3rem, 5.6vw, 4.3rem);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -.015em;
+  max-width: 660px;
+  text-shadow: 2px 2px 8px rgba(0, 0, 0, .55);
+}
+#hero .hero-meta {
+  font-weight: 600;
+  text-shadow: 1px 1px 4px rgba(0, 0, 0, .6);
+}
+#hero .hero-desc {
+  max-width: 540px;
+  font-size: 1.06rem;
+  line-height: 1.45;
+  text-shadow: 1px 1px 5px rgba(0, 0, 0, .65);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#hero .hero-play {
+  background: #fff;
+  color: #000;
+  border: none;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 1.12rem;
+  padding: .72rem 2.1rem;
+  cursor: pointer;
+}
+#hero .hero-play:hover {
+  background: rgba(255, 255, 255, .74);
+}
+#hero .hero-info {
+  background: rgba(109, 109, 110, .7);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 1.12rem;
+  padding: .72rem 1.7rem;
+  cursor: pointer;
+}
+#hero .hero-info:hover {
+  background: rgba(109, 109, 110, .42);
+}
+#hero .hero-arrow {
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+#hero:hover .hero-arrow {
+  opacity: 1;
+}
+
+/* ---------- Rows and cards ---------- */
+.row-title {
+  color: #e5e5e5;
+  font-size: 1.16rem;
+  font-weight: 600;
+}
+.row {
+  scrollbar-width: none;
+  padding-top: .55rem;
+  padding-bottom: 1.35rem;
+}
+.row::-webkit-scrollbar {
+  display: none;
+}
+.card {
+  border-radius: 4px;
+}
+.card .poster,
+.card .poster img {
+  border-radius: 4px;
+}
+.card .rating {
+  color: #46d369;
+  font-weight: 700;
+}
+.card .badge {
+  border-radius: 3px;
+}
+@media (hover: hover) and (min-width: 761px) {
+  .row .card {
+    transition: transform .38s cubic-bezier(.21, .61, .35, 1), box-shadow .38s ease;
+  }
+  .row .card:hover {
+    transform: scale(1.16);
+    z-index: 30;
+    box-shadow: 0 14px 34px rgba(0, 0, 0, .8);
+    border-radius: 6px;
+  }
+  .grid-row .card {
+    transition: transform .3s ease, box-shadow .3s ease;
+  }
+  .grid-row .card:hover {
+    transform: scale(1.05);
+    z-index: 5;
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .7);
+  }
+}
+
+/* Row chevrons (buttons added by netflix.js) */
+.nfx-chev {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 44px;
+  border: none;
+  background: rgba(20, 20, 20, .55);
+  color: #fff;
+  font-size: 1.7rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .25s ease, background .25s ease;
+  z-index: 40;
+}
+.nfx-chev.prev { left: 0; border-radius: 0 4px 4px 0; }
+.nfx-chev.next { right: 0; border-radius: 4px 0 0 4px; }
+.nfx-rowhost:hover .nfx-chev { opacity: 1; }
+.nfx-chev:hover { background: rgba(20, 20, 20, .85); font-size: 2rem; }
+@media (hover: none) {
+  .nfx-chev { display: none; }
+}
+
+/* ---------- Controls, search, panels ---------- */
+.chips button {
+  background: #232323;
+  border: 1px solid #404040;
+  color: #e5e5e5;
+  border-radius: 4px;
+}
+.chips button:hover {
+  border-color: #8c8c8c;
+}
+.chips button.active {
+  background: #fff;
+  color: #000;
+  border-color: #fff;
+}
+.more-btn,
+.epbtn {
+  background: #2a2a2a;
+  color: #fff;
+  border: 1px solid #484848;
+  border-radius: 4px;
+}
+.more-btn:hover,
+.epbtn:hover {
+  background: #3a3a3a;
+}
+#search {
+  background: rgba(0, 0, 0, .78);
+  border: 1px solid rgba(255, 255, 255, .45);
+  color: #fff;
+  border-radius: 2px;
+}
+#search:focus {
+  border-color: #fff;
+  outline: none;
+}
+#watch-wrap,
+#detail-wrap {
+  background: var(--nfx-panel);
+}
+
+/* ---------- TV Serials (entertainment) ---------- */
+.showcard,
+.card {
+  background: #1d1d1d;
+}
+.card .watch,
+.ep-watch,
+.hero-btn {
+  background: var(--nfx-red);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.card .watch:hover,
+.ep-watch:hover,
+.hero-btn:hover {
+  background: #f6121d;
+}
+.chip {
+  background: #232323;
+  border: 1px solid #404040;
+  color: #e5e5e5;
+  border-radius: 999px;
+}
+.chip:hover {
+  border-color: #8c8c8c;
+}
+.chip.on {
+  background: var(--nfx-red);
+  border-color: var(--nfx-red);
+  color: #fff;
+}
+.ep-row {
+  border-radius: 6px;
+}
+.ep-row:hover {
+  background: rgba(255, 255, 255, .06);
+}
+@media (hover: hover) and (min-width: 761px) {
+  .showgrid .showcard,
+  .row .showcard {
+    transition: transform .3s ease, box-shadow .3s ease;
+  }
+  .showgrid .showcard:hover,
+  .row .showcard:hover {
+    transform: scale(1.045);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, .7);
+    z-index: 5;
+  }
+}
+
+::selection {
+  background: var(--nfx-red);
+  color: #fff;
+}
