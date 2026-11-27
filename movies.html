@@ -413,20 +413,31 @@ function isSeries(item) {
 /* ---------- cards ---------- */
 
 // Poster load watchdog (27 Nov 2026): a hanging host never fires
-// onerror, so a stuck poster needs a timeout — but a LAZY <img>
-// below the fold has not started loading at all (empty
-// currentSrc) until it scrolls into view, and failing it then
-// kills a good poster: the Cinemeta fallback often has no exact
-// match for the title (the New row's Reply / One Last Order /
-// Pooh titles return nothing from Cinemeta), so the card stays
-// 🎬 forever even though its site poster loads fine. So the
-// watchdog NEVER fails an image that has not started loading —
-// it re-arms until the load begins (makeCard also only arms it
-// once the card is near the viewport).
+// onerror, so a stuck poster needs a timeout — but MoviesMod's
+// image host is slow/flaky from some networks, and a 14 KB poster
+// can take well over 4 s (the New row's Reply / One Last Order /
+// Pooh posters were killed at 4 s even though they load fine —
+// and the Cinemeta fallback has no match for those titles, so
+// the cards stayed 🎬). So: never fail an image that has not
+// started loading; once it has started, allow 15 s; then retry
+// once with a cache-buster (a fresh connection often succeeds
+// where the first hung); only then give up to the fallback.
 function armPosterWatchdog(img, isSettled, onFail) {
+  let startAt = 0;
+  let retried = false;
   const tick = () => setTimeout(() => {
     if (isSettled()) return;
     if (!img.currentSrc) { tick(); return; }
+    if (!startAt) startAt = Date.now();
+    if (!img.complete && Date.now() - startAt < 15000) { tick(); return; }
+    if (!img.complete && !retried) {
+      retried = true;
+      startAt = 0;
+      const u = img.src;
+      img.src = u + (u.indexOf("?") === -1 ? "?r=1" : "&r=1");
+      tick();
+      return;
+    }
     if (img.naturalWidth === 0) onFail();
   }, 4000);
   tick();
@@ -566,6 +577,38 @@ async function runSearch(q) {
           const key = (m.name || "").toLowerCase() + "|" + yearOf(m);
           if (m.name && !byKey[key]) byKey[key] = m;
         });
+        // Match a modlist item to a Cinemeta meta the same way
+        // cinemetaMeta does (27 Nov 2026): by BASE title
+        // ("Visionquest — Season 1" is really "VisionQuest") with
+        // normalised names — the old raw-title lookup never
+        // matched "Visionquest — Season 1" to "VisionQuest", so
+        // the item got no live rating and its card kept the
+        // Cinemeta ★7.8 while the detail panel showed the live
+        // ★7.7. Year must agree when both sides know it.
+        const metaForItem = (it) => {
+          const want = normTitle(baseTitle(it.title || ""));
+          const y = String(it.year || "").slice(0, 4);
+          if (!want) return null;
+          const series = isSeries(it);
+          const cands = metas.filter((m) => {
+            const n = normTitle(m.name || "");
+            if (!n) return false;
+            if (!(n === want || n.indexOf(want) === 0 || want.indexOf(n) === 0)) return false;
+            const my = yearOf(m);
+            if (y && my && my !== y) return false;
+            return true;
+          });
+          // Prefer the meta whose type matches the item — the
+          // movie search returns the 1985 "Vision Quest" film
+          // for a "Visionquest — Season 1" query too, and the
+          // name alone cannot tell them apart. Fall back to the
+          // other type only on an exact name match: a prefix
+          // match with no year ("Reply" → "Reply All", a movie
+          // with no releaseInfo) is not enough evidence.
+          return cands.find((m) => (m.type === "series") === series)
+            || cands.find((m) => normTitle(m.name || "") === want)
+            || null;
+        };
         // Unique titles the modlist items match — fetch their
         // full meta once each (deduped, capped) for the rating.
         // Also include the fallback titles (appended below when
@@ -576,7 +619,7 @@ async function runSearch(q) {
           if (m && m.imdb_id && !seenIds.has(m.imdb_id)) { seenIds.add(m.imdb_id); need.push(m); }
         };
         items.forEach((it) => {
-          addNeed(byKey[(it.title || "").toLowerCase() + "|" + String(it.year || "").slice(0, 4)]);
+          addNeed(metaForItem(it));
         });
         if (items.length < 5) {
           const seenTitles = new Set(items.map((it) => (it.title || "").toLowerCase() + "|" + (it.year || "")));
@@ -599,17 +642,26 @@ async function runSearch(q) {
             ratingByKey[(m.name || "").toLowerCase() + "|" + yearOf(m)] = fm.imdbRating;
           });
           // Live IMDb ratings (26 Nov 2026): override the Cinemeta
-          // rating where our service has one.
-          await fetchLiveRatings(need.slice(0, 24).map((m) => m.imdb_id));
+          // rating where our service has one. The live batch
+          // takes the whole need list (fetchLiveRatings caps at
+          // 100 itself) so no enriched title is left behind.
+          await fetchLiveRatings(need.map((m) => m.imdb_id));
           need.forEach((m) => {
             const lr = liveRating(m.imdb_id);
             if (lr !== null) ratingByKey[(m.name || "").toLowerCase() + "|" + yearOf(m)] = String(lr);
           });
         }
         // Fill in ratings on the modlist entries Cinemeta knows.
+        // Also remember the matched IMDb id on the item, so
+        // fillCardRating can apply the live rating to the card
+        // itself (27 Nov 2026: the card kept ★7.8 while the panel
+        // showed ★7.7 because the item carried no imdb id).
         items.forEach((it) => {
+          const m = metaForItem(it);
+          if (m && m.imdb_id && !it.imdb) it.imdb = m.imdb_id;
           if (it.rating) return;
-          const r = ratingByKey[(it.title || "").toLowerCase() + "|" + String(it.year || "").slice(0, 4)];
+          if (!m) return;
+          const r = ratingByKey[(m.name || "").toLowerCase() + "|" + yearOf(m)];
           if (r) it.rating = r;
         });
         // Few modlist results: append Cinemeta titles it lacks.
