@@ -34,6 +34,10 @@
   .find input:focus { border-color: #ff3b3b; }
   .find button { padding: 12px 22px; border-radius: 999px; border: none; background: linear-gradient(135deg, #ff3b3b, #ff5c5c); color: #fff; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; }
   .find button:hover { filter: brightness(1.1); }
+  .find.ai { margin-top: 10px; }
+  .find.ai input:focus { border-color: #7c5cff; }
+  .find.ai button { background: linear-gradient(135deg, #7c5cff, #9d7bff); }
+  .ai-note { text-align: center; color: #9aa0b5; font-size: 13px; margin: 8px 0 0; min-height: 18px; }
   /* ---- sections ---- */
   section { margin-top: 30px; }
   section h3 { font-size: 20px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
@@ -123,6 +127,12 @@
     <input id="q" type="text" placeholder="Find a game — team, league or game ID" autocomplete="off">
     <button id="findBtn" type="button">Find</button>
   </div>
+
+  <div class="find ai">
+    <input id="aiq" type="text" placeholder="Ask in plain words — 'barca vs madrid tonight', 'who is chelsea playing'" autocomplete="off">
+    <button id="aiBtn" type="button">Ask AI</button>
+  </div>
+  <p class="ai-note" id="aiNote"></p>
 
   <p class="err" id="err"></p>
 
@@ -490,6 +500,48 @@
     });
   }
 
+  function aiKickoff(date){
+    if (!date) return "";
+    var d = new Date(date);
+    return d.toLocaleString("en-GB", { timeZone: "Asia/Kathmandu", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) + " NPT";
+  }
+
+  function aiCard(r){
+    // No data-id on purpose: these cards link straight to Watch instead
+    // of opening the 1xBet detail panel (the TVApp id is not a 1xBet id).
+    return '<div class="game"><div class="g-league"><span>' + esc(r.category || "Football") + '</span></div>' +
+      '<div class="g-main"><span class="g-team">' + esc(r.title || "") + '</span></div>' +
+      '<div class="sub">Game ID: ' + esc(r.id) + (r.date ? ' · ' + esc(aiKickoff(r.date)) : '') + '</div>' +
+      '<a class="watch" href="stream.html?tvapp=' + encodeURIComponent(r.id) + '">▶ Watch live</a></div>';
+  }
+
+  function doAiAsk(q){
+    q = String(q || "").trim();
+    if (!q) return;
+    $("aiNote").textContent = "";
+    $("searchSec").style.display = "";
+    $("searchSub").textContent = 'AI — "' + q + '"';
+    $("searchGames").innerHTML = '<div class="empty" style="padding:18px">Thinking…</div>';
+    document.getElementById("searchSec").scrollIntoView({ behavior: "smooth", block: "start" });
+    fetchJson(TVAPP + "/ai-find?q=" + encodeURIComponent(q)).then(function(r){
+      if (r && r.id) {
+        var understood = (r.home && r.away) ? ("Found: " + r.home + " vs " + r.away) : ("Found: " + (r.title || ""));
+        $("aiNote").textContent = understood + (r.date ? " · " + aiKickoff(r.date) : "") + (r.ai ? " · understood by AI" : "");
+        $("searchGames").innerHTML = aiCard(r);
+        return;
+      }
+      var sug = (r && r.suggestions) || [];
+      if (sug.length) {
+        $("aiNote").textContent = "Couldn't find that match — these are live right now:";
+        $("searchGames").innerHTML = sug.map(aiCard).join("");
+      } else {
+        $("searchGames").innerHTML = '<div class="empty" style="padding:18px">Couldn\'t find that match. Try the team names, e.g. "barca vs madrid".</div>';
+      }
+    }).catch(function(){
+      $("searchGames").innerHTML = '<div class="empty" style="padding:18px">The AI lookup failed — check your connection and try again.</div>';
+    });
+  }
+
   document.addEventListener("click", function(e){
     var g = e.target.closest ? e.target.closest(".game") : null;
     if (g && g.getAttribute("data-id")) openDetail(g.getAttribute("data-id"));
@@ -498,6 +550,8 @@
   document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDetail(); });
   $("findBtn").addEventListener("click", function(){ doSearch($("q").value); });
   $("q").addEventListener("keydown", function(e){ if (e.key === "Enter") doSearch($("q").value); });
+  $("aiBtn").addEventListener("click", function(){ doAiAsk($("aiq").value); });
+  $("aiq").addEventListener("keydown", function(e){ if (e.key === "Enter") doAiAsk($("aiq").value); });
 
   refreshLists();
   pollTimer = setInterval(refreshLists, POLL_MS);
