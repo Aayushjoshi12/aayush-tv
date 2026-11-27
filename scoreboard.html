@@ -540,6 +540,15 @@
         return;
       }
       var games = (r && r.games) || [];
+      if (games.length === 1) {
+        // One match only — open its 1xBet detail straight away instead
+        // of making the person tap the card.
+        var understood = (p && p.home && p.away) ? ("Found: " + p.home + " vs " + p.away) : ("Found: " + (games[0].home || "") + " vs " + (games[0].away || ""));
+        $("aiNote").textContent = understood;
+        $("searchSec").style.display = "none";
+        openDetail(games[0].id);
+        return;
+      }
       if (games.length) {
         $("aiNote").textContent = "Matches from 1xBet:";
         $("searchGames").innerHTML = games.map(gameHtml).join("");
