@@ -223,7 +223,9 @@
   // A soon match still gets a button: it opens the player, which
   // shows "Stream starts soon" and retries until it opens.
   var streams = [];
+  var probeSoon = []; // soon list from the latest probe (phase 1)
   var streamProbeAt = 0, streamProbing = false;
+  var streamProbed = false; // first probe finished (else the panel says "Checking…", not "No streams")
   var streamsOpen = false; // top "Live Stream" button panel
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
   // One display clock per live game id, shared by the list and the
@@ -431,7 +433,12 @@
     var panel = $("streamsPanelGames"), none = $("streamsPanelNone");
     if (panel) {
       panel.innerHTML = cards.map(streamCardHtml).join("");
-      if (none) none.style.display = cards.length ? "none" : "";
+      if (none) {
+        none.style.display = cards.length ? "none" : "";
+        // Until the first probe finishes, say so — "No streams"
+        // would be a lie in the ~15s the probe takes to run.
+        none.textContent = streamProbed ? "No streams right now — check back soon." : "Checking for streams…";
+      }
     }
   }
   // Probe which live games actually have a playable stream, at most
@@ -440,10 +447,13 @@
   // minter (cached 60s server-side), matched locally by team names,
   // then a /stream-check only for the few candidates. TVApp first,
   // Footybite only when TVApp has nothing for that game.
-  // The section also lists matches opening soon (TVApp /stream-check
-  // soon:true, within 6 hours): their button opens the player, which
-  // shows "Stream starts soon" and retries until it opens — so there
-  // is always a button to tap, even when nothing is live yet.
+  // The section also lists matches opening soon (TVApp catalog,
+  // within 6 hours): their button opens the player, which shows
+  // "Stream starts soon" and retries until it opens — so there is
+  // always a button to tap, even when nothing is live yet.
+  // Two phases: the soon list renders as soon as the TVApp catalog
+  // lands (no session calls, so no rate-limit risk); the live leg
+  // runs after, once both catalogs are in.
   function probeStreams(){
     var now = Date.now();
     if (streamProbing || now - streamProbeAt < 60000) return;
@@ -452,13 +462,44 @@
     // Each catalog fetch races an 8s timeout: if one minter hangs
     // (Footybite's /matches fetches its homepage upstream), the
     // probe still runs with the other catalog instead of stalling.
-    function cat(url){
+    function cat(url, ms){
       return Promise.race([
         fetchJson(url).catch(function(){ return []; }),
-        new Promise(function(res){ setTimeout(function(){ res([]); }, 8000); })
+        new Promise(function(res){ setTimeout(function(){ res([]); }, ms); })
       ]);
     }
-    Promise.all([cat(TVAPP + "/matches"), cat(FB + "/matches")]).then(function(cats){
+    var tvP = cat(TVAPP + "/matches", 15000);
+    var fbP = cat(FB + "/matches", 8000);
+    // Phase 1: soon matches from the TVApp catalog alone.
+    // No /stream-check call here — that would mint a session per
+    // match and trip the upstream rate limit (429). The catalog
+    // itself is the list of matches with streams, and a stream
+    // opens 15 minutes before kickoff, so openAt is computed
+    // locally; the player still checks for real when tapped.
+    tvP.then(function(tvList){
+      tvList = Array.isArray(tvList) ? tvList : [];
+      var soonList = [];
+      tvList.forEach(function(m){
+        if (!m) return;
+        var st = m.date ? m.date : (m.startsAt ? m.startsAt * 1000 : 0);
+        if (!(st > now && st <= now + 6 * 3600 * 1000)) return;
+        var parts = String(m.title || "").split(" vs ");
+        var home = m.home || parts[0] || "", away = m.away || parts[1] || "";
+        if (!home || !away) return;
+        var startSec = Math.floor(st / 1000);
+        soonList.push({ id: "tv-" + m.id, league: m.category || "", home: home, away: away,
+          homeScore: null, awayScore: null, status: "upcoming",
+          startTs: startSec, tvappId: m.id,
+          streamAvailable: false, streamSoon: true,
+          openAt: startSec - 900, startsAt: startSec });
+      });
+      probeSoon = soonList;
+      streams = soonList.slice();
+      streamProbed = true;
+      renderStreams();
+    });
+    // Phase 2: live games need /stream-check (session probe).
+    Promise.all([tvP, fbP]).then(function(cats){
       var tvList = Array.isArray(cats[0]) ? cats[0] : [];
       var fbList = Array.isArray(cats[1]) ? cats[1] : [];
       var candidates = [];
@@ -480,38 +521,18 @@
           });
         });
       });
-      // Opening soon: TVApp catalog matches starting in the next
-      // 6 hours, skipping any already covered by the live leg.
-      // No /stream-check call here — that would mint a session per
-      // match and trip the upstream rate limit (429), which also
-      // breaks the real Watch checks. The catalog itself is the
-      // list of matches with streams, and a stream opens 15
-      // minutes before kickoff, so openAt is computed locally;
-      // the player still checks for real when tapped.
-      var liveTvIds = {};
-      candidates.forEach(function(c){ if (c.tvId) liveTvIds[c.tvId] = true; });
-      var soonList = [];
-      tvList.forEach(function(m){
-        if (!m || liveTvIds[m.id]) return;
-        var st = m.date ? m.date : (m.startsAt ? m.startsAt * 1000 : 0);
-        if (!(st > now && st <= now + 6 * 3600 * 1000)) return;
-        var parts = String(m.title || "").split(" vs ");
-        var home = m.home || parts[0] || "", away = m.away || parts[1] || "";
-        if (!home || !away) return;
-        var startSec = Math.floor(st / 1000);
-        soonList.push({ id: "tv-" + m.id, league: m.category || "", home: home, away: away,
-          homeScore: null, awayScore: null, status: "upcoming",
-          startTs: startSec, tvappId: m.id,
-          streamAvailable: false, streamSoon: true,
-          openAt: startSec - 900, startsAt: startSec });
-      });
       return Promise.all(checks).then(function(found){
-        streams = found.filter(function(g){ return !!g; }).concat(soonList);
+        var liveFound = found.filter(function(g){ return !!g; });
+        var seenIds = {};
+        liveFound.forEach(function(g){ if (g.tvappId) seenIds[g.tvappId] = true; if (g.fbId) seenIds[g.fbId] = true; });
+        var soonKept = (probeSoon || []).filter(function(g){ return !seenIds[g.tvappId]; });
+        streams = liveFound.concat(soonKept);
         streams.sort(function(a, b){
           var av = function(g){ return g.streamAvailable ? 0 : 1; };
           if (av(a) !== av(b)) return av(a) - av(b);
           return (a.startTs || 0) - (b.startTs || 0);
         });
+        streamProbed = true;
         streamProbing = false;
         renderStreams();
         lastKey = ""; // re-render lists so the key picks up stream state
@@ -519,6 +540,8 @@
       });
     }).catch(function(){
       streamProbing = false;
+      streamProbed = true;
+      renderStreams();
     });
   }
 
