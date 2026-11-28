@@ -81,6 +81,9 @@
   .meta .k { color: #9aa1b2; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; }
   .watch { display: block; text-align: center; margin-top: 20px; padding: 13px; border-radius: 999px; background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; font-size: 16px; font-weight: 800; text-decoration: none; }
   .watch:hover { filter: brightness(1.1); }
+  /* Watch button on a Live Streams card: same green, sized for the card. */
+  .watch-inline { display: block; text-align: center; margin-top: 10px; padding: 10px; border-radius: 999px; background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; font-size: 15px; font-weight: 800; text-decoration: none; }
+  .watch-inline:hover { filter: brightness(1.1); }
   .watch-note { text-align: center; color: #9aa1b2; font-size: 13px; margin-top: 14px; }
   .detail h4 { font-size: 16px; font-weight: 800; margin: 22px 0 10px; }
   table.stats { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -142,6 +145,12 @@
     <div class="games" id="searchGames"></div>
   </section>
 
+  <section id="streamsSec" style="display:none">
+    <h3>📺 Live Streams <span class="count" id="streamsCount"></span></h3>
+    <div class="sub">Live matches with a confirmed stream — tap Watch to play, no detail tap needed.</div>
+    <div class="games" id="streamsGames"></div>
+  </section>
+
   <section id="nplSec" style="display:none">
     <h3>🇳🇵 Nepal Premier League <span class="count" id="nplCount"></span></h3>
     <div class="sub">NPL scores, live first.</div>
@@ -181,6 +190,12 @@
   var FB = "https://mret.balenshah.tech/footybite-api";
   var POLL_MS = 5000, DETAIL_MS = 15000;
   var npl = [], top = [];
+  // Live Streams section: the live games with a stream confirmed
+  // playable (TVApp or Footybite). 1xBet video ids are never listed
+  // here — that path needs the Chrome extension, which is
+  // disconnected, and a 1xBet video alone never shows a Watch button.
+  var streams = [];
+  var streamProbeAt = 0, streamProbing = false;
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
   // One display clock per live game id, shared by the list and the
   // detail panel. It only ever moves forward: the feed's timer
@@ -310,6 +325,118 @@
       clockHtml(g) +
     '</div>';
   }
+  // Stream URL for a game with a confirmed stream. TVApp is
+  // preferred when both confirmed; Footybite is the fallback.
+  // Shared by the detail panel and the Live Streams cards.
+  function streamHref(g){
+    if (!g.streamAvailable || !(g.tvappId || g.fbId)) return null;
+    var q = (g.videoId ? "&videoId=" + encodeURIComponent(g.videoId) : "") +
+      "&name=" + encodeURIComponent(g.home + " vs " + g.away);
+    if (g.tvappId) return "stream.html?tvapp=" + encodeURIComponent(g.tvappId) + q;
+    return "stream.html?footybite=" + encodeURIComponent(g.fbId) + q;
+  }
+  function streamCardHtml(g){
+    var href = streamHref(g);
+    return '<div class="game" data-id="' + esc(g.id) + '">' +
+      '<div class="g-league"><span>' + esc(g.league || "") + '</span>' + badge(g) + '</div>' +
+      '<div class="g-main"><span class="g-team">' + esc(g.home) + '</span>' + scoreHtml(g) + '<span class="g-team away">' + esc(g.away) + '</span></div>' +
+      clockHtml(g) +
+      (href ? '<a class="watch-inline" href="' + href + '">▶ Watch live</a>' : "") +
+    '</div>';
+  }
+  // Normalise a team/title string the same way the minters do
+  // (lowercase, strip accents, non-alphanumerics to spaces).
+  function norm(s){
+    return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+  // Find a scoreboard game in a minter catalog: both team names in
+  // the title wins outright; otherwise the word-score fallback
+  // (same shape as the minters' _find_match, score >= 3).
+  function matchInCatalog(list, g){
+    var hn = norm(g.home), an = norm(g.away);
+    if (!hn || !an) return null;
+    var best = null;
+    (list || []).forEach(function(m){
+      var title = norm((m.title || "") + " " + (m.home || "") + " " + (m.away || ""));
+      if (!title) return;
+      if (title.indexOf(hn) !== -1 && title.indexOf(an) !== -1) { best = m; return; }
+      if (best) return;
+      var score = 0;
+      hn.split(" ").forEach(function(w){ if (w.length > 2 && title.indexOf(w) !== -1) score += 1; });
+      an.split(" ").forEach(function(w){ if (w.length > 2 && title.indexOf(w) !== -1) score += 1; });
+      if (score >= 3 && (!best || score > best._score)) { m._score = score; best = m; }
+    });
+    return best;
+  }
+  function renderStreams(){
+    // Re-attach each streamed game to the fresh list copy (same id)
+    // so its score and clock stay current between probes, and so
+    // tapping the card opens a detail that already knows its stream.
+    var live = npl.concat(top);
+    var cards = streams.map(function(g){
+      var cur = null;
+      live.forEach(function(x){ if (String(x.id) === String(g.id)) cur = x; });
+      if (cur) { cur.tvappId = g.tvappId; cur.fbId = g.fbId; cur.streamAvailable = g.streamAvailable; return cur; }
+      return g;
+    });
+    if (cards.length) {
+      $("streamsSec").style.display = "";
+      $("streamsCount").textContent = cards.length;
+      $("streamsGames").innerHTML = cards.map(streamCardHtml).join("");
+    } else {
+      $("streamsSec").style.display = "none";
+      $("streamsGames").innerHTML = "";
+    }
+  }
+  // Probe which live games actually have a playable stream, at most
+  // once a minute (the 5s poll is far too often: the Footybite check
+  // mints and fetches a segment each time). One /matches fetch per
+  // minter (cached 60s server-side), matched locally by team names,
+  // then a /stream-check only for the few candidates. TVApp first,
+  // Footybite only when TVApp has nothing for that game.
+  function probeStreams(){
+    var now = Date.now();
+    if (streamProbing || now - streamProbeAt < 60000) return;
+    var live = npl.concat(top).filter(function(g){ return g.status === "live"; });
+    if (!live.length) { streams = []; renderStreams(); return; }
+    streamProbing = true; streamProbeAt = now;
+    Promise.all([
+      fetchJson(TVAPP + "/matches").catch(function(){ return []; }),
+      fetchJson(FB + "/matches").catch(function(){ return []; })
+    ]).then(function(cats){
+      var tvList = Array.isArray(cats[0]) ? cats[0] : [];
+      var fbList = Array.isArray(cats[1]) ? cats[1] : [];
+      var candidates = [];
+      live.forEach(function(g){
+        var tm = matchInCatalog(tvList, g);
+        var fm = matchInCatalog(fbList, g);
+        if (tm || fm) candidates.push({ g: g, tvId: tm ? tm.id : null, fbId: fm ? fm.id : null });
+      });
+      if (!candidates.length) { streams = []; streamProbing = false; renderStreams(); return; }
+      var checks = candidates.map(function(c){
+        var tvP = c.tvId
+          ? Promise.race([fetchJson(TVAPP + "/stream-check?id=" + encodeURIComponent(c.tvId)).catch(function(){ return null; }), new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })])
+          : Promise.resolve(null);
+        return tvP.then(function(tc){
+          if (tc && tc.available) { c.g.tvappId = c.tvId; c.g.streamAvailable = true; return c.g; }
+          if (!c.fbId) return null;
+          return Promise.race([fetchJson(FB + "/stream-check?id=" + encodeURIComponent(c.fbId)).catch(function(){ return null; }), new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })]).then(function(fc){
+            if (fc && fc.available) { c.g.fbId = c.fbId; c.g.streamAvailable = true; return c.g; }
+            return null;
+          });
+        });
+      });
+      return Promise.all(checks).then(function(found){
+        streams = found.filter(function(g){ return !!g; });
+        streamProbing = false;
+        renderStreams();
+        lastKey = ""; // re-render lists so the key picks up stream state
+        renderLists();
+      });
+    }).catch(function(){
+      streamProbing = false;
+    });
+  }
 
   function renderLists(){
     // The key covers only what the list shows — the clock is
@@ -318,9 +445,10 @@
     // change, a game added or finished.
     var key = JSON.stringify([npl, top].map(function(list){
       return list.map(function(g){ return [g.id, g.league, g.home, g.away, g.homeScore, g.awayScore, g.status, g.period, g._halfTime ? 1 : 0]; });
-    }));
+    }).concat([streams.map(function(g){ return g.id; })]));
     if (key === lastKey) return; // unchanged — clocks keep ticking
     lastKey = key;
+    renderStreams();
     var liveCount = 0;
     npl.concat(top).forEach(function(g){ if (g.status === "live") liveCount++; });
     $("heroLine").textContent = liveCount ? (liveCount + " live match" + (liveCount === 1 ? "" : "es") + " right now — tap any match for details, stats and the stream.") : "No live matches at the moment — the board updates itself.";
@@ -389,6 +517,7 @@
       });
       pruneClocks();
       renderLists();
+      probeStreams();
     }).catch(function(){
       var err = $("err");
       err.style.display = "";
@@ -434,17 +563,8 @@
     // unconfirmed TVApp or Footybite id. If no stream is confirmed,
     // no button and no note: the option simply is not there. TVApp is
     // preferred when both confirmed; Footybite is the fallback.
-    if (d.streamAvailable && (d.tvappId || d.fbId)) {
-      var watchHref;
-      if (d.tvappId) {
-        watchHref = "stream.html?tvapp=" + encodeURIComponent(d.tvappId) +
-          (d.videoId ? "&videoId=" + encodeURIComponent(d.videoId) : "") +
-          "&name=" + encodeURIComponent(d.home + " vs " + d.away);
-      } else {
-        watchHref = "stream.html?footybite=" + encodeURIComponent(d.fbId) +
-          (d.videoId ? "&videoId=" + encodeURIComponent(d.videoId) : "") +
-          "&name=" + encodeURIComponent(d.home + " vs " + d.away);
-      }
+    var watchHref = streamHref(d);
+    if (watchHref) {
       h += '<a class="watch" href="' + watchHref + '">▶ Watch live</a>';
     }
     if (d.stats && d.stats.length) {
@@ -660,6 +780,9 @@
   }
 
   document.addEventListener("click", function(e){
+    // A Watch button on a Live Streams card is a real link — let it
+    // navigate instead of opening the detail panel underneath it.
+    if (e.target.closest && e.target.closest("a.watch-inline")) return;
     var g = e.target.closest ? e.target.closest(".game") : null;
     if (g && g.getAttribute("data-id")) openDetail(g.getAttribute("data-id"));
   });
