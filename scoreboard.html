@@ -43,7 +43,7 @@
   .find-col { flex: 1; min-width: 0; }
   .find-col .find { margin-top: 0; max-width: none; }
   .find-col .find.ai { margin-top: 10px; }
-  .streams-btn { flex-shrink: 0; padding: 13px 20px; border-radius: 999px; border: 1px solid #2a3040; background: #12162a; color: #e8eaf0; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  .streams-btn { flex-shrink: 0; padding: 13px 20px; border-radius: 999px; border: 1px solid #2a3040; background: #12162a; color: #e8eaf0; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; white-space: nowrap; text-decoration: none; }
   .streams-btn:hover { border-color: #22c55e; }
   .streams-btn.open { background: linear-gradient(135deg, #22c55e, #16a34a); border-color: transparent; color: #fff; }
   .streams-btn .cnt { display: inline-block; min-width: 22px; padding: 2px 7px; margin-left: 6px; border-radius: 999px; background: #22c55e; color: #fff; font-size: 12px; font-weight: 800; }
@@ -131,6 +131,7 @@
       <a href="biggboss.html">🏠 Bigg Boss</a>
       <a href="india.html">🇮🇳 India's Got Latent</a>
       <a href="scoreboard.html" class="active">🏏 Scoreboard</a>
+      <a href="streams.html">📺 Live Streams</a>
     </nav>
   </div>
 </header>
@@ -153,15 +154,9 @@
         <button id="aiBtn" type="button">Ask AI</button>
       </div>
     </div>
-    <button id="streamsBtn" class="streams-btn" type="button">📺 Live Stream <span class="cnt" id="streamsBtnCount"></span></button>
+    <a href="streams.html" class="streams-btn">📺 Live Stream</a>
   </div>
   <p class="ai-note" id="aiNote"></p>
-
-  <div class="streams-panel" id="streamsPanel" style="display:none">
-    <h3>📺 Live Streams</h3>
-    <div class="games" id="streamsPanelGames"></div>
-    <div class="none" id="streamsPanelNone" style="display:none">No streams right now — check back soon.</div>
-  </div>
 
   <p class="err" id="err"></p>
 
@@ -169,12 +164,6 @@
     <h3>Search results</h3>
     <div class="sub" id="searchSub"></div>
     <div class="games" id="searchGames"></div>
-  </section>
-
-  <section id="streamsSec" style="display:none">
-    <h3>📺 Live Streams <span class="count" id="streamsCount"></span></h3>
-    <div class="sub">Matches with a stream — live now, or opening soon. Tap Watch to play.</div>
-    <div class="games" id="streamsGames"></div>
   </section>
 
   <section id="nplSec" style="display:none">
@@ -203,7 +192,7 @@
 <footer>
   <div class="foot-inner">
     <div><b>▶ Aayush TV</b> — free live TV, sports &amp; movies.</div>
-    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="entertainment.html">TV Serials</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a><a href="scoreboard.html">Scoreboard</a></nav>
+    <nav><a href="channels.html">Channels</a><a href="movies.html">Movies</a><a href="entertainment.html">TV Serials</a><a href="biggboss.html">Bigg Boss</a><a href="india.html">India's Got Latent</a><a href="scoreboard.html">Scoreboard</a><a href="streams.html">Live Streams</a></nav>
     <div>© 2026 Aayush TV</div>
   </div>
 </footer>
@@ -216,17 +205,7 @@
   var FB = "https://mret.balenshah.tech/footybite-api";
   var POLL_MS = 5000, DETAIL_MS = 15000;
   var npl = [], top = [];
-  // Live Streams section: games with a stream — live now, or
-  // opening soon (TVApp or Footybite). 1xBet video ids are never
-  // listed here — that path needs the Chrome extension, which is
-  // disconnected, and a 1xBet video alone never shows a Watch button.
-  // A soon match still gets a button: it opens the player, which
-  // shows "Stream starts soon" and retries until it opens.
-  var streams = [];
-  var probeSoon = []; // soon list from the latest probe (phase 1)
-  var streamProbeAt = 0, streamProbing = false;
-  var streamProbed = false; // first probe finished (else the panel says "Checking…", not "No streams")
-  var streamsOpen = false; // top "Live Stream" button panel
+  var nplLoaded = false, topLoaded = false;
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
   // One display clock per live game id, shared by the list and the
   // detail panel. It only ever moves forward: the feed's timer
@@ -368,84 +347,6 @@
     if (g.tvappId) return "stream.html?tvapp=" + encodeURIComponent(g.tvappId) + q;
     return "stream.html?footybite=" + encodeURIComponent(g.fbId) + q;
   }
-  function openTime(g){
-    if (!g.openAt) return "";
-    try { return new Date(g.openAt * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); } catch (e) { return ""; }
-  }
-  function streamCardHtml(g){
-    var href = streamHref(g);
-    var label = g.streamSoon ? ("▶ Watch — opens " + (openTime(g) || "soon")) : "▶ Watch live";
-    // A live card straight from the catalog (no 1xBet row) has
-    // no detail to open — the Watch button is the whole point.
-    var direct = g.streamAvailable && !g.streamSoon && String(g.id).indexOf("tv-") === 0;
-    return '<div class="game" data-id="' + esc(g.id) + '"' + (g.streamSoon ? ' data-soon="1"' : "") + (direct ? ' data-direct="1"' : "") + '>' +
-      '<div class="g-league"><span>' + esc(g.league || "") + '</span>' + badge(g) + '</div>' +
-      '<div class="g-main"><span class="g-team">' + esc(g.home) + '</span>' + scoreHtml(g) + '<span class="g-team away">' + esc(g.away) + '</span></div>' +
-      clockHtml(g) +
-      (href ? '<a class="watch-inline" href="' + href + '">' + label + '</a>' : "") +
-    '</div>';
-  }
-  // Normalise a team/title string the same way the minters do
-  // (lowercase, strip accents, non-alphanumerics to spaces).
-  function norm(s){
-    return String(s || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
-  }
-  // Find a scoreboard game in a minter catalog: both team names in
-  // the title wins outright; otherwise the word-score fallback
-  // (same shape as the minters' _find_match, score >= 3).
-  function matchInCatalog(list, g){
-    var hn = norm(g.home), an = norm(g.away);
-    if (!hn || !an) return null;
-    var best = null;
-    (list || []).forEach(function(m){
-      var title = norm((m.title || "") + " " + (m.home || "") + " " + (m.away || ""));
-      if (!title) return;
-      if (title.indexOf(hn) !== -1 && title.indexOf(an) !== -1) { best = m; return; }
-      if (best) return;
-      var score = 0;
-      hn.split(" ").forEach(function(w){ if (w.length > 2 && title.indexOf(w) !== -1) score += 1; });
-      an.split(" ").forEach(function(w){ if (w.length > 2 && title.indexOf(w) !== -1) score += 1; });
-      if (score >= 3 && (!best || score > best._score)) { m._score = score; best = m; }
-    });
-    return best;
-  }
-  function renderStreams(){
-    // Re-attach each streamed game to the fresh list copy (same id)
-    // so its score and clock stay current between probes, and so
-    // tapping the card opens a detail that already knows its stream.
-    var live = npl.concat(top);
-    var cards = streams.map(function(g){
-      var cur = null;
-      live.forEach(function(x){ if (String(x.id) === String(g.id)) cur = x; });
-      if (cur) { cur.tvappId = g.tvappId; cur.fbId = g.fbId; cur.streamAvailable = g.streamAvailable; return cur; }
-      return g;
-    });
-    if (cards.length) {
-      // While the panel is open the same cards show at the top —
-      // hide the section below so the list doesn't appear twice.
-      $("streamsSec").style.display = streamsOpen ? "none" : "";
-      $("streamsCount").textContent = cards.length;
-      $("streamsGames").innerHTML = cards.map(streamCardHtml).join("");
-    } else {
-      $("streamsSec").style.display = "none";
-      $("streamsGames").innerHTML = "";
-    }
-    // The top Live Stream button panel shows the same cards, and
-    // the button carries the count — it stays visible even when
-    // there is nothing to show yet.
-    var btnCount = $("streamsBtnCount");
-    if (btnCount) btnCount.textContent = cards.length ? String(cards.length) : "";
-    var panel = $("streamsPanelGames"), none = $("streamsPanelNone");
-    if (panel) {
-      panel.innerHTML = cards.map(streamCardHtml).join("");
-      if (none) {
-        none.style.display = cards.length ? "none" : "";
-        // Until the first probe finishes, say so — "No streams"
-        // would be a lie in the ~15s the probe takes to run.
-        none.textContent = streamProbed ? "No streams right now — check back soon." : "Checking for streams…";
-      }
-    }
-  }
   // Probe which live games actually have a playable stream, at most
   // once a minute (the 5s poll is far too often: the Footybite check
   // mints and fetches a segment each time). One /matches fetch per
@@ -464,193 +365,6 @@
   // fetch that times out or errors returns null (not []), the
   // probe keeps the previous list, and it retries soon instead
   // of waiting out the full minute.
-  function probeStreams(){
-    var now = Date.now();
-    if (streamProbing || now - streamProbeAt < 60000) return;
-    var live = npl.concat(top).filter(function(g){ return g.status === "live"; });
-    streamProbing = true; streamProbeAt = now;
-    // Each catalog fetch races a timeout: if one minter hangs
-    // (Footybite's /matches fetches its homepage upstream), the
-    // probe still runs with the other catalog instead of stalling.
-    // A failed fetch resolves null — NOT [] — so the probe can
-    // tell "the minter didn't answer" from "the catalog is
-    // genuinely empty" and keep the previous list on failure.
-    function cat(url, ms){
-      return Promise.race([
-        fetchJson(url).catch(function(){ return null; }),
-        new Promise(function(res){ setTimeout(function(){ res(null); }, ms); })
-      ]);
-    }
-    var tvP = cat(TVAPP + "/matches", 15000);
-    var fbP = cat(FB + "/matches", 8000);
-    // Phase 1: soon matches from the TVApp catalog alone.
-    // No /stream-check call here — that would mint a session per
-    // match and trip the upstream rate limit (429). The catalog
-    // itself is the list of matches with streams, and a stream
-    // opens 15 minutes before kickoff, so openAt is computed
-    // locally; the player still checks for real when tapped.
-    tvP.then(function(tvList){
-      if (tvList === null) return; // catalog didn't answer: keep the old list
-      tvList = Array.isArray(tvList) ? tvList : [];
-      if (!tvList.length) return; // empty catalog means the minter's
-      // upstream is down, not "no matches" (the catalog normally
-      // holds 100+); keep the old list instead of emptying it.
-      var soonList = [];
-      tvList.forEach(function(m){
-        if (!m) return;
-        var st = m.date ? m.date : (m.startsAt ? m.startsAt * 1000 : 0);
-        if (!(st > now && st <= now + 12 * 3600 * 1000)) return;
-        var parts = String(m.title || "").split(" vs ");
-        var home = m.home || parts[0] || "", away = m.away || parts[1] || "";
-        if (!home || !away) return;
-        var startSec = Math.floor(st / 1000);
-        soonList.push({ id: "tv-" + m.id, league: m.category || "", home: home, away: away,
-          homeScore: null, awayScore: null, status: "upcoming",
-          startTs: startSec, tvappId: m.id,
-          streamAvailable: false, streamSoon: true,
-          openAt: startSec - 900, startsAt: startSec });
-      });
-      probeSoon = soonList;
-      streams = soonList.slice();
-      streamProbed = true;
-      renderStreams();
-    });
-    // Phase 2: live games need /stream-check (session probe).
-    Promise.all([tvP, fbP]).then(function(cats){
-      var tvList = cats[0] === null ? null : (Array.isArray(cats[0]) ? cats[0] : []);
-      var fbList = cats[1] === null ? null : (Array.isArray(cats[1]) ? cats[1] : []);
-      var tvUsable = tvList !== null && tvList.length > 0;
-      var fbUsable = fbList !== null && fbList.length > 0;
-      if (!tvUsable && !fbUsable) {
-        // Neither catalog usable: keep whatever the section had
-        // and retry soon instead of waiting out the full minute.
-        streamProbing = false;
-        streamProbeAt = Date.now() - 50000;
-        return;
-      }
-      var tvArr = tvUsable ? tvList : [], fbArr = fbUsable ? fbList : [];
-      var candidates = [];
-      live.forEach(function(g){
-        var tm = matchInCatalog(tvArr, g);
-        var fm = matchInCatalog(fbArr, g);
-        if (tm || fm) candidates.push({ g: g, tvId: tm ? tm.id : null, fbId: fm ? fm.id : null });
-      });
-      var checks = candidates.map(function(c){
-        var tvP = c.tvId
-          ? Promise.race([fetchJson(TVAPP + "/stream-check?id=" + encodeURIComponent(c.tvId)).catch(function(){ return null; }), new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })])
-          : Promise.resolve(null);
-        return tvP.then(function(tc){
-          if (tc && tc.available) { c.g.tvappId = c.tvId; c.g.streamAvailable = true; return c.g; }
-          if (!c.fbId) return null;
-          return Promise.race([fetchJson(FB + "/stream-check?id=" + encodeURIComponent(c.fbId)).catch(function(){ return null; }), new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })]).then(function(fc){
-            if (fc && fc.available) { c.g.fbId = c.fbId; c.g.streamAvailable = true; return c.g; }
-            return null;
-          });
-        });
-      });
-      return Promise.all(checks).then(function(found){
-        var liveFound = found.filter(function(g){ return !!g; });
-        var seenIds = {};
-        liveFound.forEach(function(g){ if (g.tvappId) seenIds[g.tvappId] = true; if (g.fbId) seenIds[g.fbId] = true; });
-        // Live straight from the TVApp catalog: entries inside
-        // their live window (date <= now < endsAt) that the
-        // 1xBet feed missed — it only shows the first 50 live
-        // games, so a live stream can exist without a feed row.
-        // No score: the feed has no row for them. The catalog
-        // is the stream list, the same trust the soon leg uses;
-        // the player checks for real when tapped. Footybite
-        // has no dates on its list (it still shows finished
-        // games), so its entries are verified against the feed
-        // below instead of trusted from the catalog.
-        var directLive = [];
-        tvArr.forEach(function(m){
-          if (!m || seenIds[m.id]) return;
-          var st = m.date ? m.date : (m.startsAt ? m.startsAt * 1000 : 0);
-          var en = m.endsAt ? m.endsAt : 0;
-          if (!(st && st <= now && (!en || en > now))) return;
-          var parts = String(m.title || "").split(" vs ");
-          var home = m.home || parts[0] || "", away = m.away || parts[1] || "";
-          if (!home || !away) return;
-          if (matchInCatalog(liveFound, { home: home, away: away })) return;
-          directLive.push({ id: "tv-" + m.id, league: m.category || "", home: home, away: away,
-            homeScore: null, awayScore: null, status: "live",
-            startTs: Math.floor(st / 1000), tvappId: m.id,
-            streamAvailable: true, streamSoon: false });
-        });
-        // Footybite entries the live leg missed: the live leg
-        // only sees the top 12 feed games, but the feed carries
-        // 50 live ones — a Footybite stream can exist for a game
-        // outside the top 12. Verify each unmatched entry against
-        // the scores feed (the search covers the full live list):
-        // a listed entry with no feed row is finished — the
-        // homepage goes stale — so only feed-confirmed LIVE
-        // entries are shown, with the score from the feed row.
-        // The /stream-check then confirms the Footybite stream
-        // itself plays. Names come dirty ("LIVE Bundesliga
-        // Werder Bremen" / "… Watch"), so clean them first.
-        var fbExtra = [];
-        fbArr.forEach(function(m){
-          if (!m || !m.home || !m.away || seenIds[m.id]) return;
-          var home = m.home.replace(/^LIVE\s+/i, "").replace(/\s+Watch$/i, "").trim();
-          var away = m.away.replace(/^LIVE\s+/i, "").replace(/\s+Watch$/i, "").trim();
-          if (!home || !away) return;
-          fbExtra.push({ id: m.id, home: home, away: away });
-        });
-        var fbChecks = fbExtra.map(function(e){
-          return Promise.race([
-            fetchJson(API + "?mode=search&q=" + encodeURIComponent(e.home + " vs " + e.away)).catch(function(){ return null; }),
-            new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })
-          ]).then(function(r){
-            var g = r && r.games && r.games[0];
-            if (!g || g.status !== "live") return null;
-            // Sanity check the search's first hit really is this
-            // match: its home/away must appear in the entry's
-            // names (which may carry a league prefix, e.g.
-            // "Bundesliga Werder Bremen").
-            var gh = norm(g.home || ""), ga = norm(g.away || "");
-            var eh = norm(e.home), ea = norm(e.away);
-            var homeOk = !!gh && (eh.indexOf(gh) !== -1 || gh.indexOf(eh) !== -1);
-            var awayOk = !!ga && (ea.indexOf(ga) !== -1 || ga.indexOf(ea) !== -1);
-            if (!homeOk || !awayOk) return null;
-            return Promise.race([
-              fetchJson(FB + "/stream-check?id=" + encodeURIComponent(e.id)).catch(function(){ return null; }),
-              new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })
-            ]).then(function(fc){
-              if (fc && fc.available) { g.fbId = e.id; g.streamAvailable = true; return g; }
-              return null;
-            });
-          });
-        });
-        return Promise.all(fbChecks).then(function(fbFound){
-          var fbLive = fbFound.filter(function(g){ return !!g; });
-          fbLive.forEach(function(g){ if (g.fbId) seenIds[g.fbId] = true; });
-          var soonKept = (probeSoon || []).filter(function(g){ return !seenIds[g.tvappId] && g.startTs > now / 1000 - 1800; });
-          streams = liveFound.concat(fbLive).concat(directLive).concat(soonKept);
-          streams.sort(function(a, b){
-            var av = function(g){ return g.streamAvailable ? 0 : 1; };
-            if (av(a) !== av(b)) return av(a) - av(b);
-            return (a.startTs || 0) - (b.startTs || 0);
-          });
-          streamProbed = true;
-          streamProbing = false;
-          // The TVApp catalog didn't answer and the section is
-          // still empty: retry in ~10s instead of a full minute,
-          // so a fresh load doesn't sit empty for a minute.
-          if (!tvUsable && !streams.length) streamProbeAt = Date.now() - 50000;
-          renderStreams();
-          lastKey = ""; // re-render lists so the key picks up stream state
-          renderLists();
-        });
-      });
-    }).catch(function(){
-      // Unexpected probe error: keep the previous list and retry
-      // soon; "No streams" would be a guess, not a fact.
-      streamProbing = false;
-      streamProbeAt = Date.now() - 50000;
-      renderStreams();
-    });
-  }
-
   function renderLists(){
     // The key covers only what the list shows — the clock is
     // deliberately left out (it ticks from clockState), so the
@@ -658,13 +372,17 @@
     // change, a game added or finished.
     var key = JSON.stringify([npl, top].map(function(list){
       return list.map(function(g){ return [g.id, g.league, g.home, g.away, g.homeScore, g.awayScore, g.status, g.period, g._halfTime ? 1 : 0]; });
-    }).concat([streams.map(function(g){ return g.id; })]));
+    }).concat([nplLoaded, topLoaded]));
     if (key === lastKey) return; // unchanged — clocks keep ticking
     lastKey = key;
-    renderStreams();
+    var noData = nplLoaded && topLoaded && !npl.length && !top.length;
+    var err = $("err");
+    err.style.display = noData ? "" : "none";
+    if (noData) err.textContent = "Could not reach the scores feed — retrying…";
     var liveCount = 0;
     npl.concat(top).forEach(function(g){ if (g.status === "live") liveCount++; });
-    $("heroLine").textContent = liveCount ? (liveCount + " live match" + (liveCount === 1 ? "" : "es") + " right now — tap any match for details, stats and the stream.") : "No live matches at the moment — the board updates itself.";
+    // Until both legs have answered, the board is loading, not empty.
+    $("heroLine").textContent = (!nplLoaded || !topLoaded) ? "Checking live matches…" : (liveCount ? (liveCount + " live match" + (liveCount === 1 ? "" : "es") + " right now — tap any match for details, stats and the stream.") : "No live matches at the moment — the board updates itself.");
     if (npl.length) {
       $("nplSec").style.display = "";
       $("nplCount").textContent = npl.length;
@@ -681,7 +399,7 @@
       $("topSec").style.display = "none";
       $("topGames").innerHTML = "";
     }
-    $("emptyState").style.display = (!npl.length && !top.length) ? "" : "none";
+    $("emptyState").style.display = (nplLoaded && topLoaded && !npl.length && !top.length) ? "" : "none";
     var d = new Date(fetchedAt);
     $("updated").textContent = "Updated " + d.toLocaleTimeString("en-GB", { timeZone: "Asia/Kathmandu", hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " NPT · refreshes every few seconds";
   }
@@ -701,34 +419,26 @@
     });
   }
 
-  function fetchJson(url){
+  function fetchJson(url, ms){
     // A hung fetch must never stall the page: the scores feed
-    // waits on a slow 1xBet mirror (20s+ when it is degraded),
-    // and refreshLists gates the streams probe — without a cap
-    // here a slow feed would leave the section empty. 20s is a
-    // loose safety net; the probe's own races are tighter.
+    // waits on a slow 1xBet mirror (20s+ when it is degraded).
+    // ms caps it — 8s for the scores feed (healthy mirror
+    // answers in ~1s), 20s default for the minters.
     return Promise.race([
       fetch(url).then(function(r){ return r.json(); }),
-      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("fetch timeout")); }, 20000); })
+      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("fetch timeout")); }, ms || 20000); })
     ]);
   }
   function refreshLists(){
-    Promise.all([
-      fetchJson(API).catch(function(){ return { games: [] }; }),
-      fetchJson(API + "?mode=featured").catch(function(){ return { games: [] }; })
-    ]).then(function(res){
-      var err = $("err");
-      var n = (res[0] && res[0].games) || [];
-      var t = (res[1] && res[1].games) || [];
-      if (!n.length && !t.length && !npl.length && !top.length) {
-        err.style.display = "";
-        err.textContent = "Could not reach the scores feed — retrying…";
-      } else {
-        err.style.display = "none";
-      }
+    fetchLeg(API, "npl");
+    fetchLeg(API + "?mode=featured", "top");
+  }
+  function fetchLeg(url, which){
+    fetchJson(url, 8000).catch(function(){ return { games: [] }; }).then(function(res){
+      var games = (res && res.games) || [];
       fetchedAt = Date.now();
-      npl = n; top = t;
-      npl.concat(top).forEach(function(g){
+      if (which === "npl") { npl = games; nplLoaded = true; } else { top = games; topLoaded = true; }
+      games.forEach(function(g){
         syncClock(g, "list");
         // Same game as the open detail, which already knows it is
         // half-time (its feed reports status HT): say so here too
@@ -738,11 +448,6 @@
       });
       pruneClocks();
       renderLists();
-      probeStreams();
-    }).catch(function(){
-      var err = $("err");
-      err.style.display = "";
-      err.textContent = "Could not reach the scores feed — retrying…";
     });
   }
 
@@ -1001,9 +706,6 @@
   }
 
   document.addEventListener("click", function(e){
-    // A Watch button on a Live Streams card is a real link — let it
-    // navigate instead of opening the detail panel underneath it.
-    if (e.target.closest && e.target.closest("a.watch-inline")) return;
     var g = e.target.closest ? e.target.closest(".game") : null;
     // A soon card has no detail panel — its Watch button is the
     // only action, and it is handled above as a real link.
@@ -1012,12 +714,6 @@
   $("overlay").addEventListener("click", function(e){ if (e.target === $("overlay")) closeDetail(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDetail(); });
   $("findBtn").addEventListener("click", function(){ doSearch($("q").value); });
-  $("streamsBtn").addEventListener("click", function(){
-    streamsOpen = !streamsOpen;
-    $("streamsPanel").style.display = streamsOpen ? "" : "none";
-    $("streamsBtn").classList.toggle("open", streamsOpen);
-    renderStreams();
-  });
   $("q").addEventListener("keydown", function(e){ if (e.key === "Enter") doSearch($("q").value); });
   $("aiBtn").addEventListener("click", function(){ doAiAsk($("aiq").value); });
   $("aiq").addEventListener("keydown", function(e){ if (e.key === "Enter") doAiAsk($("aiq").value); });
