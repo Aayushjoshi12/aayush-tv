@@ -1,0 +1,87 @@
+/* Aayush TV — Channels Plus layer (additive: favorites, recents,
+   now-playing highlight, small polish). Loaded only by channels.html.
+   Playback logic is untouched; this file only styles add-on UI. */
+
+/* Cards need positioning for the star + LIVE badge */
+#grid .card { position: relative; }
+
+/* Favorite star */
+.cp-star {
+  position: absolute; top: 6px; right: 6px; z-index: 3;
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.18);
+  background: rgba(10,13,20,.72); color: #8b93a7;
+  font-size: 15px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: transform .15s, color .15s, border-color .15s, background .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.cp-star:hover { transform: scale(1.12); color: #ffd166; border-color: rgba(255,209,102,.6); }
+.cp-star.on { color: #ffd166; border-color: rgba(255,209,102,.75); background: rgba(60,44,4,.75); }
+
+/* Now-playing card */
+#grid .card.cp-playing {
+  border-color: rgba(255,59,59,.85);
+  box-shadow: 0 0 0 1px rgba(255,59,59,.45), 0 14px 32px rgba(0,0,0,.5);
+}
+.cp-live {
+  position: absolute; top: 8px; left: 8px; z-index: 3;
+  font-size: 9.5px; font-weight: 800; letter-spacing: .8px;
+  color: #fff; background: #e02424; border-radius: 20px; padding: 3px 8px;
+  display: flex; align-items: center; gap: 5px;
+}
+.cp-live::before {
+  content: ""; width: 6px; height: 6px; border-radius: 50%;
+  background: #fff; animation: cp-pulse 1.2s ease-in-out infinite;
+}
+@keyframes cp-pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+
+/* Plus bar: favorites filter chip */
+#cp-bar {
+  max-width: 1440px; margin: 0 auto; padding: 10px 20px 0;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+#cp-fav-chip {
+  padding: 8px 15px; border-radius: 20px; cursor: pointer;
+  border: 1px solid #2a3040; background: #151a26; color: #cfd3dd;
+  font-size: 13px; font-weight: 700; font-family: inherit;
+  transition: border-color .15s, background .15s, color .15s, box-shadow .15s;
+}
+#cp-fav-chip:hover { border-color: rgba(255,209,102,.6); color: #ffd166; }
+#cp-fav-chip.active {
+  background: linear-gradient(135deg, #b8860b, #d4a017);
+  border-color: #d4a017; color: #fff;
+  box-shadow: 0 4px 14px rgba(212,160,23,.35);
+}
+#cp-fav-chip .cp-count { opacity: .85; font-weight: 600; }
+
+/* Recently watched strip */
+#cp-recent { max-width: 1440px; margin: 0 auto; padding: 12px 20px 0; display: none; }
+#cp-recent.open { display: block; }
+#cp-recent .cp-recent-label {
+  font-size: 12px; font-weight: 800; letter-spacing: .8px;
+  text-transform: uppercase; color: #9aa1b2; margin-bottom: 8px;
+}
+#cp-recent .cp-recent-row {
+  display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px;
+  scrollbar-width: none;
+}
+#cp-recent .cp-recent-row::-webkit-scrollbar { display: none; }
+.cp-recent-chip {
+  white-space: nowrap; padding: 7px 13px; border-radius: 20px; cursor: pointer;
+  border: 1px solid #2a3040; background: #151a26; color: #e8eaf0;
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  transition: border-color .15s, transform .15s;
+}
+.cp-recent-chip:hover { border-color: rgba(255,59,59,.6); transform: translateY(-1px); }
+
+/* Back to top */
+#cp-top {
+  position: fixed; right: 16px; bottom: 16px; z-index: 40;
+  width: 42px; height: 42px; border-radius: 50%; cursor: pointer;
+  border: 1px solid #2a3040; background: rgba(21,26,38,.92); color: #fff;
+  font-size: 17px; display: none; align-items: center; justify-content: center;
+  box-shadow: 0 8px 24px rgba(0,0,0,.45);
+}
+#cp-top.open { display: flex; }
+#cp-top:hover { border-color: rgba(255,59,59,.6); }
