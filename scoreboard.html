@@ -207,6 +207,14 @@
   var npl = [], top = [];
   var nplLoaded = false, topLoaded = false;
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
+  // Last-good scores, kept in this browser so a fresh load never
+  // opens on an empty board while the feed is down: the mirror
+  // flakes out for minutes at a time (it answers this VM in ~1s
+  // but hangs the site's server 2 times in 3), and a first paint
+  // of "Checking…" that never fills looks broken. The cache is
+  // shown only while it is fresh (< 30 min) and labelled with its
+  // time; the live poll replaces it as soon as it answers.
+  var CACHE_KEY = "sb-last-scores", CACHE_MAX_AGE = 30 * 60 * 1000, cacheShown = false;
   // One display clock per live game id, shared by the list and the
   // detail panel. It only ever moves forward: the feed's timer
   // can sit still (half-time) or jitter a second backwards, and
@@ -366,23 +374,33 @@
   // probe keeps the previous list, and it retries soon instead
   // of waiting out the full minute.
   function renderLists(){
+    // Once both live legs have answered, the lists are live data,
+    // not the cache — clear the flag first so the key and the hero
+    // both flip to the live state.
+    if (nplLoaded && topLoaded) cacheShown = false;
     // The key covers only what the list shows — the clock is
     // deliberately left out (it ticks from clockState), so the
     // list re-renders only on a real change: a goal, a status
     // change, a game added or finished.
     var key = JSON.stringify([npl, top].map(function(list){
       return list.map(function(g){ return [g.id, g.league, g.home, g.away, g.homeScore, g.awayScore, g.status, g.period, g._halfTime ? 1 : 0]; });
-    }).concat([nplLoaded, topLoaded]));
+    }).concat([nplLoaded, topLoaded, cacheShown ? 1 : 0]));
     if (key === lastKey) return; // unchanged — clocks keep ticking
     lastKey = key;
     var noData = nplLoaded && topLoaded && !npl.length && !top.length;
     var err = $("err");
     err.style.display = noData ? "" : "none";
     if (noData) err.textContent = "Could not reach the scores feed — retrying…";
+    // The lists are live-only by construction, so the hero counts
+    // every card shown except a finished one — a half-time game
+    // is still a live match (counting only status "live" said 11
+    // while the badge showed 12).
     var liveCount = 0;
-    npl.concat(top).forEach(function(g){ if (g.status === "live") liveCount++; });
+    npl.concat(top).forEach(function(g){ if (g.status !== "FT") liveCount++; });
     // Until both legs have answered, the board is loading, not empty.
-    $("heroLine").textContent = (!nplLoaded || !topLoaded) ? "Checking live matches…" : (liveCount ? (liveCount + " live match" + (liveCount === 1 ? "" : "es") + " right now — tap any match for details, stats and the stream.") : "No live matches at the moment — the board updates itself.");
+    // While the cache is showing, say so with its time.
+    var cacheTime = cacheShown ? new Date(fetchedAt).toLocaleTimeString("en-GB", { timeZone: "Asia/Kathmandu", hour: "2-digit", minute: "2-digit" }) : "";
+    $("heroLine").textContent = (cacheShown && (!nplLoaded || !topLoaded)) ? ("Last scores from " + cacheTime + " — updating…") : (!nplLoaded || !topLoaded) ? "Checking live matches…" : (liveCount ? (liveCount + " live match" + (liveCount === 1 ? "" : "es") + " right now — tap any match for details, stats and the stream.") : "No live matches at the moment — the board updates itself.");
     if (npl.length) {
       $("nplSec").style.display = "";
       $("nplCount").textContent = npl.length;
@@ -402,6 +420,31 @@
     $("emptyState").style.display = (nplLoaded && topLoaded && !npl.length && !top.length) ? "" : "none";
     var d = new Date(fetchedAt);
     $("updated").textContent = "Updated " + d.toLocaleTimeString("en-GB", { timeZone: "Asia/Kathmandu", hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " NPT · refreshes every few seconds";
+    // Remember the last good board (live data only, never the cache
+    // itself) so the next fresh load has something to show while
+    // the feed is down.
+    if (nplLoaded && topLoaded && (npl.length + top.length)) saveCache();
+  }
+
+  function saveCache(){
+    try {
+      if (typeof localStorage === "undefined") return;
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ npl: npl, top: top, savedAt: Date.now() }));
+    } catch (e) {}
+  }
+  function loadCache(){
+    try {
+      if (typeof localStorage === "undefined") return;
+      var raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return;
+      var c = JSON.parse(raw);
+      if (!c || !Array.isArray(c.npl) || !Array.isArray(c.top) || typeof c.savedAt !== "number") return;
+      if (Date.now() - c.savedAt > CACHE_MAX_AGE) return;
+      if (!c.npl.length && !c.top.length) return;
+      npl = c.npl; top = c.top; fetchedAt = c.savedAt; cacheShown = true;
+      npl.concat(top).forEach(function(g){ syncClock(g, "list"); });
+      renderLists();
+    } catch (e) {}
   }
 
   function tick(){
@@ -587,7 +630,7 @@
       : Promise.resolve(null);
     var findTimeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 3000); });
     Promise.all([
-      fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)),
+      fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).catch(function(){ return null; }),
       Promise.race([findP, findTimeout]),
       Promise.race([fbFindP, findTimeout])
     ]).then(function(res){
@@ -597,6 +640,10 @@
       if (!d) {
         // Fall back to the list copy (upcoming games are not in
         // the live list, so the search may return no detail).
+        // The search fetch failing must not kill the panel either:
+        // the list copy already has the score and the clock, and
+        // the 15s refresh fills in venue/stats when the feed
+        // recovers — a tap that silently does nothing is a bug.
         d = listCopy || null;
       }
       if (!d) { closeDetail(); return; }
@@ -724,6 +771,7 @@
   $("aiBtn").addEventListener("click", function(){ doAiAsk($("aiq").value); });
   $("aiq").addEventListener("keydown", function(e){ if (e.key === "Enter") doAiAsk($("aiq").value); });
 
+  loadCache();
   refreshLists();
   pollTimer = setInterval(refreshLists, POLL_MS);
   tickTimer = setInterval(tick, 1000);
