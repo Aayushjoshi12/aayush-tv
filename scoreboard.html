@@ -147,7 +147,7 @@
 
   <section id="streamsSec" style="display:none">
     <h3>📺 Live Streams <span class="count" id="streamsCount"></span></h3>
-    <div class="sub">Live matches with a confirmed stream — tap Watch to play, no detail tap needed.</div>
+    <div class="sub">Matches with a stream — live now, or opening soon. Tap Watch to play.</div>
     <div class="games" id="streamsGames"></div>
   </section>
 
@@ -190,10 +190,12 @@
   var FB = "https://mret.balenshah.tech/footybite-api";
   var POLL_MS = 5000, DETAIL_MS = 15000;
   var npl = [], top = [];
-  // Live Streams section: the live games with a stream confirmed
-  // playable (TVApp or Footybite). 1xBet video ids are never listed
-  // here — that path needs the Chrome extension, which is
+  // Live Streams section: games with a stream — live now, or
+  // opening soon (TVApp or Footybite). 1xBet video ids are never
+  // listed here — that path needs the Chrome extension, which is
   // disconnected, and a 1xBet video alone never shows a Watch button.
+  // A soon match still gets a button: it opens the player, which
+  // shows "Stream starts soon" and retries until it opens.
   var streams = [];
   var streamProbeAt = 0, streamProbing = false;
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
@@ -328,20 +330,27 @@
   // Stream URL for a game with a confirmed stream. TVApp is
   // preferred when both confirmed; Footybite is the fallback.
   // Shared by the detail panel and the Live Streams cards.
+  // A soon match also gets a link: the player shows
+  // "Stream starts soon" and retries until it opens.
   function streamHref(g){
-    if (!g.streamAvailable || !(g.tvappId || g.fbId)) return null;
+    if (!(g.streamAvailable || g.streamSoon) || !(g.tvappId || g.fbId)) return null;
     var q = (g.videoId ? "&videoId=" + encodeURIComponent(g.videoId) : "") +
       "&name=" + encodeURIComponent(g.home + " vs " + g.away);
     if (g.tvappId) return "stream.html?tvapp=" + encodeURIComponent(g.tvappId) + q;
     return "stream.html?footybite=" + encodeURIComponent(g.fbId) + q;
   }
+  function openTime(g){
+    if (!g.openAt) return "";
+    try { return new Date(g.openAt * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"}); } catch (e) { return ""; }
+  }
   function streamCardHtml(g){
     var href = streamHref(g);
-    return '<div class="game" data-id="' + esc(g.id) + '">' +
+    var label = g.streamSoon ? ("▶ Watch — opens " + (openTime(g) || "soon")) : "▶ Watch live";
+    return '<div class="game" data-id="' + esc(g.id) + '"' + (g.streamSoon ? ' data-soon="1"' : "") + '>' +
       '<div class="g-league"><span>' + esc(g.league || "") + '</span>' + badge(g) + '</div>' +
       '<div class="g-main"><span class="g-team">' + esc(g.home) + '</span>' + scoreHtml(g) + '<span class="g-team away">' + esc(g.away) + '</span></div>' +
       clockHtml(g) +
-      (href ? '<a class="watch-inline" href="' + href + '">▶ Watch live</a>' : "") +
+      (href ? '<a class="watch-inline" href="' + href + '">' + label + '</a>' : "") +
     '</div>';
   }
   // Normalise a team/title string the same way the minters do
@@ -394,11 +403,14 @@
   // minter (cached 60s server-side), matched locally by team names,
   // then a /stream-check only for the few candidates. TVApp first,
   // Footybite only when TVApp has nothing for that game.
+  // The section also lists matches opening soon (TVApp /stream-check
+  // soon:true, within 6 hours): their button opens the player, which
+  // shows "Stream starts soon" and retries until it opens — so there
+  // is always a button to tap, even when nothing is live yet.
   function probeStreams(){
     var now = Date.now();
     if (streamProbing || now - streamProbeAt < 60000) return;
     var live = npl.concat(top).filter(function(g){ return g.status === "live"; });
-    if (!live.length) { streams = []; renderStreams(); return; }
     streamProbing = true; streamProbeAt = now;
     Promise.all([
       fetchJson(TVAPP + "/matches").catch(function(){ return []; }),
@@ -412,7 +424,6 @@
         var fm = matchInCatalog(fbList, g);
         if (tm || fm) candidates.push({ g: g, tvId: tm ? tm.id : null, fbId: fm ? fm.id : null });
       });
-      if (!candidates.length) { streams = []; streamProbing = false; renderStreams(); return; }
       var checks = candidates.map(function(c){
         var tvP = c.tvId
           ? Promise.race([fetchJson(TVAPP + "/stream-check?id=" + encodeURIComponent(c.tvId)).catch(function(){ return null; }), new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })])
@@ -426,8 +437,38 @@
           });
         });
       });
+      // Opening soon: TVApp catalog matches starting in the next
+      // 6 hours, skipping any already covered by the live leg.
+      // No /stream-check call here — that would mint a session per
+      // match and trip the upstream rate limit (429), which also
+      // breaks the real Watch checks. The catalog itself is the
+      // list of matches with streams, and a stream opens 15
+      // minutes before kickoff, so openAt is computed locally;
+      // the player still checks for real when tapped.
+      var liveTvIds = {};
+      candidates.forEach(function(c){ if (c.tvId) liveTvIds[c.tvId] = true; });
+      var soonList = [];
+      tvList.forEach(function(m){
+        if (!m || liveTvIds[m.id]) return;
+        var st = m.date ? m.date : (m.startsAt ? m.startsAt * 1000 : 0);
+        if (!(st > now && st <= now + 6 * 3600 * 1000)) return;
+        var parts = String(m.title || "").split(" vs ");
+        var home = m.home || parts[0] || "", away = m.away || parts[1] || "";
+        if (!home || !away) return;
+        var startSec = Math.floor(st / 1000);
+        soonList.push({ id: "tv-" + m.id, league: m.category || "", home: home, away: away,
+          homeScore: null, awayScore: null, status: "upcoming",
+          startTs: startSec, tvappId: m.id,
+          streamAvailable: false, streamSoon: true,
+          openAt: startSec - 900, startsAt: startSec });
+      });
       return Promise.all(checks).then(function(found){
-        streams = found.filter(function(g){ return !!g; });
+        streams = found.filter(function(g){ return !!g; }).concat(soonList);
+        streams.sort(function(a, b){
+          var av = function(g){ return g.streamAvailable ? 0 : 1; };
+          if (av(a) !== av(b)) return av(a) - av(b);
+          return (a.startTs || 0) - (b.startTs || 0);
+        });
         streamProbing = false;
         renderStreams();
         lastKey = ""; // re-render lists so the key picks up stream state
@@ -784,7 +825,9 @@
     // navigate instead of opening the detail panel underneath it.
     if (e.target.closest && e.target.closest("a.watch-inline")) return;
     var g = e.target.closest ? e.target.closest(".game") : null;
-    if (g && g.getAttribute("data-id")) openDetail(g.getAttribute("data-id"));
+    // A soon card has no detail panel — its Watch button is the
+    // only action, and it is handled above as a real link.
+    if (g && g.getAttribute("data-id") && !g.getAttribute("data-soon")) openDetail(g.getAttribute("data-id"));
   });
   $("overlay").addEventListener("click", function(e){ if (e.target === $("overlay")) closeDetail(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDetail(); });
