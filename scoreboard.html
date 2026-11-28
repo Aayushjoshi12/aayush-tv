@@ -629,8 +629,16 @@
       ? fetchJson(FB + "/find?home=" + encodeURIComponent(listCopy.home || "") + "&away=" + encodeURIComponent(listCopy.away || "")).catch(function(){ return null; })
       : Promise.resolve(null);
     var findTimeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 3000); });
+    // The search fetch has NO timeout of its own here (fetchJson
+    // defaults to 20s), and the mirror hangs Vercel's requests —
+    // so a tap waited up to 20s with nothing on screen, looking
+    // exactly like a dead button. Race it at 3s: the panel opens
+    // from the list copy at once, and the 15s refresh fills in
+    // venue/stats when the feed recovers.
+    var searchP = fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).catch(function(){ return null; });
+    var searchTimeout = new Promise(function(res){ setTimeout(function(){ res(null); }, 3000); });
     Promise.all([
-      fetchJson(API + "?mode=search&q=" + encodeURIComponent(id)).catch(function(){ return null; }),
+      Promise.race([searchP, searchTimeout]),
       Promise.race([findP, findTimeout]),
       Promise.race([fbFindP, findTimeout])
     ]).then(function(res){
