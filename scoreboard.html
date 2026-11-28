@@ -38,6 +38,21 @@
   .find.ai input:focus { border-color: #7c5cff; }
   .find.ai button { background: linear-gradient(135deg, #7c5cff, #9d7bff); }
   .ai-note { text-align: center; color: #9aa0b5; font-size: 13px; margin: 8px 0 0; min-height: 18px; }
+  /* ---- live stream button + panel (top right, next to search) ---- */
+  .find-wrap { display: flex; gap: 12px; align-items: center; margin-top: 22px; }
+  .find-col { flex: 1; min-width: 0; }
+  .find-col .find { margin-top: 0; max-width: none; }
+  .find-col .find.ai { margin-top: 10px; }
+  .streams-btn { flex-shrink: 0; padding: 13px 20px; border-radius: 999px; border: 1px solid #2a3040; background: #12162a; color: #e8eaf0; font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer; white-space: nowrap; }
+  .streams-btn:hover { border-color: #22c55e; }
+  .streams-btn.open { background: linear-gradient(135deg, #22c55e, #16a34a); border-color: transparent; color: #fff; }
+  .streams-btn .cnt { display: inline-block; min-width: 22px; padding: 2px 7px; margin-left: 6px; border-radius: 999px; background: #22c55e; color: #fff; font-size: 12px; font-weight: 800; }
+  .streams-btn .cnt:empty { display: none; }
+  .streams-btn.open .cnt { background: rgba(255,255,255,.25); }
+  .streams-panel { margin-top: 14px; }
+  .streams-panel h3 { font-size: 17px; font-weight: 800; margin-bottom: 10px; }
+  .streams-panel .none { color: #9aa1b2; font-size: 14px; text-align: center; padding: 16px 0; }
+  @media (max-width: 640px) { .find-wrap { flex-direction: column; align-items: stretch; } .streams-btn { align-self: stretch; } }
   /* ---- sections ---- */
   section { margin-top: 30px; }
   section h3 { font-size: 20px; font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
@@ -126,16 +141,27 @@
     <p><span class="live-dot"></span><span id="heroLine">Checking live matches…</span></p>
   </div>
 
-  <div class="find">
-    <input id="q" type="text" placeholder="Find a game — team, league or game ID" autocomplete="off">
-    <button id="findBtn" type="button">Find</button>
-  </div>
+  <div class="find-wrap">
+    <div class="find-col">
+      <div class="find">
+        <input id="q" type="text" placeholder="Find a game — team, league or game ID" autocomplete="off">
+        <button id="findBtn" type="button">Find</button>
+      </div>
 
-  <div class="find ai">
-    <input id="aiq" type="text" placeholder="Ask in plain words — 'barca vs madrid tonight', 'who is chelsea playing'" autocomplete="off">
-    <button id="aiBtn" type="button">Ask AI</button>
+      <div class="find ai">
+        <input id="aiq" type="text" placeholder="Ask in plain words — 'barca vs madrid tonight', 'who is chelsea playing'" autocomplete="off">
+        <button id="aiBtn" type="button">Ask AI</button>
+      </div>
+    </div>
+    <button id="streamsBtn" class="streams-btn" type="button">📺 Live Stream <span class="cnt" id="streamsBtnCount"></span></button>
   </div>
   <p class="ai-note" id="aiNote"></p>
+
+  <div class="streams-panel" id="streamsPanel" style="display:none">
+    <h3>📺 Live Streams</h3>
+    <div class="games" id="streamsPanelGames"></div>
+    <div class="none" id="streamsPanelNone" style="display:none">No streams right now — check back soon.</div>
+  </div>
 
   <p class="err" id="err"></p>
 
@@ -198,6 +224,7 @@
   // shows "Stream starts soon" and retries until it opens.
   var streams = [];
   var streamProbeAt = 0, streamProbing = false;
+  var streamsOpen = false; // top "Live Stream" button panel
   var fetchedAt = 0, lastKey = "", pollTimer = null, tickTimer = null;
   // One display clock per live game id, shared by the list and the
   // detail panel. It only ever moves forward: the feed's timer
@@ -396,6 +423,16 @@
       $("streamsSec").style.display = "none";
       $("streamsGames").innerHTML = "";
     }
+    // The top Live Stream button panel shows the same cards, and
+    // the button carries the count — it stays visible even when
+    // there is nothing to show yet.
+    var btnCount = $("streamsBtnCount");
+    if (btnCount) btnCount.textContent = cards.length ? String(cards.length) : "";
+    var panel = $("streamsPanelGames"), none = $("streamsPanelNone");
+    if (panel) {
+      panel.innerHTML = cards.map(streamCardHtml).join("");
+      if (none) none.style.display = cards.length ? "none" : "";
+    }
   }
   // Probe which live games actually have a playable stream, at most
   // once a minute (the 5s poll is far too often: the Footybite check
@@ -412,10 +449,16 @@
     if (streamProbing || now - streamProbeAt < 60000) return;
     var live = npl.concat(top).filter(function(g){ return g.status === "live"; });
     streamProbing = true; streamProbeAt = now;
-    Promise.all([
-      fetchJson(TVAPP + "/matches").catch(function(){ return []; }),
-      fetchJson(FB + "/matches").catch(function(){ return []; })
-    ]).then(function(cats){
+    // Each catalog fetch races an 8s timeout: if one minter hangs
+    // (Footybite's /matches fetches its homepage upstream), the
+    // probe still runs with the other catalog instead of stalling.
+    function cat(url){
+      return Promise.race([
+        fetchJson(url).catch(function(){ return []; }),
+        new Promise(function(res){ setTimeout(function(){ res([]); }, 8000); })
+      ]);
+    }
+    Promise.all([cat(TVAPP + "/matches"), cat(FB + "/matches")]).then(function(cats){
       var tvList = Array.isArray(cats[0]) ? cats[0] : [];
       var fbList = Array.isArray(cats[1]) ? cats[1] : [];
       var candidates = [];
@@ -832,6 +875,12 @@
   $("overlay").addEventListener("click", function(e){ if (e.target === $("overlay")) closeDetail(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDetail(); });
   $("findBtn").addEventListener("click", function(){ doSearch($("q").value); });
+  $("streamsBtn").addEventListener("click", function(){
+    streamsOpen = !streamsOpen;
+    $("streamsPanel").style.display = streamsOpen ? "" : "none";
+    $("streamsBtn").classList.toggle("open", streamsOpen);
+    if (streamsOpen) renderStreams();
+  });
   $("q").addEventListener("keydown", function(e){ if (e.key === "Enter") doSearch($("q").value); });
   $("aiBtn").addEventListener("click", function(){ doAiAsk($("aiq").value); });
   $("aiq").addEventListener("keydown", function(e){ if (e.key === "Enter") doAiAsk($("aiq").value); });
