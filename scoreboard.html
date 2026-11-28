@@ -375,7 +375,10 @@
   function streamCardHtml(g){
     var href = streamHref(g);
     var label = g.streamSoon ? ("▶ Watch — opens " + (openTime(g) || "soon")) : "▶ Watch live";
-    return '<div class="game" data-id="' + esc(g.id) + '"' + (g.streamSoon ? ' data-soon="1"' : "") + '>' +
+    // A live card straight from the catalog (no 1xBet row) has
+    // no detail to open — the Watch button is the whole point.
+    var direct = g.streamAvailable && !g.streamSoon && String(g.id).indexOf("tv-") === 0;
+    return '<div class="game" data-id="' + esc(g.id) + '"' + (g.streamSoon ? ' data-soon="1"' : "") + (direct ? ' data-direct="1"' : "") + '>' +
       '<div class="g-league"><span>' + esc(g.league || "") + '</span>' + badge(g) + '</div>' +
       '<div class="g-main"><span class="g-team">' + esc(g.home) + '</span>' + scoreHtml(g) + '<span class="g-team away">' + esc(g.away) + '</span></div>' +
       clockHtml(g) +
@@ -448,24 +451,32 @@
   // then a /stream-check only for the few candidates. TVApp first,
   // Footybite only when TVApp has nothing for that game.
   // The section also lists matches opening soon (TVApp catalog,
-  // within 6 hours): their button opens the player, which shows
+  // within 12 hours): their button opens the player, which shows
   // "Stream starts soon" and retries until it opens — so there is
   // always a button to tap, even when nothing is live yet.
   // Two phases: the soon list renders as soon as the TVApp catalog
   // lands (no session calls, so no rate-limit risk); the live leg
   // runs after, once both catalogs are in.
+  // A failed catalog fetch must NEVER empty the section: a slow
+  // minter would flip the list 11 -> "No streams" -> 11. So a
+  // fetch that times out or errors returns null (not []), the
+  // probe keeps the previous list, and it retries soon instead
+  // of waiting out the full minute.
   function probeStreams(){
     var now = Date.now();
     if (streamProbing || now - streamProbeAt < 60000) return;
     var live = npl.concat(top).filter(function(g){ return g.status === "live"; });
     streamProbing = true; streamProbeAt = now;
-    // Each catalog fetch races an 8s timeout: if one minter hangs
+    // Each catalog fetch races a timeout: if one minter hangs
     // (Footybite's /matches fetches its homepage upstream), the
     // probe still runs with the other catalog instead of stalling.
+    // A failed fetch resolves null — NOT [] — so the probe can
+    // tell "the minter didn't answer" from "the catalog is
+    // genuinely empty" and keep the previous list on failure.
     function cat(url, ms){
       return Promise.race([
-        fetchJson(url).catch(function(){ return []; }),
-        new Promise(function(res){ setTimeout(function(){ res([]); }, ms); })
+        fetchJson(url).catch(function(){ return null; }),
+        new Promise(function(res){ setTimeout(function(){ res(null); }, ms); })
       ]);
     }
     var tvP = cat(TVAPP + "/matches", 15000);
@@ -477,12 +488,16 @@
     // opens 15 minutes before kickoff, so openAt is computed
     // locally; the player still checks for real when tapped.
     tvP.then(function(tvList){
+      if (tvList === null) return; // catalog didn't answer: keep the old list
       tvList = Array.isArray(tvList) ? tvList : [];
+      if (!tvList.length) return; // empty catalog means the minter's
+      // upstream is down, not "no matches" (the catalog normally
+      // holds 100+); keep the old list instead of emptying it.
       var soonList = [];
       tvList.forEach(function(m){
         if (!m) return;
         var st = m.date ? m.date : (m.startsAt ? m.startsAt * 1000 : 0);
-        if (!(st > now && st <= now + 6 * 3600 * 1000)) return;
+        if (!(st > now && st <= now + 12 * 3600 * 1000)) return;
         var parts = String(m.title || "").split(" vs ");
         var home = m.home || parts[0] || "", away = m.away || parts[1] || "";
         if (!home || !away) return;
@@ -500,12 +515,22 @@
     });
     // Phase 2: live games need /stream-check (session probe).
     Promise.all([tvP, fbP]).then(function(cats){
-      var tvList = Array.isArray(cats[0]) ? cats[0] : [];
-      var fbList = Array.isArray(cats[1]) ? cats[1] : [];
+      var tvList = cats[0] === null ? null : (Array.isArray(cats[0]) ? cats[0] : []);
+      var fbList = cats[1] === null ? null : (Array.isArray(cats[1]) ? cats[1] : []);
+      var tvUsable = tvList !== null && tvList.length > 0;
+      var fbUsable = fbList !== null && fbList.length > 0;
+      if (!tvUsable && !fbUsable) {
+        // Neither catalog usable: keep whatever the section had
+        // and retry soon instead of waiting out the full minute.
+        streamProbing = false;
+        streamProbeAt = Date.now() - 50000;
+        return;
+      }
+      var tvArr = tvUsable ? tvList : [], fbArr = fbUsable ? fbList : [];
       var candidates = [];
       live.forEach(function(g){
-        var tm = matchInCatalog(tvList, g);
-        var fm = matchInCatalog(fbList, g);
+        var tm = matchInCatalog(tvArr, g);
+        var fm = matchInCatalog(fbArr, g);
         if (tm || fm) candidates.push({ g: g, tvId: tm ? tm.id : null, fbId: fm ? fm.id : null });
       });
       var checks = candidates.map(function(c){
@@ -525,8 +550,32 @@
         var liveFound = found.filter(function(g){ return !!g; });
         var seenIds = {};
         liveFound.forEach(function(g){ if (g.tvappId) seenIds[g.tvappId] = true; if (g.fbId) seenIds[g.fbId] = true; });
-        var soonKept = (probeSoon || []).filter(function(g){ return !seenIds[g.tvappId]; });
-        streams = liveFound.concat(soonKept);
+        // Live straight from the TVApp catalog: entries inside
+        // their live window (date <= now < endsAt) that the
+        // 1xBet feed missed — it only shows the first 50 live
+        // games, so a live stream can exist without a feed row.
+        // No score: the feed has no row for them. The catalog
+        // is the stream list, the same trust the soon leg uses;
+        // the player checks for real when tapped. Footybite
+        // has no dates on its list (it still shows finished
+        // games), so its streams stay on the feed-confirmed leg.
+        var directLive = [];
+        tvArr.forEach(function(m){
+          if (!m || seenIds[m.id]) return;
+          var st = m.date ? m.date : (m.startsAt ? m.startsAt * 1000 : 0);
+          var en = m.endsAt ? m.endsAt : 0;
+          if (!(st && st <= now && (!en || en > now))) return;
+          var parts = String(m.title || "").split(" vs ");
+          var home = m.home || parts[0] || "", away = m.away || parts[1] || "";
+          if (!home || !away) return;
+          if (matchInCatalog(liveFound, { home: home, away: away })) return;
+          directLive.push({ id: "tv-" + m.id, league: m.category || "", home: home, away: away,
+            homeScore: null, awayScore: null, status: "live",
+            startTs: Math.floor(st / 1000), tvappId: m.id,
+            streamAvailable: true, streamSoon: false });
+        });
+        var soonKept = (probeSoon || []).filter(function(g){ return !seenIds[g.tvappId] && g.startTs > now / 1000 - 1800; });
+        streams = liveFound.concat(directLive).concat(soonKept);
         streams.sort(function(a, b){
           var av = function(g){ return g.streamAvailable ? 0 : 1; };
           if (av(a) !== av(b)) return av(a) - av(b);
@@ -539,8 +588,10 @@
         renderLists();
       });
     }).catch(function(){
+      // Unexpected probe error: keep the previous list and retry
+      // soon; "No streams" would be a guess, not a fact.
       streamProbing = false;
-      streamProbed = true;
+      streamProbeAt = Date.now() - 50000;
       renderStreams();
     });
   }
@@ -893,7 +944,7 @@
     var g = e.target.closest ? e.target.closest(".game") : null;
     // A soon card has no detail panel — its Watch button is the
     // only action, and it is handled above as a real link.
-    if (g && g.getAttribute("data-id") && !g.getAttribute("data-soon")) openDetail(g.getAttribute("data-id"));
+    if (g && g.getAttribute("data-id") && !g.getAttribute("data-soon") && !g.getAttribute("data-direct")) openDetail(g.getAttribute("data-id"));
   });
   $("overlay").addEventListener("click", function(e){ if (e.target === $("overlay")) closeDetail(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDetail(); });
