@@ -92,6 +92,13 @@
     favChip.classList.toggle("active", favFilterOn);
     var count = favChip.querySelector(".cp-count");
     if (count) count.textContent = favs.length ? " (" + favs.length + ")" : "";
+    var note = document.getElementById("cp-note");
+    if (note) {
+      note.textContent = favFilterOn
+        ? (favs.length ? "Showing your " + favs.length + " favorite" + (favs.length === 1 ? "" : "s") + " only"
+                       : "No favorites yet — tap a ☆ on any channel")
+        : "";
+    }
   }
 
   function buildBar() {
@@ -108,6 +115,10 @@
       decorate();
     });
     bar.appendChild(favChip);
+    var note = document.createElement("span");
+    note.id = "cp-note";
+    note.style.cssText = "font-size:13px;color:#9aa1b2";
+    bar.appendChild(note);
     cats.insertAdjacentElement("afterend", bar);
     updateFavChip();
   }
@@ -188,6 +199,8 @@
     // Capture-phase click: remember what is playing + recents,
     // without interfering with the page's own click handler.
     g.addEventListener("click", function (ev) {
+      // Star clicks are favorites, not plays — never mark them watched.
+      if (ev.target.closest && ev.target.closest(".cp-star")) return;
       var card = ev.target.closest ? ev.target.closest(".card") : null;
       if (!card) return;
       playingId = card.getAttribute("data-id");
