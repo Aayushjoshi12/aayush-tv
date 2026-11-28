@@ -154,7 +154,7 @@
         <button id="aiBtn" type="button">Ask AI</button>
       </div>
     </div>
-    <a href="streams.html" class="streams-btn">📺 Live Stream</a>
+    <a href="streams.html" class="streams-btn" target="_blank" rel="noopener">📺 Live Stream</a>
   </div>
   <p class="ai-note" id="aiNote"></p>
 
@@ -434,11 +434,17 @@
     fetchLeg(API + "?mode=featured", "top");
   }
   function fetchLeg(url, which){
+    var t0 = Date.now();
     fetchJson(url, 8000).catch(function(){ return { games: [] }; }).then(function(res){
       var games = (res && res.games) || [];
       fetchedAt = Date.now();
-      if (which === "npl") { npl = games; nplLoaded = true; } else { top = games; topLoaded = true; }
-      games.forEach(function(g){
+      // A slow empty answer is a degraded mirror, not "no matches":
+      // the mirror takes 20s to return [] when it is struggling,
+      // while a genuine empty board answers in ~1s. Keep the last
+      // scores instead of blanking the board mid-match.
+      var slowEmpty = !games.length && (Date.now() - t0) > 5000;
+      if (which === "npl") { if (!slowEmpty || !npl.length) npl = games; nplLoaded = true; } else { if (!slowEmpty || !top.length) top = games; topLoaded = true; }
+      (which === "npl" ? npl : top).forEach(function(g){
         syncClock(g, "list");
         // Same game as the open detail, which already knows it is
         // half-time (its feed reports status HT): say so here too
