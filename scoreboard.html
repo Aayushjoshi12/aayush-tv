@@ -421,7 +421,9 @@
       return g;
     });
     if (cards.length) {
-      $("streamsSec").style.display = "";
+      // While the panel is open the same cards show at the top —
+      // hide the section below so the list doesn't appear twice.
+      $("streamsSec").style.display = streamsOpen ? "none" : "";
       $("streamsCount").textContent = cards.length;
       $("streamsGames").innerHTML = cards.map(streamCardHtml).join("");
     } else {
@@ -558,7 +560,8 @@
         // is the stream list, the same trust the soon leg uses;
         // the player checks for real when tapped. Footybite
         // has no dates on its list (it still shows finished
-        // games), so its streams stay on the feed-confirmed leg.
+        // games), so its entries are verified against the feed
+        // below instead of trusted from the catalog.
         var directLive = [];
         tvArr.forEach(function(m){
           if (!m || seenIds[m.id]) return;
@@ -574,18 +577,70 @@
             startTs: Math.floor(st / 1000), tvappId: m.id,
             streamAvailable: true, streamSoon: false });
         });
-        var soonKept = (probeSoon || []).filter(function(g){ return !seenIds[g.tvappId] && g.startTs > now / 1000 - 1800; });
-        streams = liveFound.concat(directLive).concat(soonKept);
-        streams.sort(function(a, b){
-          var av = function(g){ return g.streamAvailable ? 0 : 1; };
-          if (av(a) !== av(b)) return av(a) - av(b);
-          return (a.startTs || 0) - (b.startTs || 0);
+        // Footybite entries the live leg missed: the live leg
+        // only sees the top 12 feed games, but the feed carries
+        // 50 live ones — a Footybite stream can exist for a game
+        // outside the top 12. Verify each unmatched entry against
+        // the scores feed (the search covers the full live list):
+        // a listed entry with no feed row is finished — the
+        // homepage goes stale — so only feed-confirmed LIVE
+        // entries are shown, with the score from the feed row.
+        // The /stream-check then confirms the Footybite stream
+        // itself plays. Names come dirty ("LIVE Bundesliga
+        // Werder Bremen" / "… Watch"), so clean them first.
+        var fbExtra = [];
+        fbArr.forEach(function(m){
+          if (!m || !m.home || !m.away || seenIds[m.id]) return;
+          var home = m.home.replace(/^LIVE\s+/i, "").replace(/\s+Watch$/i, "").trim();
+          var away = m.away.replace(/^LIVE\s+/i, "").replace(/\s+Watch$/i, "").trim();
+          if (!home || !away) return;
+          fbExtra.push({ id: m.id, home: home, away: away });
         });
-        streamProbed = true;
-        streamProbing = false;
-        renderStreams();
-        lastKey = ""; // re-render lists so the key picks up stream state
-        renderLists();
+        var fbChecks = fbExtra.map(function(e){
+          return Promise.race([
+            fetchJson(API + "?mode=search&q=" + encodeURIComponent(e.home + " vs " + e.away)).catch(function(){ return null; }),
+            new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })
+          ]).then(function(r){
+            var g = r && r.games && r.games[0];
+            if (!g || g.status !== "live") return null;
+            // Sanity check the search's first hit really is this
+            // match: its home/away must appear in the entry's
+            // names (which may carry a league prefix, e.g.
+            // "Bundesliga Werder Bremen").
+            var gh = norm(g.home || ""), ga = norm(g.away || "");
+            var eh = norm(e.home), ea = norm(e.away);
+            var homeOk = !!gh && (eh.indexOf(gh) !== -1 || gh.indexOf(eh) !== -1);
+            var awayOk = !!ga && (ea.indexOf(ga) !== -1 || ga.indexOf(ea) !== -1);
+            if (!homeOk || !awayOk) return null;
+            return Promise.race([
+              fetchJson(FB + "/stream-check?id=" + encodeURIComponent(e.id)).catch(function(){ return null; }),
+              new Promise(function(res){ setTimeout(function(){ res(null); }, 8000); })
+            ]).then(function(fc){
+              if (fc && fc.available) { g.fbId = e.id; g.streamAvailable = true; return g; }
+              return null;
+            });
+          });
+        });
+        return Promise.all(fbChecks).then(function(fbFound){
+          var fbLive = fbFound.filter(function(g){ return !!g; });
+          fbLive.forEach(function(g){ if (g.fbId) seenIds[g.fbId] = true; });
+          var soonKept = (probeSoon || []).filter(function(g){ return !seenIds[g.tvappId] && g.startTs > now / 1000 - 1800; });
+          streams = liveFound.concat(fbLive).concat(directLive).concat(soonKept);
+          streams.sort(function(a, b){
+            var av = function(g){ return g.streamAvailable ? 0 : 1; };
+            if (av(a) !== av(b)) return av(a) - av(b);
+            return (a.startTs || 0) - (b.startTs || 0);
+          });
+          streamProbed = true;
+          streamProbing = false;
+          // The TVApp catalog didn't answer and the section is
+          // still empty: retry in ~10s instead of a full minute,
+          // so a fresh load doesn't sit empty for a minute.
+          if (!tvUsable && !streams.length) streamProbeAt = Date.now() - 50000;
+          renderStreams();
+          lastKey = ""; // re-render lists so the key picks up stream state
+          renderLists();
+        });
       });
     }).catch(function(){
       // Unexpected probe error: keep the previous list and retry
@@ -647,7 +702,15 @@
   }
 
   function fetchJson(url){
-    return fetch(url).then(function(r){ return r.json(); });
+    // A hung fetch must never stall the page: the scores feed
+    // waits on a slow 1xBet mirror (20s+ when it is degraded),
+    // and refreshLists gates the streams probe — without a cap
+    // here a slow feed would leave the section empty. 20s is a
+    // loose safety net; the probe's own races are tighter.
+    return Promise.race([
+      fetch(url).then(function(r){ return r.json(); }),
+      new Promise(function(_, rej){ setTimeout(function(){ rej(new Error("fetch timeout")); }, 20000); })
+    ]);
   }
   function refreshLists(){
     Promise.all([
@@ -953,7 +1016,7 @@
     streamsOpen = !streamsOpen;
     $("streamsPanel").style.display = streamsOpen ? "" : "none";
     $("streamsBtn").classList.toggle("open", streamsOpen);
-    if (streamsOpen) renderStreams();
+    renderStreams();
   });
   $("q").addEventListener("keydown", function(e){ if (e.key === "Enter") doSearch($("q").value); });
   $("aiBtn").addEventListener("click", function(){ doAiAsk($("aiq").value); });
