@@ -233,8 +233,20 @@
   // frozen polls, and the list also inherits the open detail's
   // half-time state for the same game id (see refreshLists).
   var halfState = {};
+  // Only some sports have a ticking seconds clock (football,
+  // basketball, ice hockey, rugby, handball, American football,
+  // futsal). Cricket runs on overs, volleyball/tennis on sets,
+  // esports on maps — their timerSec is 0 or absent, and an
+  // esports game used to get a fake clock ticking up from 00:00.
+  // A game with no sport id yet keeps the old behaviour (tick
+  // when a real timer value is present).
+  var CLOCK_SPORTS = [1, 2, 3, 7, 8, 13, 14];
+  function isClockSport(g){
+    if (!g || g.sportId == null) return true;
+    return CLOCK_SPORTS.indexOf(g.sportId) !== -1;
+  }
   function syncClock(g, src){
-    if (!g || g.status !== "live" || g.cricket || typeof g.timerSec !== "number") return;
+    if (!g || g.status !== "live" || g.cricket || typeof g.timerSec !== "number" || g.timerSec <= 0 || !isClockSport(g)) return;
     var s = clockState[g.id];
     var hk = g.id + ":" + (src || "list");
     var hs = halfState[hk] || { lastFeed: null, frozen: 0 };
@@ -247,14 +259,17 @@
     halfState[hk] = { lastFeed: g.timerSec, frozen: frozen };
     var sec = Math.max(s ? s.sec : 0, g.timerSec);
     clockState[g.id] = { sec: sec, feed: Math.max(s ? s.feed : 0, g.timerSec) };
-    g._halfTime = (g.period === "2H" && g.timerSec >= 2695 && g.timerSec <= 2715 && frozen >= 3);
+    // Half-time frozen detection is football-only: a basketball
+    // Q2 or a volleyball 2nd set sits at a different timer and
+    // must never be called half-time.
+    g._halfTime = ((g.sportId == null || g.sportId === 1) && g.period === "2H" && g.timerSec >= 2695 && g.timerSec <= 2715 && frozen >= 3);
   }
   function pruneClocks(){
     var keep = {};
     npl.concat(top).forEach(function(g){
-      if (g.status === "live" && !g.cricket && typeof g.timerSec === "number") keep[g.id] = true;
+      if (g.status === "live" && !g.cricket && typeof g.timerSec === "number" && g.timerSec > 0 && isClockSport(g)) keep[g.id] = true;
     });
-    if (detailData && detailData.status === "live" && !detailData.cricket && typeof detailData.timerSec === "number") keep[detailData.id] = true;
+    if (detailData && detailData.status === "live" && !detailData.cricket && typeof detailData.timerSec === "number" && detailData.timerSec > 0 && isClockSport(detailData)) keep[detailData.id] = true;
     Object.keys(clockState).forEach(function(id){ if (!keep[id]) delete clockState[id]; });
     Object.keys(halfState).forEach(function(k){ if (!keep[k.split(":")[0]]) delete halfState[k]; });
   }
@@ -265,6 +280,14 @@
       if (g.cricket.isBreak) return '<span class="g-clock">Innings break</span>';
       var oc = g.clock || (g.cricket.overStr ? g.cricket.overStr + " ov" : "");
       return '<span class="g-clock"><b>' + esc(oc || "Live") + '</b>' + (g.cricket.runRate ? ' · RR ' + esc(g.cricket.runRate) : "") + '</span>';
+    }
+    // Sports without a ticking clock show the period name
+    // instead — "2nd set", "4th quarter", "1st map" — never a
+    // clock (an esports game's timerSec is 0, which used to
+    // render as a fake 00:00 ticking up).
+    if (g.status === "live" && !isClockSport(g)) {
+      var label = g.currentPeriodName || g.clock || "Live";
+      return '<span class="g-clock"><b>' + esc(label) + '</b></span>';
     }
     if (g._halfTime) return '<span class="g-clock"><b>Half-time</b></span>';
     if (g.status === "live" && typeof g.timerSec === "number") {
@@ -391,6 +414,20 @@
       metaRow("Game ID", String(d.id || "") + (d.constId ? " · " + d.constId : ""));
     if (d.hasLineups) h += '<div><div class="k">Line-ups</div>Available</div>';
     h += '</div>';
+    // Sets / quarters / maps: the per-period scores (volleyball
+    // "25-17, 9-7", basketball quarters, esports maps). Football
+    // halves and cricket innings are not shown here — football
+    // has no per-half scores worth listing and cricket has its
+    // own innings display.
+    if (d.periodScoresStr && d.sportId !== 1 && d.sportId !== 66) {
+      var plabel = d.sportId === 3 ? "Quarters" : d.sportId === 40 ? "Maps" : d.sportId === 2 ? "Periods" : "Sets";
+      var pparts = String(d.periodScoresStr).split(",").filter(function(x){ return x.trim() !== ""; });
+      if (pparts.length) {
+        var sing = plabel === "Quarters" ? "Q" : plabel === "Maps" ? "Map" : plabel === "Periods" ? "Period" : "Set";
+        h += '<h4>' + plabel + '</h4><div class="sc-line">' +
+          pparts.map(function(p, i){ return sing + " " + (i + 1) + ": <b>" + esc(p.trim()) + "</b>"; }).join(" · ") + '</div>';
+      }
+    }
     // Watch button: shown ONLY when the stream was confirmed available
     // (openDetail probes the minters). A 1xBet video id alone does not
     // count — that path cannot play right now — and neither does an
