@@ -215,6 +215,11 @@
   // shown only while it is fresh (< 30 min) and labelled with its
   // time; the live poll replaces it as soon as it answers.
   var CACHE_KEY = "sb-last-scores", CACHE_MAX_AGE = 30 * 60 * 1000, cacheShown = false;
+  // When the lists last held real games. A leg that answers []
+  // while the board was good moments ago is a flapping mirror,
+  // not "no matches" — keep the old list until the board has
+  // been empty for FRESH_MS.
+  var lastGoodAt = 0, FRESH_MS = 60000;
   // One display clock per live game id, shared by the list and the
   // detail panel. It only ever moves forward: the feed's timer
   // can sit still (half-time) or jitter a second backwards, and
@@ -442,6 +447,7 @@
       if (Date.now() - c.savedAt > CACHE_MAX_AGE) return;
       if (!c.npl.length && !c.top.length) return;
       npl = c.npl; top = c.top; fetchedAt = c.savedAt; cacheShown = true;
+      lastGoodAt = Date.now(); // the cached board counts as good now
       npl.concat(top).forEach(function(g){ syncClock(g, "list"); });
       renderLists();
     } catch (e) {}
@@ -486,7 +492,20 @@
       // while a genuine empty board answers in ~1s. Keep the last
       // scores instead of blanking the board mid-match.
       var slowEmpty = !games.length && (Date.now() - t0) > 5000;
-      if (which === "npl") { if (!slowEmpty || !npl.length) npl = games; nplLoaded = true; } else { if (!slowEmpty || !top.length) top = games; topLoaded = true; }
+      // A FAST empty is just as suspect while the board was good
+      // moments ago: the mirror also answers [] in under a second
+      // when it is flapping, and that blanked the board with "No
+      // live matches" for ~30s after a reload even though the
+      // cache had just shown 12 games. Keep the old list while
+      // the last good board is fresh; a genuine empty still
+      // clears it once the board has been empty for FRESH_MS.
+      var cur = which === "npl" ? npl : top;
+      var freshEmpty = !games.length && cur.length && (Date.now() - lastGoodAt) < FRESH_MS;
+      if (!slowEmpty && !freshEmpty) {
+        if (which === "npl") npl = games; else top = games;
+        if (games.length) lastGoodAt = Date.now();
+      }
+      if (which === "npl") nplLoaded = true; else topLoaded = true;
       (which === "npl" ? npl : top).forEach(function(g){
         syncClock(g, "list");
         // Same game as the open detail, which already knows it is
